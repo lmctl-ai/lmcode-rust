@@ -1,0 +1,96 @@
+{
+  "dsl.schema": 1,
+  "name": "conformance",
+  "types": {
+    "Trace": {
+      "methods": {
+        "int": {
+          "params": [
+            "int"
+          ],
+          "returns": "void"
+        },
+        "float": {
+          "params": [
+            "float"
+          ],
+          "returns": "void"
+        },
+        "str": {
+          "params": [
+            "string"
+          ],
+          "returns": "void"
+        },
+        "bool": {
+          "params": [
+            "bool"
+          ],
+          "returns": "void"
+        },
+        "thing": {
+          "params": [
+            "Thing"
+          ],
+          "returns": "void"
+        }
+      }
+    },
+    "Thing": {
+      "methods": {
+        "id": {
+          "params": [],
+          "returns": "int"
+        },
+        "next": {
+          "params": [],
+          "returns": "Thing"
+        },
+        "name": {
+          "params": [],
+          "returns": "string"
+        },
+        "scaled": {
+          "params": [
+            "float"
+          ],
+          "returns": "float"
+        }
+      }
+    }
+  },
+  "functions": {
+    "thing": {
+      "params": [
+        "int"
+      ],
+      "returns": "Thing"
+    },
+    "twice": {
+      "params": [
+        "int"
+      ],
+      "returns": "int"
+    },
+    "half": {
+      "params": [
+        "float"
+      ],
+      "returns": "float"
+    },
+    "fail": {
+      "params": [
+        "string"
+      ],
+      "returns": "void"
+    },
+    "yes": {
+      "params": [],
+      "returns": "bool"
+    }
+  },
+  "context": {
+    "t": "Trace",
+    "root": "Thing"
+  }
+}

@@ -1,0 +1,317 @@
+{
+  "format": "dsl-conformance/1",
+  "bytecode_version": 3,
+  "generated_by": "lmscript dsl.ts (scripts/generate-dsl-conformance.ts)",
+  "schema": "schema.json",
+  "host": {
+    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C).",
+    "expect": "trace: the recorded lines in order, after a successful run. runtime_error: run() throws and the message contains the substring. load_error: load() throws (nothing runs) and the message contains the substring."
+  },
+  "vectors": [
+    {
+      "name": "literals",
+      "covers": "PUSH_INT PUSH_FLOAT PUSH_STR PUSH_BOOL I2S F2S B2S CALL_METHOD LOAD_CTX HALT",
+      "schema": "schema.json",
+      "bytecode": "literals.dslb",
+      "source": "literals.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 42",
+          "int -7",
+          "float 2.5",
+          "float -0.5",
+          "str hi \"there\"\n",
+          "bool true",
+          "bool false",
+          "str 121.25false"
+        ]
+      }
+    },
+    {
+      "name": "int-arith",
+      "covers": "ADD_I SUB_I MUL_I DIV_I NEG_I",
+      "schema": "schema.json",
+      "bytecode": "int-arith.dslb",
+      "source": "int-arith.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 12",
+          "int -3",
+          "int -42",
+          "int 3",
+          "int -3",
+          "int -7",
+          "int 2147483647"
+        ]
+      }
+    },
+    {
+      "name": "float-arith",
+      "covers": "ADD_F SUB_F MUL_F DIV_F NEG_F I2F",
+      "schema": "schema.json",
+      "bytecode": "float-arith.dslb",
+      "source": "float-arith.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "float 3.75",
+          "float -1.5",
+          "float 7",
+          "float 3.5",
+          "float -1.5",
+          "float 3.5",
+          "float inf"
+        ]
+      }
+    },
+    {
+      "name": "compare",
+      "covers": "LT_I LE_I GT_I GE_I LT_F LE_F GT_F GE_F EQ NE",
+      "schema": "schema.json",
+      "bytecode": "compare.dslb",
+      "source": "compare.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool true",
+          "bool false",
+          "bool true",
+          "bool false",
+          "bool true",
+          "bool true",
+          "bool false",
+          "bool true",
+          "bool false",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "logic-short-circuit",
+      "covers": "NOT DUP JUMP_IF_TRUE JUMP_IF_FALSE POP",
+      "schema": "schema.json",
+      "bytecode": "logic-short-circuit.dslb",
+      "source": "logic-short-circuit.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool false",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool false",
+          "yes",
+          "str one yes call"
+        ]
+      }
+    },
+    {
+      "name": "if-else-chain",
+      "covers": "JUMP JUMP_IF_FALSE",
+      "schema": "schema.json",
+      "bytecode": "if-else-chain.dslb",
+      "source": "if-else-chain.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "str medium",
+          "str ten",
+          "str not eleven"
+        ]
+      }
+    },
+    {
+      "name": "locals-and-scopes",
+      "covers": "LOAD_LOCAL STORE_LOCAL",
+      "schema": "schema.json",
+      "bytecode": "locals-and-scopes.dslb",
+      "source": "locals-and-scopes.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 22",
+          "int 99",
+          "int 20"
+        ]
+      }
+    },
+    {
+      "name": "handles-and-chains",
+      "covers": "CALL_FN CALL_METHOD object values",
+      "schema": "schema.json",
+      "bytecode": "handles-and-chains.dslb",
+      "source": "handles-and-chains.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "str thing-2",
+          "thing 2",
+          "thing 7",
+          "float 4.5",
+          "int 2"
+        ]
+      }
+    },
+    {
+      "name": "strings",
+      "covers": "CONCAT I2S F2S B2S",
+      "schema": "schema.json",
+      "bytecode": "strings.dslb",
+      "source": "strings.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "str hello, world!",
+          "str ",
+          "str thing-1:1"
+        ]
+      }
+    },
+    {
+      "name": "float-formatting",
+      "covers": "F2S %.15g",
+      "schema": "schema.json",
+      "bytecode": "float-formatting.dslb",
+      "source": "float-formatting.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "str 0.3",
+          "str 1",
+          "str 123456789.125",
+          "str 0.333333333333333",
+          "str -0",
+          "str inf"
+        ]
+      }
+    },
+    {
+      "name": "runtime-host-error",
+      "covers": "host exception propagates",
+      "schema": "schema.json",
+      "bytecode": "runtime-host-error.dslb",
+      "source": "runtime-host-error.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error": "stop here"
+      }
+    },
+    {
+      "name": "runtime-div-zero",
+      "covers": "DIV_I by zero",
+      "schema": "schema.json",
+      "bytecode": "runtime-div-zero.dslb",
+      "source": "runtime-div-zero.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error": "int division by zero"
+      }
+    },
+    {
+      "name": "runtime-int-overflow",
+      "covers": "ADD_I overflow",
+      "schema": "schema.json",
+      "bytecode": "runtime-int-overflow.dslb",
+      "source": "runtime-int-overflow.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error": "int overflow"
+      }
+    },
+    {
+      "name": "runtime-neg-min",
+      "covers": "NEG_I of INT32_MIN",
+      "schema": "schema.json",
+      "bytecode": "runtime-neg-min.dslb",
+      "source": "runtime-neg-min.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error": "negating the smallest int"
+      }
+    },
+    {
+      "name": "load-bad-magic",
+      "covers": "loader: magic",
+      "schema": "schema.json",
+      "bytecode": "load-bad-magic.dslb",
+      "source": "load-bad-magic.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "bad magic"
+      }
+    },
+    {
+      "name": "load-other-version",
+      "covers": "loader: version",
+      "schema": "schema.json",
+      "bytecode": "load-other-version.dslb",
+      "source": "load-other-version.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "unsupported bytecode version 2"
+      }
+    },
+    {
+      "name": "load-truncated",
+      "covers": "loader: truncation",
+      "schema": "schema.json",
+      "bytecode": "load-truncated.dslb",
+      "source": "load-truncated.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "bytecode is truncated"
+      }
+    },
+    {
+      "name": "load-trailing",
+      "covers": "loader: trailing bytes",
+      "schema": "schema.json",
+      "bytecode": "load-trailing.dslb",
+      "source": "load-trailing.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "trailing byte"
+      }
+    },
+    {
+      "name": "load-schema-mismatch",
+      "covers": "loader: schema hash",
+      "schema": "schema.json",
+      "bytecode": "load-schema-mismatch.dslb",
+      "source": "load-schema-mismatch.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "schema mismatch"
+      }
+    },
+    {
+      "name": "load-unbound-function",
+      "covers": "loader: unbound name",
+      "schema": "schema-extra.json",
+      "bytecode": "load-unbound-function.dslb",
+      "source": "load-unbound-function.dsl",
+      "mutated": false,
+      "expect": {
+        "load_error": "host function 'unbound_extra' is not bound"
+      }
+    },
+    {
+      "name": "load-backward-jump",
+      "covers": "verifier: forward-only jumps",
+      "schema": "schema.json",
+      "bytecode": "load-backward-jump.dslb",
+      "source": "load-backward-jump.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "goes backwards"
+      }
+    }
+  ]
+}
