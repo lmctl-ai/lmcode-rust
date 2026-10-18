@@ -1,0 +1,39 @@
+//! Performance sanity: load one conformance vector and run it many times with a discarding stub. Not a benchmark suite;
+//! a number to compare with the C++ runtime on the same bytecode. Usage: cargo run --release -p dsl-conformance --bin bench [VECTOR] [RUNS]
+use dslvm::{Context, Program, Registry, Value};
+use std::path::Path;
+struct Thing { id: i32 }
+fn main() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("vectors");
+    let name = std::env::args().nth(1).unwrap_or_else(|| "int-arith".into());
+    let runs: usize = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(200_000);
+    let bytecode = std::fs::read(dir.join(format!("{}.dslb", name))).expect("vector");
+    let schema = std::fs::read(dir.join("schema.json")).expect("schema");
+    let mut reg = Registry::new();
+    reg.context("t", "Trace").context("root", "Thing");
+    for m in ["int", "float", "str", "bool", "thing"] { reg.method("Trace", m, 1, |_, _, _| Ok(Value::None)); }
+    reg.method("Thing", "id", 0, |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id)));
+    reg.method("Thing", "next", 0, |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) });
+    reg.method("Thing", "name", 0, |ctx, this, _| Ok(Value::Str(format!("thing-{}", ctx.get::<Thing>(this)?.id))));
+    reg.method("Thing", "scaled", 1, |ctx, this, a| Ok(Value::Float(ctx.get::<Thing>(this)?.id as f64 * a[0].as_float()?)));
+    reg.function("thing", 1, |ctx, a| { let r = ctx.insert("Thing", Thing { id: a[0].as_int()? }); Ok(Value::object("Thing", r)) });
+    reg.function("twice", 1, |_, a| Ok(Value::Int(a[0].as_int()? * 2)));
+    reg.function("half", 1, |_, a| Ok(Value::Float(a[0].as_float()? / 2.0)));
+    reg.function("yes", 0, |_, _| Ok(Value::Bool(true)));
+    reg.function("fail", 1, |_, _| Ok(Value::None));
+    let program = Program::load(&bytecode, &schema, &reg).expect("load");
+    // count instructions per run once (decode loop mirrors the verifier's walk)
+    let ops = count_ops(&bytecode);
+    let t0 = std::time::Instant::now();
+    for _ in 0..runs { let mut ctx = Context::new(); ctx.set_object("t", "Trace", ()); ctx.set_object("root", "Thing", Thing { id: 0 }); program.run(&mut ctx, &reg).expect("run"); }
+    let secs = t0.elapsed().as_secs_f64();
+    println!("rust {}: {} runs x {} instructions in {:.3} s = {:.0} runs/s, {:.1} M instructions/s", name, runs, ops, secs, runs as f64 / secs, (runs * ops) as f64 / secs / 1e6);
+}
+fn count_ops(file: &[u8]) -> usize {  // header: 4 magic + 2 version + 32 hash, then consts, locals, code length, code
+    let mut p = 38; let n = u16::from_be_bytes([file[p], file[p + 1]]) as usize; p += 2;
+    for _ in 0..n { let l = u16::from_be_bytes([file[p], file[p + 1]]) as usize; p += 2 + l; }
+    p += 2; let len = u32::from_be_bytes(file[p..p + 4].try_into().unwrap()) as usize; p += 4;
+    let code = &file[p..p + len]; let mut i = 0; let mut ops = 0;
+    while i < code.len() { ops += 1; i += 1 + match code[i] { 0x01 | 0x0C | 0x0D | 0x0E => 4, 0x02 | 0x04 | 0x05 | 0x06 => 2, 0x03 => 1, 0x07 => 3, 0x08 => 5, 0x12 => 8, _ => 0 }; }
+    ops
+}
