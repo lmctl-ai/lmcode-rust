@@ -15,10 +15,11 @@ struct Greeter { last: String }
 
 fn main() -> Result<(), dslvm::Error> {
     let mut reg = Registry::new();
-    reg.context("g", "Greeter");                                                     // the schema's context variable and its type
-    reg.method("Greeter", "say", 1, |ctx, this, a| {                                // Greeter.say(string) -> void
-        ctx.get_mut::<Greeter>(this)?.last = a[0].as_str()?.to_string(); Ok(Value::None) });
-    reg.function("now", 0, |_, _| Ok(Value::Str("2026-10-18".into())));              // now() -> string
+    reg.context("g", "Greeter")?;                                                    // the schema's context variable and its type
+    reg.method("Greeter", "say", &["string"], "void", |ctx, this, a| {               // Greeter.say(string) -> void, declared as in the schema
+        ctx.get_mut::<Greeter>(this)?.last = a[0].as_str()?.to_string(); Ok(Value::None) })?;
+    reg.function("now", &[], "string", |_, _| Ok(Value::Str("2026-10-18".into())))?; // now() -> string
+    if std::env::args().nth(1).as_deref() == Some("--dsl-signatures") { for s in reg.signatures() { println!("{}", s); } return Ok(()); }
 
     let bytecode = std::fs::read("prog.dslb").unwrap(); let schema = std::fs::read("greeter.dsl.json").unwrap();
     let program = Program::load(&bytecode, &schema, &reg)?;                         // refused before anything runs
@@ -31,9 +32,18 @@ fn main() -> Result<(), dslvm::Error> {
 }
 ```
 
-`Registry` binds by schema name and arity; `load()` refuses a file whose names or arities the registry does not provide, before
-anything runs. `Value` is `None | Int(i32) | Float(f64) | Str | Bool | Obj{type_name, obj}`; a void method returns `Value::None`;
-host code returns `Err(dslvm::Error(..))` for a run-time failure and the VM propagates it.
+`Registry` is declared with the schema's types (parameter type names and the return type); `load()` binds by name and arity and
+refuses a file whose names or arities the registry does not provide, before anything runs. `reg.signatures()` lists the sorted
+canonical strings (`context g: Greeter`, `fn now() -> string`, `method Greeter.say(string) -> void`), exactly what
+`lmscript --dsl-signatures SCHEMA` prints, so a host test diffs the two sources of truth (spec v4 S0, A02). It is a consistency
+check, not a defense: per operator decisions R33/R34 the VM performs no call-time type checks. `Value` is `None | Int(i32) |
+Float(f64) | Str | Bool | Obj{type_name, obj}`; a void method returns `Value::None`; host code returns `Err(dslvm::Error::host(..))`
+for a run-time failure and the VM propagates it.
+
+**Result line and exit codes (spec v4 D7, R26).** `Error { code, message }` with codes `LOAD_BAD_BYTECODE`, `LOAD_SCHEMA_MISMATCH`,
+`LOAD_UNBOUND`, `RUN_ERROR` (VM), `RUN_HOST` (host closure), `APP_FAIL`; CLI hosts print exactly one JSON line through
+`report_ok(json)`, `report_error("load"|"run", &e)` (returns 3) or `report_app_failure(msg)` (returns 4) and exit with the returned
+code; compile failures are lmscript's exit 2.
 
 ## Host-object ownership (why `Context` is an arena)
 
@@ -59,7 +69,7 @@ kinds defensively and never panics on bad input (every-truncation and bit-flip t
 
 ## Tests and conformance
 
-    cargo test                               # dslvm: 2 unit + 39 integration tests (mirror of the C++ 36 checks plus robustness);
+    cargo test                               # dslvm: 2 unit + 43 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
                                              # dsl-conformance: vectors.lock pin check + all 21 vectors + a negative control
     cargo run -p dsl-conformance             # prints ok/FAIL per vector: PASS 21/21
     cargo run --release -p dsl-conformance --bin bench [VECTOR] [RUNS]   # runs/s on one vector

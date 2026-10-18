@@ -30,15 +30,37 @@ pub const MAX_STRING_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_LOCALS: u16 = 4096;
 const MAGIC: &[u8; 4] = b"DSLB";
 
-/// Load, verify and run-time failures. `what()`-style message naming the problem; hosts usually map load errors to exit 1
-/// and run-time errors to exit 3.
+/// Load, verify and run-time failures: a message naming the problem and a code (`LOAD_BAD_BYTECODE`, `LOAD_SCHEMA_MISMATCH`,
+/// `LOAD_UNBOUND`, `RUN_ERROR` for a VM error, `RUN_HOST` for an error a host closure returned, `APP_FAIL` for the host's own
+/// application failure). `Error::host(msg)` is what host closures return. Exit-code convention (spec v4 D7, R26): 2 compile
+/// (lmscript), 3 load or run, 4 application; see [`report_error`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Error(pub String);
+pub struct Error { pub code: String, pub message: String }
+impl Error {
+    pub fn new(code: &str, message: impl Into<String>) -> Error { Error { code: code.to_string(), message: message.into() } }
+    pub fn host(message: impl Into<String>) -> Error { Error::new("RUN_HOST", message) }
+}
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str(&self.0) }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str(&self.message) }
 }
 impl std::error::Error for Error {}
-fn err<T>(message: impl Into<String>) -> Result<T, Error> { Err(Error(message.into())) }
+fn err<T>(message: impl Into<String>) -> Result<T, Error> { Err(Error::new("RUN_ERROR", message)) }
+fn load_err<T>(code: &str, message: impl Into<String>) -> Result<T, Error> { Err(Error::new(code, message)) }
+
+/// JSON string literal for the result line.
+pub fn json_escape(s: &str) -> String {
+    let mut out = String::from("\"");
+    for c in s.chars() { match c { '"' => out.push_str("\\\""), '\\' => out.push_str("\\\\"), '\n' => out.push_str("\\n"), '\r' => out.push_str("\\r"), '\t' => out.push_str("\\t"), c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)), c => out.push(c) } }
+    out.push('"'); out
+}
+/// The standard result line (spec v4 D7, R26): exactly one JSON line on stdout. `result_json` is JSON text already.
+pub fn report_ok(result_json: &str) -> i32 { println!("{{\"ok\": true, \"result\": {}}}", result_json); 0 }
+/// phase is "load" or "run" (compile failures are lmscript's, exit 2); returns the exit code: 4 for APP_FAIL, else 3.
+pub fn report_error(phase: &str, e: &Error) -> i32 {
+    println!("{{\"ok\": false, \"phase\": {}, \"code\": {}, \"message\": {}}}", json_escape(phase), json_escape(&e.code), json_escape(&e.message));
+    if e.code == "APP_FAIL" { 4 } else { 3 }
+}
+pub fn report_app_failure(message: &str) -> i32 { report_error("app", &Error::new("APP_FAIL", message)) }
 
 /// A handle to a host object living in a [`Context`] for one run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -90,15 +112,15 @@ impl Context {
     }
     pub fn type_name(&self, obj: ObjRef) -> &str { &self.types[obj.0] }
     pub fn get<T: Any>(&self, obj: ObjRef) -> Result<&T, Error> {
-        self.objects.get(obj.0).and_then(|o| o.as_ref()).and_then(|b| b.downcast_ref::<T>()).ok_or_else(|| Error(format!("context object #{} is not a {}", obj.0, std::any::type_name::<T>())))
+        self.objects.get(obj.0).and_then(|o| o.as_ref()).and_then(|b| b.downcast_ref::<T>()).ok_or_else(|| Error::host(format!("context object #{} is not a {}", obj.0, std::any::type_name::<T>())))
     }
     pub fn get_mut<T: Any>(&mut self, obj: ObjRef) -> Result<&mut T, Error> {
-        self.objects.get_mut(obj.0).and_then(|o| o.as_mut()).and_then(|b| b.downcast_mut::<T>()).ok_or_else(|| Error(format!("context object #{} is not a {}", obj.0, std::any::type_name::<T>())))
+        self.objects.get_mut(obj.0).and_then(|o| o.as_mut()).and_then(|b| b.downcast_mut::<T>()).ok_or_else(|| Error::host(format!("context object #{} is not a {}", obj.0, std::any::type_name::<T>())))
     }
     /// Takes an object back out of the arena (the handle becomes invalid).
     pub fn take<T: Any>(&mut self, obj: ObjRef) -> Result<T, Error> {
-        let slot = self.objects.get_mut(obj.0).ok_or_else(|| Error(format!("no context object #{}", obj.0)))?;
-        match slot.take() { Some(b) => b.downcast::<T>().map(|b| *b).map_err(|_| Error(format!("context object #{} is not a {}", obj.0, std::any::type_name::<T>()))), None => err(format!("context object #{} was already taken", obj.0)) }
+        let slot = self.objects.get_mut(obj.0).ok_or_else(|| Error::host(format!("no context object #{}", obj.0)))?;
+        match slot.take() { Some(b) => b.downcast::<T>().map(|b| *b).map_err(|_| Error::host(format!("context object #{} is not a {}", obj.0, std::any::type_name::<T>()))), None => Err(Error::host(format!("context object #{} was already taken", obj.0))) }
     }
     pub fn lookup(&self, name: &str) -> Option<ObjRef> { self.names.get(name).copied() }
     pub fn len(&self) -> usize { self.objects.len() }
@@ -111,24 +133,46 @@ pub type Function = Box<dyn Fn(&mut Context, &Args) -> Result<Value, Error>>;
 /// A host method: the receiver handle, the context (borrow the object with `ctx.get_mut::<T>(this)`) and the arguments.
 pub type Method = Box<dyn Fn(&mut Context, ObjRef, &Args) -> Result<Value, Error>>;
 
-/// What the host offers, by schema name: the implementation of the schema the bytecode was compiled against.
+/// A declared signature: the schema's parameter type names and return type name (`void` for none).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Signature { pub params: Vec<String>, pub returns: String }
+impl Signature { fn text(&self) -> String { format!("({}) -> {}", self.params.join(", "), self.returns) } }
+
+/// The implementation of the schema the bytecode was compiled against, declared with the schema's types. The loader binds
+/// by name and arity (`params.len()`); `signatures()` lists the canonical strings `lmscript --dsl-signatures SCHEMA` prints so a
+/// host test can diff the two sources of truth (spec v4 S0, A02). Per R33/R34 the VM performs no call-time checks.
+/// Registering a name twice is an error (`LOAD_UNBOUND`): two implementations of one schema entry.
 #[derive(Default)]
 pub struct Registry {
-    functions: HashMap<String, (usize, Function)>,
-    methods: HashMap<(String, String), (usize, Method)>,
+    functions: HashMap<String, (Signature, Function)>,
+    methods: HashMap<(String, String), (Signature, Method)>,
     contexts: HashMap<String, String>,
 }
 impl Registry {
     pub fn new() -> Registry { Registry::default() }
-    pub fn function(&mut self, name: &str, argc: usize, f: impl Fn(&mut Context, &Args) -> Result<Value, Error> + 'static) -> &mut Self {
-        self.functions.insert(name.to_string(), (argc, Box::new(f))); self
+    pub fn function(&mut self, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, &Args) -> Result<Value, Error> + 'static) -> Result<&mut Self, Error> {
+        let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
+        if self.functions.insert(name.to_string(), (sig, Box::new(f))).is_some() { return load_err("LOAD_UNBOUND", format!("registry: function '{}' is registered twice", name)); }
+        Ok(self)
     }
-    pub fn method(&mut self, type_name: &str, name: &str, argc: usize, f: impl Fn(&mut Context, ObjRef, &Args) -> Result<Value, Error> + 'static) -> &mut Self {
-        self.methods.insert((type_name.to_string(), name.to_string()), (argc, Box::new(f))); self
+    pub fn method(&mut self, type_name: &str, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, ObjRef, &Args) -> Result<Value, Error> + 'static) -> Result<&mut Self, Error> {
+        let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
+        if self.methods.insert((type_name.to_string(), name.to_string()), (sig, Box::new(f))).is_some() { return load_err("LOAD_UNBOUND", format!("registry: method '{}.{}' is registered twice", type_name, name)); }
+        Ok(self)
     }
     /// Declares a context variable and its schema type; `Context::set` provides the object per run.
-    pub fn context(&mut self, name: &str, type_name: &str) -> &mut Self { self.contexts.insert(name.to_string(), type_name.to_string()); self }
+    pub fn context(&mut self, name: &str, type_name: &str) -> Result<&mut Self, Error> {
+        if self.contexts.insert(name.to_string(), type_name.to_string()).is_some() { return load_err("LOAD_UNBOUND", format!("registry: context '{}' is declared twice", name)); }
+        Ok(self)
+    }
     pub fn context_type(&self, name: &str) -> Option<&str> { self.contexts.get(name).map(String::as_str) }
+    /// Sorted canonical strings: `context NAME: Type`, `fn NAME(T, ...) -> R`, `method Type.name(T, ...) -> R`.
+    pub fn signatures(&self) -> Vec<String> {
+        let mut out: Vec<String> = self.contexts.iter().map(|(n, t)| format!("context {}: {}", n, t)).collect();
+        out.extend(self.functions.iter().map(|(n, (s, _))| format!("fn {}{}", n, s.text())));
+        out.extend(self.methods.iter().map(|((t, n), (s, _))| format!("method {}.{}{}", t, n, s.text())));
+        out.sort(); out
+    }
 }
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
@@ -153,7 +197,7 @@ struct Reader<'a> { b: &'a [u8], pos: usize }
 impl<'a> Reader<'a> {
     fn new(b: &'a [u8]) -> Reader<'a> { Reader { b, pos: 0 } }
     fn need(&self, n: usize) -> Result<(), Error> {
-        if self.pos + n > self.b.len() { return err(format!("bytecode is truncated: wanted {} byte(s) at offset {}, file has {}", n, self.pos, self.b.len())); }
+        if self.pos + n > self.b.len() { return load_err("LOAD_BAD_BYTECODE", format!("bytecode is truncated: wanted {} byte(s) at offset {}, file has {}", n, self.pos, self.b.len())); }
         Ok(())
     }
     fn u8(&mut self) -> Result<u8, Error> { self.need(1)?; let v = self.b[self.pos]; self.pos += 1; Ok(v) }
@@ -172,25 +216,25 @@ pub struct Program { consts: Vec<String>, nlocals: u16, code: Vec<u8> }
 impl Program {
     /// Parses, binds against the registry and verifies. Nothing executes here; every problem is an `Err`.
     pub fn load(bytecode: &[u8], schema_bytes: &[u8], reg: &Registry) -> Result<Program, Error> {
-        if bytecode.len() < 4 || &bytecode[..4] != MAGIC { return err("not a DSL bytecode file: bad magic (expected 'DSLB')"); }
+        if bytecode.len() < 4 || &bytecode[..4] != MAGIC { return load_err("LOAD_BAD_BYTECODE", "not a DSL bytecode file: bad magic (expected 'DSLB')"); }
         let mut r = Reader::new(bytecode);
         r.bytes(4)?;
         let version = r.u16()?;
-        if version != VERSION { return err(format!("unsupported bytecode version {} (this runtime reads version {})", version, VERSION)); }
+        if version != VERSION { return load_err("LOAD_BAD_BYTECODE", format!("unsupported bytecode version {} (this runtime reads version {})", version, VERSION)); }
         let hash = r.bytes(32)?;
         let expected = sha256(schema_bytes);
-        if hash != expected { return err(format!("schema mismatch: bytecode was compiled against schema sha256 {}, the given schema has sha256 {}", hex(hash), hex(&expected))); }
+        if hash != expected { return load_err("LOAD_SCHEMA_MISMATCH", format!("schema mismatch: bytecode was compiled against schema sha256 {}, the given schema has sha256 {}", hex(hash), hex(&expected))); }
         let nconst = r.u16()?;
         let mut consts = Vec::with_capacity(nconst as usize);
         for _ in 0..nconst {
             let len = r.u16()? as usize;
             let raw = r.bytes(len)?;
-            consts.push(String::from_utf8(raw.to_vec()).map_err(|_| Error(format!("constant {} is not valid UTF-8", consts.len())))?);
+            consts.push(String::from_utf8(raw.to_vec()).map_err(|_| Error::new("LOAD_BAD_BYTECODE", format!("constant {} is not valid UTF-8", consts.len())))?);
         }
         let nlocals = r.u16()?;
         let code_len = r.u32()? as usize;
         let code = r.bytes(code_len)?.to_vec();
-        if !r.done() { return err(format!("bytecode has {} trailing byte(s) after the code section", bytecode.len() - r.pos)); }
+        if !r.done() { return load_err("LOAD_BAD_BYTECODE", format!("bytecode has {} trailing byte(s) after the code section", bytecode.len() - r.pos)); }
         let p = Program { consts, nlocals, code };
         p.verify(reg)?;
         Ok(p)
@@ -207,43 +251,43 @@ impl Program {
         let mut starts: Vec<usize> = Vec::new();
         let mut jumps: Vec<(usize, i64)> = Vec::new();
         let mut halted = false;
-        let cidx = |i: u16| -> Result<&str, Error> { self.consts.get(i as usize).map(String::as_str).ok_or_else(|| Error(format!("constant index {} out of range ({} constants)", i, self.consts.len()))) };
+        let cidx = |i: u16| -> Result<&str, Error> { self.consts.get(i as usize).map(String::as_str).ok_or_else(|| Error::new("LOAD_BAD_BYTECODE", format!("constant index {} out of range ({} constants)", i, self.consts.len()))) };
         while !r.done() {
             let at = r.pos; starts.push(at);
             let byte = r.u8()?;
-            let op = Op::decode(byte).ok_or_else(|| Error(format!("unknown opcode {} at offset {}", byte, at)))?;
+            let op = Op::decode(byte).ok_or_else(|| Error::new("LOAD_BAD_BYTECODE", format!("unknown opcode {} at offset {}", byte, at)))?;
             halted = false;
             use Op::*;
             match op {
                 PUSH_INT => { r.i32()?; }
                 PUSH_FLOAT => { r.f64()?; }
                 PUSH_STR => { cidx(r.u16()?)?; }
-                PUSH_BOOL => { let v = r.u8()?; if v > 1 { return err("PUSH_BOOL operand must be 0 or 1"); } }
-                LOAD_LOCAL | STORE_LOCAL => { let s = r.u16()?; if s >= self.nlocals { return err(format!("local slot {} out of range ({} locals)", s, self.nlocals)); } }
-                LOAD_CTX => { let n = cidx(r.u16()?)?; if reg.context_type(n).is_none() { return err(format!("context variable '{}' is not declared by the host", n)); } }
+                PUSH_BOOL => { let v = r.u8()?; if v > 1 { return load_err("LOAD_BAD_BYTECODE", "PUSH_BOOL operand must be 0 or 1"); } }
+                LOAD_LOCAL | STORE_LOCAL => { let s = r.u16()?; if s >= self.nlocals { return load_err("LOAD_BAD_BYTECODE", format!("local slot {} out of range ({} locals)", s, self.nlocals)); } }
+                LOAD_CTX => { let n = cidx(r.u16()?)?; if reg.context_type(n).is_none() { return load_err("LOAD_UNBOUND", format!("context variable '{}' is not declared by the host", n)); } }
                 CALL_FN => {
                     let n = cidx(r.u16()?)?; let argc = r.u8()? as usize;
-                    let (arity, _) = reg.functions.get(n).ok_or_else(|| Error(format!("host function '{}' is not bound", n)))?;
-                    if *arity != argc { return err(format!("host function '{}' takes {} argument(s), bytecode passes {}", n, arity, argc)); }
+                    let (sig, _) = reg.functions.get(n).ok_or_else(|| Error::new("LOAD_UNBOUND", format!("host function '{}' is not bound", n)))?;
+                    if sig.params.len() != argc { return load_err("LOAD_UNBOUND", format!("host function '{}' takes {} argument(s), bytecode passes {}", n, sig.params.len(), argc)); }
                 }
                 CALL_METHOD => {
                     let t = cidx(r.u16()?)?; let n = cidx(r.u16()?)?; let argc = r.u8()? as usize;
-                    let (arity, _) = reg.methods.get(&(t.to_string(), n.to_string())).ok_or_else(|| Error(format!("method '{}.{}' is not bound", t, n)))?;
-                    if *arity != argc { return err(format!("method '{}.{}' takes {} argument(s), bytecode passes {}", t, n, arity, argc)); }
+                    let (sig, _) = reg.methods.get(&(t.to_string(), n.to_string())).ok_or_else(|| Error::new("LOAD_UNBOUND", format!("method '{}.{}' is not bound", t, n)))?;
+                    if sig.params.len() != argc { return load_err("LOAD_UNBOUND", format!("method '{}.{}' takes {} argument(s), bytecode passes {}", t, n, sig.params.len(), argc)); }
                 }
                 EQ | NE | NOT | DUP | POP | ADD_I | SUB_I | MUL_I | DIV_I | ADD_F | SUB_F | MUL_F | DIV_F | NEG_I | NEG_F | LT_I | LE_I | GT_I | GE_I | LT_F | LE_F | GT_F | GE_F | I2F | CONCAT | I2S | F2S | B2S => {}
                 JUMP | JUMP_IF_FALSE | JUMP_IF_TRUE => {
                     let rel = r.i32()?;
-                    if rel < 0 { return err(format!("jump at offset {} goes backwards (the language has no loops; every jump must move forward)", at)); }
+                    if rel < 0 { return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} goes backwards (the language has no loops; every jump must move forward)", at)); }
                     jumps.push((r.pos, r.pos as i64 + rel as i64));
                 }
                 HALT => { halted = true; }
             }
         }
-        if !halted { return err("code does not end with HALT"); }
-        if self.nlocals > MAX_LOCALS { return err(format!("too many locals: {} (limit {})", self.nlocals, MAX_LOCALS)); }
+        if !halted { return load_err("LOAD_BAD_BYTECODE", "code does not end with HALT"); }
+        if self.nlocals > MAX_LOCALS { return load_err("LOAD_BAD_BYTECODE", format!("too many locals: {} (limit {})", self.nlocals, MAX_LOCALS)); }
         for (from, target) in jumps {
-            if target < 0 || !starts.contains(&(target as usize)) { return err(format!("jump at offset {} targets {}, not an instruction start", from, target)); }
+            if target < 0 || !starts.contains(&(target as usize)) { return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} targets {}, not an instruction start", from, target)); }
         }
         Ok(())
     }
@@ -253,7 +297,7 @@ impl Program {
         let mut stack: Vec<Value> = Vec::new();
         let mut locals: Vec<Value> = vec![Value::None; self.nlocals as usize];
         let mut r = Reader::new(&self.code);
-        fn pop(stack: &mut Vec<Value>) -> Result<Value, Error> { stack.pop().ok_or_else(|| Error("stack underflow".into())) }
+        fn pop(stack: &mut Vec<Value>) -> Result<Value, Error> { stack.pop().ok_or_else(|| Error::new("RUN_ERROR", "stack underflow")) }
         fn push(stack: &mut Vec<Value>, v: Value) -> Result<(), Error> { if stack.len() >= MAX_STACK { return err(format!("operand stack exceeds {} values", MAX_STACK)); } stack.push(v); Ok(()) }
         fn int2(stack: &mut Vec<Value>, what: &str) -> Result<(i64, i64), Error> {
             let b = pop(stack)?; let a = pop(stack)?;
@@ -266,7 +310,7 @@ impl Program {
         fn fit(r64: i64) -> Result<Value, Error> { if r64 > i32::MAX as i64 || r64 < i32::MIN as i64 { return err(format!("int overflow: {} does not fit a 32-bit int", r64)); } Ok(Value::Int(r64 as i32)) }
         loop {
             let byte = r.u8()?;
-            let op = Op::decode(byte).ok_or_else(|| Error(format!("unknown opcode {}", byte)))?;
+            let op = Op::decode(byte).ok_or_else(|| Error::new("RUN_ERROR", format!("unknown opcode {}", byte)))?;
             use Op::*;
             match op {
                 PUSH_INT => push(&mut stack, Value::Int(r.i32()?))?,
@@ -277,14 +321,14 @@ impl Program {
                 STORE_LOCAL => { let s = r.u16()? as usize; locals[s] = pop(&mut stack)?; }
                 LOAD_CTX => {
                     let name = &self.consts[r.u16()? as usize];
-                    let obj = ctx.lookup(name).ok_or_else(|| Error(format!("context variable '{}' was not provided by the host for this run", name)))?;
+                    let obj = ctx.lookup(name).ok_or_else(|| Error::host(format!("context variable '{}' was not provided by the host for this run", name)))?;
                     let type_name = reg.context_type(name).unwrap_or("").to_string();
                     push(&mut stack, Value::Obj { type_name, obj })?
                 }
                 CALL_FN => {
                     let name = &self.consts[r.u16()? as usize]; let argc = r.u8()? as usize;
                     let mut args = vec![Value::None; argc]; for i in (0..argc).rev() { args[i] = pop(&mut stack)?; }
-                    let (_, f) = reg.functions.get(name).ok_or_else(|| Error(format!("host function '{}' is not bound", name)))?;
+                    let (_, f) = reg.functions.get(name).ok_or_else(|| Error::new("RUN_ERROR", format!("host function '{}' is not bound", name)))?;
                     let result = f(ctx, &args)?;
                     if result != Value::None { push(&mut stack, result)?; }
                 }
@@ -297,7 +341,7 @@ impl Program {
                         Value::Obj { type_name: t, .. } => return err(format!("method {}.{} called on a {}", type_name, name, t)),
                         other => return err(format!("method {}.{} called on a {}", type_name, name, other.kind_name())),
                     };
-                    let (_, m) = reg.methods.get(&(type_name.clone(), name.clone())).ok_or_else(|| Error(format!("method '{}.{}' is not bound", type_name, name)))?;
+                    let (_, m) = reg.methods.get(&(type_name.clone(), name.clone())).ok_or_else(|| Error::new("RUN_ERROR", format!("method '{}.{}' is not bound", type_name, name)))?;
                     let result = m(ctx, obj, &args)?;
                     if result != Value::None { push(&mut stack, result)?; }
                 }
@@ -327,7 +371,7 @@ impl Program {
                     let rel = r.i32()?; let c = pop(&mut stack)?;
                     match c { Value::Bool(b) => { if b == (op == JUMP_IF_TRUE) { jump(&mut r, rel)?; } } o => return err(format!("condition is a {}, not a bool", o.kind_name())) }
                 }
-                DUP => { let top = stack.last().cloned().ok_or_else(|| Error("stack underflow".into()))?; push(&mut stack, top)? }
+                DUP => { let top = stack.last().cloned().ok_or_else(|| Error::new("RUN_ERROR", "stack underflow"))?; push(&mut stack, top)? }
                 POP => { pop(&mut stack)?; }
                 HALT => return Ok(()),
                 CONCAT => {

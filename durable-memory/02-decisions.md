@@ -14,6 +14,7 @@
 - **2026-10-18, pinned copy of the vectors** (`conformance/vectors` + `vectors.lock` with the SDK commit and a digest over every
   file; `scripts/sync-vectors.sh`, `--verify` inside `cargo test`). Reason: `cargo test` must work offline and alone; the same
   mechanism the C++ hosts use for the header.
+- **2026-10-18 (S0', spec v4): registration declares the schema's types** (`function(name, &[params], returns, f)`, `method(..)`, all returning `Result` so a duplicate is an error), `signatures()` lists the canonical strings `lmscript --dsl-signatures` prints (hosts diff them), `Error { code, message }` classifies the existing errors and `report_ok/report_error/report_app_failure` print the one-line JSON result with exit codes 3/4. Deliberately NOT added (R33/R34): call-time checks, forged-file defenses, caps.
 - **2026-10-18, crate major version = bytecode version** (3.0.0); the loader refuses other versions; no backward compatibility.
 - **2026-10-18, verifier accepts only what the compiler emits:** forward jumps, HALT last, 4096 locals; UTF-8 constants are
   additionally validated (the C++ header stores raw bytes and does not check this; recorded as a spec gap).

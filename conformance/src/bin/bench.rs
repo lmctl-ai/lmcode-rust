@@ -10,17 +10,17 @@ fn main() {
     let bytecode = std::fs::read(dir.join(format!("{}.dslb", name))).expect("vector");
     let schema = std::fs::read(dir.join("schema.json")).expect("schema");
     let mut reg = Registry::new();
-    reg.context("t", "Trace").context("root", "Thing");
-    for m in ["int", "float", "str", "bool", "thing"] { reg.method("Trace", m, 1, |_, _, _| Ok(Value::None)); }
-    reg.method("Thing", "id", 0, |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id)));
-    reg.method("Thing", "next", 0, |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) });
-    reg.method("Thing", "name", 0, |ctx, this, _| Ok(Value::Str(format!("thing-{}", ctx.get::<Thing>(this)?.id))));
-    reg.method("Thing", "scaled", 1, |ctx, this, a| Ok(Value::Float(ctx.get::<Thing>(this)?.id as f64 * a[0].as_float()?)));
-    reg.function("thing", 1, |ctx, a| { let r = ctx.insert("Thing", Thing { id: a[0].as_int()? }); Ok(Value::object("Thing", r)) });
-    reg.function("twice", 1, |_, a| Ok(Value::Int(a[0].as_int()? * 2)));
-    reg.function("half", 1, |_, a| Ok(Value::Float(a[0].as_float()? / 2.0)));
-    reg.function("yes", 0, |_, _| Ok(Value::Bool(true)));
-    reg.function("fail", 1, |_, _| Ok(Value::None));
+    reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap();
+    for (m, t) in [("int", "int"), ("float", "float"), ("str", "string"), ("bool", "bool"), ("thing", "Thing")] { reg.method("Trace", m, &[t], "void", |_, _, _| Ok(Value::None)).unwrap(); }
+    reg.method("Thing", "id", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id))).unwrap();
+    reg.method("Thing", "next", &[], "Thing", |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) }).unwrap();
+    reg.method("Thing", "name", &[], "string", |ctx, this, _| Ok(Value::Str(format!("thing-{}", ctx.get::<Thing>(this)?.id)))).unwrap();
+    reg.method("Thing", "scaled", &["float"], "float", |ctx, this, a| Ok(Value::Float(ctx.get::<Thing>(this)?.id as f64 * a[0].as_float()?))).unwrap();
+    reg.function("thing", &["int"], "Thing", |ctx, a| { let r = ctx.insert("Thing", Thing { id: a[0].as_int()? }); Ok(Value::object("Thing", r)) }).unwrap();
+    reg.function("twice", &["int"], "int", |_, a| Ok(Value::Int(a[0].as_int()? * 2))).unwrap();
+    reg.function("half", &["float"], "float", |_, a| Ok(Value::Float(a[0].as_float()? / 2.0))).unwrap();
+    reg.function("yes", &[], "bool", |_, _| Ok(Value::Bool(true))).unwrap();
+    reg.function("fail", &["string"], "void", |_, _| Ok(Value::None)).unwrap();
     let program = Program::load(&bytecode, &schema, &reg).expect("load");
     // count instructions per run once (decode loop mirrors the verifier's walk)
     let ops = count_ops(&bytecode);

@@ -10,22 +10,22 @@ pub struct Trace(pub Vec<String>);
 /// The manifest's host stub: `t` (Trace) records calls; `root` is Thing 0; thing/twice/half/yes/fail.
 pub fn stub_registry() -> Registry {
     let mut reg = Registry::new();
-    reg.context("t", "Trace").context("root", "Thing");
-    fn trace(ctx: &mut Context, line: String) -> Result<Value, Error> { let t = ctx.lookup("t").ok_or_else(|| Error("no t".into()))?; ctx.get_mut::<Trace>(t)?.0.push(line); Ok(Value::None) }
-    reg.method("Trace", "int", 1, |ctx, _, a| trace(ctx, format!("int {}", a[0].as_int()?)));
-    reg.method("Trace", "float", 1, |ctx, _, a| trace(ctx, format!("float {}", format_g15(a[0].as_float()?))));
-    reg.method("Trace", "str", 1, |ctx, _, a| trace(ctx, format!("str {}", a[0].as_str()?)));
-    reg.method("Trace", "bool", 1, |ctx, _, a| trace(ctx, format!("bool {}", a[0].as_bool()?)));
-    reg.method("Trace", "thing", 1, |ctx, _, a| { let id = ctx.get::<Thing>(a[0].as_obj()?)?.id; trace(ctx, format!("thing {}", id)) });
-    reg.method("Thing", "id", 0, |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id)));
-    reg.method("Thing", "next", 0, |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) });
-    reg.method("Thing", "name", 0, |ctx, this, _| Ok(Value::Str(format!("thing-{}", ctx.get::<Thing>(this)?.id))));
-    reg.method("Thing", "scaled", 1, |ctx, this, a| Ok(Value::Float(ctx.get::<Thing>(this)?.id as f64 * a[0].as_float()?)));
-    reg.function("thing", 1, |ctx, a| { let r = ctx.insert("Thing", Thing { id: a[0].as_int()? }); Ok(Value::object("Thing", r)) });
-    reg.function("twice", 1, |_, a| Ok(Value::Int(a[0].as_int()? * 2)));
-    reg.function("half", 1, |_, a| Ok(Value::Float(a[0].as_float()? / 2.0)));
-    reg.function("yes", 0, |ctx, _| { trace(ctx, "yes".into())?; Ok(Value::Bool(true)) });
-    reg.function("fail", 1, |_, a| Err(Error(a[0].as_str()?.to_string())));
+    reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap();
+    fn trace(ctx: &mut Context, line: String) -> Result<Value, Error> { let t = ctx.lookup("t").ok_or_else(|| Error::host("no t"))?; ctx.get_mut::<Trace>(t)?.0.push(line); Ok(Value::None) }
+    reg.method("Trace", "int", &["int"], "void", |ctx, _, a| trace(ctx, format!("int {}", a[0].as_int()?))).unwrap();
+    reg.method("Trace", "float", &["float"], "void", |ctx, _, a| trace(ctx, format!("float {}", format_g15(a[0].as_float()?)))).unwrap();
+    reg.method("Trace", "str", &["string"], "void", |ctx, _, a| trace(ctx, format!("str {}", a[0].as_str()?))).unwrap();
+    reg.method("Trace", "bool", &["bool"], "void", |ctx, _, a| trace(ctx, format!("bool {}", a[0].as_bool()?))).unwrap();
+    reg.method("Trace", "thing", &["Thing"], "void", |ctx, _, a| { let id = ctx.get::<Thing>(a[0].as_obj()?)?.id; trace(ctx, format!("thing {}", id)) }).unwrap();
+    reg.method("Thing", "id", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id))).unwrap();
+    reg.method("Thing", "next", &[], "Thing", |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) }).unwrap();
+    reg.method("Thing", "name", &[], "string", |ctx, this, _| Ok(Value::Str(format!("thing-{}", ctx.get::<Thing>(this)?.id)))).unwrap();
+    reg.method("Thing", "scaled", &["float"], "float", |ctx, this, a| Ok(Value::Float(ctx.get::<Thing>(this)?.id as f64 * a[0].as_float()?))).unwrap();
+    reg.function("thing", &["int"], "Thing", |ctx, a| { let r = ctx.insert("Thing", Thing { id: a[0].as_int()? }); Ok(Value::object("Thing", r)) }).unwrap();
+    reg.function("twice", &["int"], "int", |_, a| Ok(Value::Int(a[0].as_int()? * 2))).unwrap();
+    reg.function("half", &["float"], "float", |_, a| Ok(Value::Float(a[0].as_float()? / 2.0))).unwrap();
+    reg.function("yes", &[], "bool", |ctx, _| { trace(ctx, "yes".into())?; Ok(Value::Bool(true)) }).unwrap();
+    reg.function("fail", &["string"], "void", |_, a| Err(Error::host(a[0].as_str()?.to_string()))).unwrap();
     reg
 }
 
@@ -35,11 +35,11 @@ pub enum Outcome { Trace(Vec<String>), RuntimeError(String), LoadError(String) }
 /// Runs one vector: load (phase 1) then run (phase 2) with a fresh context.
 pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome {
     let reg = stub_registry();
-    let program = match Program::load(bytecode, schema, &reg) { Ok(p) => p, Err(e) => return Outcome::LoadError(e.0) };
+    let program = match Program::load(bytecode, schema, &reg) { Ok(p) => p, Err(e) => return Outcome::LoadError(e.message) };
     let mut ctx = Context::new();
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
     ctx.set_object("root", "Thing", Thing { id: 0 });
-    match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e.0) }
+    match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e.message) }
 }
 
 pub struct Expect { pub kind: String, pub lines: Vec<String> }

@@ -31,12 +31,12 @@ struct Thing { id: i32 }
 struct Trace(Vec<String>);
 fn registry() -> Registry {
     let mut reg = Registry::new();
-    reg.context("t", "Trace").context("root", "Thing");
-    reg.method("Trace", "int", 1, |ctx, this, a| { let v = a[0].as_int()?; ctx.get_mut::<Trace>(this)?.0.push(format!("int {}", v)); Ok(Value::None) });
-    reg.method("Trace", "str", 1, |ctx, this, a| { let v = a[0].as_str()?.to_string(); ctx.get_mut::<Trace>(this)?.0.push(format!("str {}", v)); Ok(Value::None) });
-    reg.method("Thing", "id", 0, |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id)));
-    reg.function("twice", 1, |_, a| Ok(Value::Int(a[0].as_int()? * 2)));
-    reg.function("boom", 0, |_, _| Err(Error("boom from the host".into())));
+    reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap();
+    reg.method("Trace", "int", &["int"], "void", |ctx, this, a| { let v = a[0].as_int()?; ctx.get_mut::<Trace>(this)?.0.push(format!("int {}", v)); Ok(Value::None) }).unwrap();
+    reg.method("Trace", "str", &["string"], "void", |ctx, this, a| { let v = a[0].as_str()?.to_string(); ctx.get_mut::<Trace>(this)?.0.push(format!("str {}", v)); Ok(Value::None) }).unwrap();
+    reg.method("Thing", "id", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id))).unwrap();
+    reg.function("twice", &["int"], "int", |_, a| Ok(Value::Int(a[0].as_int()? * 2))).unwrap();
+    reg.function("boom", &[], "void", |_, _| Err(Error::host("boom from the host"))).unwrap();
     reg
 }
 fn run(bytes: &[u8]) -> Result<Vec<String>, Error> {
@@ -44,8 +44,8 @@ fn run(bytes: &[u8]) -> Result<Vec<String>, Error> {
     let mut ctx = Context::new(); let t = ctx.set_object("t", "Trace", Trace(Vec::new())); ctx.set_object("root", "Thing", Thing { id: 0 });
     p.run(&mut ctx, &reg)?; Ok(ctx.take::<Trace>(t)?.0)
 }
-fn load_err(bytes: &[u8]) -> String { Program::load(bytes, SCHEMA, &registry()).err().expect("load must fail").0 }
-fn run_err(bytes: &[u8]) -> String { run(bytes).err().expect("run must fail").0 }
+fn load_err(bytes: &[u8]) -> String { Program::load(bytes, SCHEMA, &registry()).err().expect("load must fail").message }
+fn run_err(bytes: &[u8]) -> String { run(bytes).err().expect("run must fail").message }
 
 #[test] fn arithmetic_concat_methods() { let a = Asm::default().ctx("t").push_int(1).push_int(2).u8(0x13).method("Trace", "int", 1).ctx("t").push_str("a").push_str("b").u8(0x26).method("Trace", "str", 1).halt(); assert_eq!(run(&a.file()).unwrap(), ["int 3", "str ab"]); }
 #[test] fn host_function_and_locals() { let mut a = Asm::default(); a.locals = 1; let a = a.push_int(21).func("twice", 1).u8(0x05).u16(0).ctx("t").u8(0x04).u16(0).method("Trace", "int", 1).halt(); assert_eq!(run(&a.file()).unwrap(), ["int 42"]); }
@@ -80,7 +80,7 @@ fn run_err(bytes: &[u8]) -> String { run(bytes).err().expect("run must fail").0 
 #[test] fn non_bool_condition() { assert!(run_err(&Asm::default().push_int(1).u8(0x0D).i32(0).halt().file()).contains("condition is a int, not a bool")); }
 #[test] fn stack_underflow() { assert!(run_err(&Asm::default().u8(0x10).halt().file()).contains("stack underflow")); }
 #[test] fn host_error_propagates() { assert!(run_err(&Asm::default().func("boom", 0).halt().file()).contains("boom from the host")); }
-#[test] fn context_object_missing_at_run() { let reg = registry(); let p = Program::load(&Asm::default().ctx("t").halt().file(), SCHEMA, &reg).unwrap(); let mut empty = Context::new(); assert!(p.run(&mut empty, &reg).unwrap_err().0.contains("context variable 't' was not provided by the host for this run")); }
+#[test] fn context_object_missing_at_run() { let reg = registry(); let p = Program::load(&Asm::default().ctx("t").halt().file(), SCHEMA, &reg).unwrap(); let mut empty = Context::new(); assert!(p.run(&mut empty, &reg).unwrap_err().message.contains("context variable 't' was not provided by the host for this run")); }
 #[test] fn method_on_wrong_object_type() { assert!(run_err(&Asm::default().ctx("t").method("Thing", "id", 0).halt().file()).contains("method Thing.id called on a Trace")); }
 #[test] fn operand_stack_limit() { let mut a = Asm::default(); for _ in 0..=MAX_STACK { a = a.push_int(1); } assert!(run_err(&a.halt().file()).contains("operand stack exceeds 1024 values")); }
 #[test] fn concatenation_size_limit() { let mut a = Asm::default().push_str(&"x".repeat(65535)); for _ in 0..9 { a = a.u8(0x0F).u8(0x26); } assert!(run_err(&a.halt().file()).contains("string + result exceeds")); }
@@ -93,3 +93,14 @@ fn run_err(bytes: &[u8]) -> String { run(bytes).err().expect("run must fail").0 
     let mut ctx = Context::new(); let t = ctx.insert("Thing", Thing { id: 7 });
     assert!(ctx.get::<Trace>(t).is_err()); assert_eq!(ctx.get::<Thing>(t).unwrap().id, 7); assert_eq!(ctx.take::<Thing>(t).unwrap().id, 7); assert!(ctx.take::<Thing>(t).is_err());
 }
+
+#[test] fn signatures_are_sorted_canonical_strings() { assert_eq!(registry().signatures(), ["context root: Thing", "context t: Trace", "fn boom() -> void", "fn twice(int) -> int", "method Thing.id() -> int", "method Trace.int(int) -> void", "method Trace.str(string) -> void"]); }
+#[test] fn duplicate_registration_is_refused() { let mut reg = Registry::new(); reg.function("f", &[], "void", |_, _| Ok(Value::None)).unwrap(); let e = reg.function("f", &[], "void", |_, _| Ok(Value::None)).err().unwrap(); assert_eq!(e.code, "LOAD_UNBOUND"); assert!(e.message.contains("registered twice")); }
+#[test] fn error_codes_classify_the_existing_errors() {
+    assert_eq!(Program::load(&Asm::default().halt().file_v(SCHEMA, VERSION, b"XXXX"), SCHEMA, &registry()).unwrap_err().code, "LOAD_BAD_BYTECODE");
+    assert_eq!(Program::load(&Asm::default().halt().file_v(b"other", VERSION, b"DSLB"), SCHEMA, &registry()).unwrap_err().code, "LOAD_SCHEMA_MISMATCH");
+    assert_eq!(Program::load(&Asm::default().func("missing", 0).halt().file(), SCHEMA, &registry()).unwrap_err().code, "LOAD_UNBOUND");
+    assert_eq!(run(&Asm::default().func("boom", 0).halt().file()).unwrap_err().code, "RUN_HOST");
+    assert_eq!(run(&Asm::default().push_int(1).push_int(0).u8(0x16).halt().file()).unwrap_err().code, "RUN_ERROR");
+}
+#[test] fn result_line_exit_codes() { assert_eq!(report_error("load", &Error::new("LOAD_UNBOUND", "x")), 3); assert_eq!(report_error("run", &Error::host("no")), 3); assert_eq!(report_app_failure("nothing"), 4); assert_eq!(report_ok("42"), 0); assert_eq!(json_escape("a\"b\n"), "\"a\\\"b\\n\""); }

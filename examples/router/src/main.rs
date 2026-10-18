@@ -38,13 +38,13 @@ fn reason(status: i32) -> &'static str {
 
 fn registry() -> Registry {
     let mut reg = Registry::new();
-    reg.context("req", "Request").context("res", "Response");
-    reg.method("Request", "method", 0, |ctx, this, _| Ok(Value::Str(ctx.get::<Request>(this)?.method.clone())));
-    reg.method("Request", "path", 0, |ctx, this, _| Ok(Value::Str(ctx.get::<Request>(this)?.path.clone())));
-    reg.method("Response", "status", 1, |ctx, this, a| { ctx.get_mut::<Response>(this)?.status = a[0].as_int()?; Ok(Value::None) });
-    reg.method("Response", "body", 1, |ctx, this, a| { ctx.get_mut::<Response>(this)?.body = a[0].as_str()?.to_string(); Ok(Value::None) });
-    reg.method("Response", "header", 2, |ctx, this, a| { let (k, v) = (a[0].as_str()?.to_string(), a[1].as_str()?.to_string()); ctx.get_mut::<Response>(this)?.headers.push((k, v)); Ok(Value::None) });
-    reg.function("now_date", 0, |_, _| Ok(Value::Str(today())));
+    reg.context("req", "Request").unwrap().context("res", "Response").unwrap();
+    reg.method("Request", "method", &[], "string", |ctx, this, _| Ok(Value::Str(ctx.get::<Request>(this)?.method.clone()))).unwrap();
+    reg.method("Request", "path", &[], "string", |ctx, this, _| Ok(Value::Str(ctx.get::<Request>(this)?.path.clone()))).unwrap();
+    reg.method("Response", "status", &["int"], "void", |ctx, this, a| { ctx.get_mut::<Response>(this)?.status = a[0].as_int()?; Ok(Value::None) }).unwrap();
+    reg.method("Response", "body", &["string"], "void", |ctx, this, a| { ctx.get_mut::<Response>(this)?.body = a[0].as_str()?.to_string(); Ok(Value::None) }).unwrap();
+    reg.method("Response", "header", &["string", "string"], "void", |ctx, this, a| { let (k, v) = (a[0].as_str()?.to_string(), a[1].as_str()?.to_string()); ctx.get_mut::<Response>(this)?.headers.push((k, v)); Ok(Value::None) }).unwrap();
+    reg.function("now_date", &[], "string", |_, _| Ok(Value::Str(today()))).unwrap();
     reg
 }
 
@@ -72,6 +72,7 @@ fn main() {
     while i < args.len() {
         let value = |i: &mut usize| -> String { *i += 1; args.get(*i).cloned().unwrap_or_else(|| { eprintln!("error: {} needs a value", args[*i - 1]); std::process::exit(2) }) };
         match args[i].as_str() { "--port" => port = value(&mut i).parse().unwrap_or_else(|_| { eprintln!("error: --port needs a number"); std::process::exit(2) }), "--dsl" => dsl = value(&mut i), "--schema" => schema = value(&mut i),
+            "--dsl-signatures" => { for s in registry().signatures() { println!("{}", s); } std::process::exit(0) }  // diffed against `lmscript --dsl-signatures` by test.sh
             _ => { eprintln!("usage: router --dsl FILE --schema FILE [--port N]  (0 picks a free port)"); std::process::exit(2) } }
         i += 1;
     }
@@ -80,7 +81,7 @@ fn main() {
     let reg = registry();
     // (2) load and verify the DSL; refused here, before the socket opens
     let program = match (std::fs::read(&dsl), std::fs::read(&schema)) {
-        (Ok(b), Ok(s)) => match Program::load(&b, &s, &reg) { Ok(p) => p, Err(Error(m)) => { eprintln!("error: {}: {}", dsl, m); std::process::exit(1) } },
+        (Ok(b), Ok(s)) => match Program::load(&b, &s, &reg) { Ok(p) => p, Err(Error { message: m, .. }) => { eprintln!("error: {}: {}", dsl, m); std::process::exit(1) } },
         (Err(e), _) => { eprintln!("error: cannot read {}: {}", dsl, e); std::process::exit(1) }
         (_, Err(e)) => { eprintln!("error: cannot read {}: {}", schema, e); std::process::exit(1) }
     };
@@ -103,7 +104,7 @@ fn main() {
                 let r = ctx.set_object("res", "Response", Response::default());
                 match program.run(&mut ctx, &reg) {
                     Ok(()) => { res = ctx.take::<Response>(r).unwrap_or_default(); if res.status == 0 { res.status = 500; res.body = "the DSL set no status".into(); } }
-                    Err(Error(m)) => { eprintln!("dsl runtime error: {}", m); res.status = 500; res.body = "dsl runtime error".into(); }
+                    Err(Error { message: m, .. }) => { eprintln!("dsl runtime error: {}", m); res.status = 500; res.body = "dsl runtime error".into(); }
                 }
             }
         }
