@@ -1,0 +1,9 @@
+[package]
+name = "router"
+version = "3.0.0"
+edition = "2021"
+description = "Example host: poc-web's router schema and bytecode served by a std::net HTTP server on the Rust runtime"
+license = "UNLICENSED"
+
+[dependencies]
+dslvm = { path = "../../dslvm" }

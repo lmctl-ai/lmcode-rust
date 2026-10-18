@@ -1,0 +1,13 @@
+[package]
+name = "dsl-conformance"
+version = "3.0.0"
+edition = "2021"
+description = "Runs the cpp-dsl-sdk conformance vectors (pinned copy in vectors/) against the Rust dslvm"
+license = "UNLICENSED"
+
+[dependencies]
+dslvm = { path = "../dslvm" }
+
+[[bin]]
+name = "dsl-conformance"
+path = "src/main.rs"
