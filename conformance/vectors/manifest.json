@@ -1,13 +1,49 @@
 {
   "format": "dsl-conformance/2",
-  "bytecode_version": 4,
+  "bytecode_version": 5,
   "generated_by": "lmscript dsl.ts (scripts/generate-dsl-conformance.ts)",
   "schema": "schema.json",
   "host": {
-    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. bound(i) records bound N and returns i; thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C). S2: Trace.int(float) records float using the same formatting. Trace.status() returns string OPTIMAL typed Status, without a trace. twice(float) doubles its float with no trace. Context v is Var id 0. var(int) records var N and creates Var N; Var.id returns its id, Var.expr records expr N and returns a new Thing N. thing(int) does not record a trace. Thing.plus(Thing), minus(Thing), times(int), neg(), rminus(int) return new Things with sum, difference, product, negation, or argument minus receiver id, respectively (wrapping i64). Thing.set(int) changes its id and returns the receiver, with concrete canonical return type Thing for schema self.",
+    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. bound(i) records bound N and returns i; thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C). S2: Trace.int(float) records float using the same formatting. Trace.status() returns string OPTIMAL typed Status, without a trace. twice(float) doubles its float with no trace. Context v is Var id 0. var(int) records var N and creates Var N; Var.id returns its id, Var.expr records expr N and returns a new Thing N. thing(int) does not record a trace. Thing.plus(Thing), minus(Thing), times(int), neg(), rminus(int) return new Things with sum, difference, product, negation, or argument minus receiver id, respectively (wrapping i64). Thing.len() records len N and returns its id N as a collection length. Thing.at(int) records at I and returns a new Thing I. Thing.set(int) changes its id and returns the receiver, with concrete canonical return type Thing for schema self.",
     "expect": "trace: the recorded lines in order, after a successful run. A line prefixed ~ compares the last numeric token with relative tolerance 1e-12 (floor scale 1e-300), exact prefix; both values must be finite. This applies only to sin/cos/pow, assuming the platform binary64 libm meets that tolerance (no universal correct-rounding guarantee). Other traces compare exactly; native unit tests also compare exact binary64 results and signed zero. runtime_error: run() throws and the message contains the substring. load_error: load() throws (nothing runs) and the message contains the substring."
   },
   "vectors": [
+    {
+      "name": "foreach-inline",
+      "covers": "host collection foreach in inline function; ordinary temporary slots; snapshot once; existing range opcodes",
+      "schema": "schema.json",
+      "bytecode": "foreach-inline.dslb",
+      "source": "foreach-inline.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bound 3",
+          "len 3",
+          "at 0",
+          "int 0",
+          "at 1",
+          "int 1",
+          "at 2",
+          "int 2"
+        ]
+      }
+    },
+    {
+      "name": "switch-values",
+      "covers": "int/string/enum switch; writable discriminator; once-only evaluation; no fallthrough",
+      "schema": "schema.json",
+      "bytecode": "switch-values.dslb",
+      "source": "switch-values.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bound -2",
+          "str negative",
+          "str fallback",
+          "str optimal"
+        ]
+      }
+    },
     {
       "name": "overloads-enum",
       "covers": "S2 exact overload selection and enum constants",
@@ -514,6 +550,38 @@
       }
     },
     {
+      "name": "while-break-continue",
+      "covers": "v5 while host calls, break/continue, nested mixed loops and switch control targeting its enclosing loop",
+      "schema": "schema.json",
+      "bytecode": "while-break-continue.dslb",
+      "source": "while-break-continue.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 1",
+          "int 3",
+          "int 10",
+          "int 11",
+          "int 20",
+          "int 20"
+        ]
+      }
+    },
+    {
+      "name": "foreach-break-continue",
+      "covers": "break and continue in a schema collection foreach, lowered through FOR_RANGE",
+      "schema": "schema.json",
+      "bytecode": "foreach-break-continue.dslb",
+      "source": "foreach-break-continue.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 2"
+        ]
+      }
+    },
+    {
       "name": "load-bad-magic",
       "covers": "loader: magic",
       "schema": "schema.json",
@@ -526,13 +594,13 @@
     },
     {
       "name": "load-other-version",
-      "covers": "loader: version (v3 refused, no backward compatibility)",
+      "covers": "loader: old v4 version refused; no backward compatibility",
       "schema": "schema.json",
       "bytecode": "load-other-version.dslb",
       "source": "load-other-version.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "unsupported bytecode version 3"
+        "load_error": "unsupported bytecode version 4"
       }
     },
     {
@@ -610,6 +678,17 @@
       "mutated": true,
       "expect": {
         "load_error": "goes backwards"
+      }
+    },
+    {
+      "name": "load-bad-loop-pair",
+      "covers": "verifier: LOOP_BACK must target its paired WHILE_BEGIN",
+      "schema": "schema.json",
+      "bytecode": "load-bad-loop-pair.dslb",
+      "source": "load-bad-loop-pair.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "does not target its paired WHILE_BEGIN"
       }
     }
   ]

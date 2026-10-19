@@ -5,18 +5,23 @@ use dslvm::{format_g15, Context, Error, Program, Registry, Value};
 use std::path::{Path, PathBuf};
 
 pub struct Thing { pub id: i64 }
+pub struct IntList { pub values: Vec<i64> }
 pub struct Trace(pub Vec<String>);
 
 /// The manifest's host stub: `t` (Trace) records calls; `root` is Thing 0; thing/twice/half/yes/fail.
 pub fn stub_registry() -> Registry {
     let mut reg = Registry::new();
-    reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap().context("v", "Var").unwrap();
+    reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap().context("v", "Var").unwrap().context("xs", "IntList").unwrap();
     fn trace(ctx: &mut Context, line: String) -> Result<Value, Error> { let t = ctx.lookup("t").ok_or_else(|| Error::host("no t"))?; ctx.get_mut::<Trace>(t)?.0.push(line); Ok(Value::None) }
     reg.method("Trace", "int", &["int"], "void", |ctx, _, a| trace(ctx, format!("int {}", a[0].as_int()?))).unwrap();
     reg.method("Trace", "float", &["float"], "void", |ctx, _, a| trace(ctx, format!("float {}", format_g15(a[0].as_float()?)))).unwrap();
     reg.method("Trace", "str", &["string"], "void", |ctx, _, a| trace(ctx, format!("str {}", a[0].as_str()?))).unwrap();
     reg.method("Trace", "bool", &["bool"], "void", |ctx, _, a| trace(ctx, format!("bool {}", a[0].as_bool()?))).unwrap();
     reg.method("Trace", "thing", &["Thing"], "void", |ctx, _, a| { let id = ctx.get::<Thing>(a[0].as_obj()?)?.id; trace(ctx, format!("thing {}", id)) }).unwrap();
+    reg.method("Thing", "len", &[], "int", |ctx, this, _| { let n=ctx.get::<Thing>(this)?.id; trace(ctx,format!("len {}",n))?; Ok(Value::Int(n)) }).unwrap();
+    reg.method("Thing", "at", &["int"], "Thing", |ctx, _, a| { let id=a[0].as_int()?; trace(ctx,format!("at {}",id))?; let r=ctx.insert("Thing",Thing{id}); Ok(Value::object("Thing",r)) }).unwrap();
+    reg.method("IntList", "len", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<IntList>(this)?.values.len() as i64))).unwrap();
+    reg.method("IntList", "at", &["int"], "int", |ctx, this, a| { let i = a[0].as_int()?; let value = ctx.get::<IntList>(this)?.values.get(usize::try_from(i).map_err(|_| Error::host("IntList index out of range"))?).copied().ok_or_else(|| Error::host("IntList index out of range"))?; Ok(Value::Int(value)) }).unwrap();
     reg.method("Thing", "id", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id))).unwrap();
     reg.method("Thing", "next", &[], "Thing", |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) }).unwrap();
     reg.method("Thing", "name", &[], "string", |ctx, this, _| Ok(Value::Str(format!("thing-{}", ctx.get::<Thing>(this)?.id)))).unwrap();
@@ -53,6 +58,7 @@ pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome {
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
     ctx.set_object("root", "Thing", Thing { id: 0 });
     ctx.set_object("v", "Var", Thing { id: 0 });
+    ctx.set_object("xs", "IntList", IntList { values: vec![0, 1, 2, 3] });
     match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e.message) }
 }
 

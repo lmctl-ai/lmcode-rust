@@ -1,6 +1,6 @@
 # rust-dsl-sdk
 
-The Rust runtime for lmscript `_dsl_` bytecode (format v4): crate **`dslvm`** (loader, structural verifier, stack VM, host registry),
+The Rust runtime for lmscript `_dsl_` bytecode (format v5): crate **`dslvm`** (loader, structural verifier, stack VM, host registry),
 the **conformance runner** over the `cpp-dsl-sdk` vectors (the contract between runtimes), and an example host **`examples/router`**
 that serves the same schema and the same bytecode file as poc-web's C++ server. Second runtime after the C++ reference
 `lmctlhq/cpp-dsl-sdk`; same semantics and error classes; **no external crates** (SHA-256 is in the crate, checked against FIPS vectors).
@@ -42,7 +42,7 @@ check, not a defense: per operator decisions R33/R34 the VM performs no call-tim
 Float(f64) | Str | Bool | Obj{type_name, obj}`; a void method returns `Value::None`; host code returns `Err(dslvm::Error::host(..))`
 for a run-time failure and the VM propagates it.
 
-**Result line and exit codes (spec v4 D7, R26).** `Error { code, message }` with codes `LOAD_BAD_BYTECODE`, `LOAD_SCHEMA_MISMATCH`,
+**Result line and exit codes (spec v5 D7, R26).** `Error { code, message }` with codes `LOAD_BAD_BYTECODE`, `LOAD_SCHEMA_MISMATCH`,
 `LOAD_UNBOUND`, `RUN_ERROR` (VM), `RUN_HOST` (host closure), `APP_FAIL`; CLI hosts print exactly one JSON line through
 `report_ok(json)`, `report_error("load"|"run", &e)` (returns 3) or `report_app_failure(msg)` (returns 4) and exit with the returned
 code; compile failures are lmscript's exit 2.
@@ -57,16 +57,15 @@ The host takes its objects back with `ctx.take::<T>(obj)` or drops the context.
 
 ## Versioning rule
 
-`dslvm::VERSION` is the bytecode format version this runtime reads; the crate's major version equals it (4.x). The loader refuses
+`dslvm::VERSION` is the bytecode format version this runtime reads; the crate's major version equals it (5.x). The loader refuses
 every other version: there is no backward compatibility. When the compiler's format changes, compiler, both runtimes and every
 host move together; the history is in the living spec.
 
 ## What load() guarantees (identical to the C++ runtime)
 
-Wrong magic, another version (v3 included), a schema-hash mismatch, truncation, trailing bytes, unknown constant tags, undecodable
+Wrong magic, another version (v4 included), a schema-hash mismatch, truncation, trailing bytes, unknown constant tags, undecodable
 instructions, non-UTF-8 constants, out-of-range constant/local/import/context indexes, calls whose import kind or arity differ, ordinary jumps
-that miss an instruction start, go backwards, or cross a structured range-loop region, and malformed FOR_RANGE/FOR_NEXT pairs (the only
-backward edge is the verified loop edge), a missing HALT, and context
+that miss an instruction start, go backwards, or cross a structured loop region, malformed FOR_RANGE/FOR_NEXT and WHILE_BEGIN/WHILE_TEST/LOOP_BACK pairs, a missing HALT, and context
 declarations or import signatures the registry does not provide (the message names the host's own signature) are refused with a
 message naming the problem. `run()` retains existing value-kind errors; every-truncation tests cover structural loading failures
 and imposes no limits (operator decision 2026-10-18: no stack, locals or string cap; `max_stack` is a reservation hint). Ints are
@@ -80,9 +79,9 @@ signed zero; integer abs wraps at `i64::MIN`.
 
 ## Tests and conformance
 
-    cargo test                               # dslvm: 2 unit + 58 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
-                                             # dsl-conformance: vectors.lock pin check + all 37 vectors + a negative control
-    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 37/37
+    cargo test                               # dslvm: 2 unit + 66 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
+                                             # dsl-conformance: vectors.lock pin check + all 42 vectors + a negative control
+    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 42/42
     cargo run --release -p dsl-conformance --bin bench [VECTOR] [RUNS]   # runs/s on one vector
 
 `conformance/vectors` is a verbatim copy of `cpp-dsl-sdk/conformance/vectors` pinned by `vectors.lock` (SDK commit + sha256 over

@@ -75,6 +75,20 @@
         "r*": "times"
       },
       "methods": {
+        "len": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "at": [
+          {
+            "params": [
+              "int"
+            ],
+            "returns": "Thing"
+          }
+        ],
         "id": [
           {
             "params": [],
@@ -164,6 +178,24 @@
           }
         ]
       }
+    },
+    "IntList": {
+      "methods": {
+        "len": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "at": [
+          {
+            "params": [
+              "int"
+            ],
+            "returns": "int"
+          }
+        ]
+      }
     }
   },
   "functions": {
@@ -243,6 +275,7 @@
   "context": {
     "t": "Trace",
     "root": "Thing",
-    "v": "Var"
+    "v": "Var",
+    "xs": "IntList"
   }
 }

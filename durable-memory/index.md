@@ -2,7 +2,7 @@
 
 What this repo is: the Rust runtime for lmscript `_dsl_` bytecode (crate `dslvm`), the conformance runner over the pinned
 `cpp-dsl-sdk` vectors (35/35) and a std::net router example that runs poc-web's unchanged bytecode. Status (2026-10-18):
-EXPERIMENTAL, works; crate major version = bytecode version = 4; private repo `lmctlhq/rust-dsl-sdk`. Operator requirement R21.
+EXPERIMENTAL, works; crate major version = bytecode version = 5; private repo `lmctlhq/rust-dsl-sdk`. Operator requirement R21.
 
 Team guide: lmctl-mono `lmscript/durable-memory/dsl-framework.md`. Requirements and findings ("Findings from the Rust runtime"):
 lmctl-mono `lmscript/durable-memory/requirements/dsl-bytecode.md`. README.md: embedding example, ownership model, tests, numbers.
@@ -53,3 +53,20 @@ duplicate parameter tuples are refused regardless of return type. Enums retain t
 names in signatures and use strings as runtime values. Self expands to the receiver type before
 registration/import binding; no identity check or dynamic overload resolution is added.
 Verified: 64 integration + 2 library + 4 harness tests and 37 shared vectors.
+
+## Compiler flow-lowering integration
+
+Shared conformance now has 39 vectors, including inline foreach and int/string/enum switch.
+Thing.len()/at() are conformance-host methods, not runtime instructions. Compiler-private
+collection/discriminator temporaries use ordinary writable slots; only range controls carry
+the wire hidden flag. No interpreter or verifier change was needed. Both runtimes pass all 39.
+
+## v5 structured while (2026-10-19)
+
+The v5 runtime accepts `WHILE_BEGIN` (0x34), `WHILE_TEST` (0x35) and `LOOP_BACK` (0x36). The verifier pairs nested while
+loops, permits only a forward break to the innermost loop exit, and checks operand-stack depth at joins and loop heads. Continue
+targets the loop latch. `WHILE_TEST` trusts the compiler-proven bool operand like range bounds; it adds no run-time type check,
+budget or termination limit. Version 4 files are refused.
+
+Verified after regeneration: 66 integration + 2 library + 4 harness tests; all 42 shared v5 vectors pass.
+The earlier 37/39-vector results above are historical checkpoints.

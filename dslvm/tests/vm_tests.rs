@@ -32,6 +32,10 @@ impl Asm {
     fn ctx(mut self, n: &str, t: &str) -> Self { let i = self.ctx_index(n, t); self.u8(0x06).u16(i) }
     fn func(mut self, canonical: &str, argc: u8) -> Self { let i = self.imp(canonical); self.u8(0x07).u16(i).u8(argc) }
     fn method(mut self, canonical: &str, argc: u8) -> Self { let i = self.imp(canonical); self.u8(0x08).u16(i).u8(argc) }
+    fn while_begin(self) -> Self { self.u8(0x34) }
+    fn while_test(self, rel: i32) -> Self { self.u8(0x35).i32(rel) }
+    fn loop_back(self, rel: i32) -> Self { self.u8(0x36).i32(rel) }
+    fn jump(self, rel: i32) -> Self { self.u8(0x0c).i32(rel) }
     fn halt(self) -> Self { self.u8(0x11) }
     fn file_v(&self, schema: &[u8], version: u16, magic: &[u8]) -> Vec<u8> {
         let mut out = magic.to_vec(); out.extend_from_slice(&version.to_be_bytes()); out.extend_from_slice(&sha256(schema));
@@ -153,7 +157,17 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
     assert_eq!(Program::load(&Asm::default().halt().file(), SCHEMA, &registry()).unwrap().line_of(0), None);
 }
 #[test] fn bad_magic() { assert!(load_err(&Asm::default().halt().file_v(SCHEMA, VERSION, b"XXXX")).contains("bad magic")); }
-#[test] fn version_3_refused() { assert!(load_err(&Asm::default().halt().file_v(SCHEMA, 3, b"DSLB")).contains("unsupported bytecode version 3 (this runtime reads version 4)")); }
+#[test] fn version_4_refused() { assert!(load_err(&Asm::default().halt().file_v(SCHEMA, 4, b"DSLB")).contains("unsupported bytecode version 4 (this runtime reads version 5)")); }
+#[test] fn while_false_exits_and_break_is_structural() {
+    // begin 0, test ends at 8, break jump ends at 13, loop-back ends at 18, HALT at 18.
+    let a = Asm::default().while_begin().push_bool(true).while_test(10).jump(5).loop_back(-18).halt();
+    assert!(run(&a.file()).is_ok());
+}
+#[test] fn while_continue_forward_jump_is_structural() {
+    // A false condition skips the body; the body still contains a continue jump to LOOP_BACK.
+    let a = Asm::default().while_begin().push_bool(false).while_test(10).jump(0).loop_back(-18).halt();
+    assert!(run(&a.file()).is_ok());
+}
 #[test] fn schema_mismatch() { assert!(load_err(&Asm::default().halt().file_v(b"other", VERSION, b"DSLB")).contains("schema mismatch")); }
 #[test] fn truncated() { let f = t().halt().file(); assert!(load_err(&f[..f.len() - 3]).contains("bytecode is truncated")); }
 #[test] fn trailing_bytes() { let mut f = Asm::default().halt().file(); f.push(0); assert!(load_err(&f).contains("trailing byte(s) after the line table")); }
