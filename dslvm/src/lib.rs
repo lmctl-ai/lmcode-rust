@@ -695,8 +695,7 @@ impl Program {
                 WHILE_BEGIN => {}
                 WHILE_TEST => {
                     let rel = r.i32()?; let condition = pop(&mut stack)?;
-                    let Value::Bool(b) = condition else { unreachable!("verified while condition is bool") };
-                    if !b { jump(&mut r, rel)?; }
+                    if !matches!(condition, Value::Bool(true)) { jump(&mut r, rel)?; }
                 }
                 LOOP_BACK => { let rel = r.i32()?; jump(&mut r, rel)?; }
                 DUP => { let top = stack.last().cloned().ok_or_else(|| Error::new("RUN_ERROR", "stack underflow"))?; push(&mut stack, top) }
