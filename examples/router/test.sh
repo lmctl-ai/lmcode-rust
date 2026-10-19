@@ -4,7 +4,7 @@
 # poc-web's router script runs on this Rust runtime and, when ../../../poc-web/build/server exists, on the C++ runtime too.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
-LMSCRIPT="${LMSCRIPT_BIN:-lmscript}"; MIN_LMSCRIPT=0.2.328
+LMSCRIPT="${LMSCRIPT_BIN:-lmscript}"; MIN_LMSCRIPT="${LMSCRIPT_MIN:-0.2.328}"
 if ! command -v "$LMSCRIPT" >/dev/null 2>&1 && [ ! -f "$LMSCRIPT" ]; then echo "FAIL: lmscript not found ($LMSCRIPT). Install the released CLI: npm install -g @lmctl-ai/lmctl (>= $MIN_LMSCRIPT), or set LMSCRIPT_BIN." >&2; exit 1; fi
 HAVE_LMSCRIPT="$("$LMSCRIPT" --version 2>/dev/null | sed -n 's/^lmscript //p')"
 if [ -z "$HAVE_LMSCRIPT" ] || [ "$(printf '%s\n%s\n' "$MIN_LMSCRIPT" "$HAVE_LMSCRIPT" | sort -V | head -1)" != "$MIN_LMSCRIPT" ]; then echo "FAIL: lmscript ${HAVE_LMSCRIPT:-unknown} at $LMSCRIPT is too old: _dsl_ needs >= $MIN_LMSCRIPT (npm install -g @lmctl-ai/lmctl@latest) or set LMSCRIPT_BIN." >&2; exit 1; fi
@@ -29,7 +29,8 @@ ok "conformance vectors match vectors.lock"
 cmp -s "$SCHEMA" "$ROOT/../poc-web/schema/router.dsl.json" 2>/dev/null && ok "schema is byte-identical to poc-web's schema/router.dsl.json" || echo "skip - poc-web checkout not found next to this repo; schema identity not checked"
 (cd "$HERE" && HOME="$WORK/home" "$LMSCRIPT" dsl/build_router.lms "$WORK/router.dslb" >"$WORK/compile.out" 2>&1) || { cat "$WORK/compile.out"; fail "lmscript compiles dsl/build_router.lms"; }
 [ "$(head -c 4 "$WORK/router.dslb")" = "DSLB" ] || fail "magic"
-ok "lmscript $HAVE_LMSCRIPT compiles the router to $(wc -c <"$WORK/router.dslb") bytes (bytecode v3)"
+[ "$(od -An -tu1 -j4 -N2 "$WORK/router.dslb" | xargs)" = "0 4" ] || fail "bytecode version 4 (use a v4 compiler)"
+ok "lmscript $HAVE_LMSCRIPT compiles the router to $(wc -c <"$WORK/router.dslb") bytes (bytecode v4)"
 
 # 3. Serve it on the Rust runtime.
 start_server() { # $1 binary; sets PORT and SERVER_PID

@@ -2,7 +2,7 @@
 //! a number to compare with the C++ runtime on the same bytecode. Usage: cargo run --release -p dsl-conformance --bin bench [VECTOR] [RUNS]
 use dslvm::{Context, Program, Registry, Value};
 use std::path::Path;
-struct Thing { id: i32 }
+struct Thing { id: i64 }
 fn main() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("vectors");
     let name = std::env::args().nth(1).unwrap_or_else(|| "int-arith".into());
@@ -29,11 +29,15 @@ fn main() {
     let secs = t0.elapsed().as_secs_f64();
     println!("rust {}: {} runs x {} instructions in {:.3} s = {:.0} runs/s, {:.1} M instructions/s", name, runs, ops, secs, runs as f64 / secs, (runs * ops) as f64 / secs / 1e6);
 }
-fn count_ops(file: &[u8]) -> usize {  // header: 4 magic + 2 version + 32 hash, then consts, locals, code length, code
-    let mut p = 38; let n = u16::from_be_bytes([file[p], file[p + 1]]) as usize; p += 2;
-    for _ in 0..n { let l = u16::from_be_bytes([file[p], file[p + 1]]) as usize; p += 2 + l; }
-    p += 2; let len = u32::from_be_bytes(file[p..p + 4].try_into().unwrap()) as usize; p += 4;
+fn count_ops(file: &[u8]) -> usize {  // v4 header: constants, imports, contexts, locals, max_stack, then code
+    let mut p = 38;
+    let n = u32::from_be_bytes(file[p..p + 4].try_into().unwrap()) as usize; p += 4;
+    for _ in 0..n { assert_eq!(file[p], 1, "bench only understands string constant tags"); let l = u32::from_be_bytes(file[p + 1..p + 5].try_into().unwrap()) as usize; p += 5 + l; }
+    let n = u16::from_be_bytes(file[p..p + 2].try_into().unwrap()) as usize; p += 2 + 4 * n;
+    let n = u16::from_be_bytes(file[p..p + 2].try_into().unwrap()) as usize; p += 2 + 8 * n;
+    let n = u16::from_be_bytes(file[p..p + 2].try_into().unwrap()) as usize; p += 2 + 5 * n + 2;
+    let len = u32::from_be_bytes(file[p..p + 4].try_into().unwrap()) as usize; p += 4;
     let code = &file[p..p + len]; let mut i = 0; let mut ops = 0;
-    while i < code.len() { ops += 1; i += 1 + match code[i] { 0x01 | 0x0C | 0x0D | 0x0E => 4, 0x02 | 0x04 | 0x05 | 0x06 => 2, 0x03 => 1, 0x07 => 3, 0x08 => 5, 0x12 => 8, _ => 0 }; }
+    while i < code.len() { ops += 1; i += 1 + match code[i] { 0x01 | 0x12 => 8, 0x02 => 4, 0x04 | 0x05 | 0x06 => 2, 0x03 => 1, 0x07 | 0x08 => 3, 0x0C | 0x0D | 0x0E => 4, _ => 0 }; }
     ops
 }

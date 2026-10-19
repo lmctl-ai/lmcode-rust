@@ -1,0 +1,2 @@
+load_error
+context variable 't' is declared as Thing by the bytecode, the host provides Trace

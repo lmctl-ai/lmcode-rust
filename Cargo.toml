@@ -3,6 +3,6 @@ resolver = "2"
 members = ["dslvm", "conformance", "examples/router"]
 
 [workspace.package]
-version = "3.0.0"
+version = "4.0.0"
 edition = "2021"
 license = "UNLICENSED"

@@ -4,18 +4,18 @@ version = 4
 
 [[package]]
 name = "dsl-conformance"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "dslvm",
 ]
 
 [[package]]
 name = "dslvm"
-version = "3.0.0"
+version = "4.0.0"
 
 [[package]]
 name = "router"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "dslvm",
 ]

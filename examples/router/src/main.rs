@@ -13,7 +13,7 @@ use std::time::Duration;
 #[derive(Default)]
 struct Request { method: String, path: String }
 #[derive(Default)]
-struct Response { status: i32, body: String, headers: Vec<(String, String)> }
+struct Response { status: i64, body: String, headers: Vec<(String, String)> }
 
 fn today() -> String {
     // civil date from the Unix epoch (UTC, like poc-web's localtime on a UTC box is close enough for the proof; the test compares with `date +%F`)
@@ -32,7 +32,7 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {  // Howard Hinnant's algorithm
     let d = (doy - (153 * mp + 2) / 5 + 1) as u32; let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
     (if m <= 2 { y + 1 } else { y }, m, d)
 }
-fn reason(status: i32) -> &'static str {
+fn reason(status: i64) -> &'static str {
     match status { 200 => "OK", 201 => "Created", 204 => "No Content", 400 => "Bad Request", 404 => "Not Found", 405 => "Method Not Allowed", 500 => "Internal Server Error", _ => "Status" }
 }
 

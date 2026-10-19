@@ -1,6 +1,6 @@
 {
-  "format": "dsl-conformance/1",
-  "bytecode_version": 3,
+  "format": "dsl-conformance/2",
+  "bytecode_version": 4,
   "generated_by": "lmscript dsl.ts (scripts/generate-dsl-conformance.ts)",
   "schema": "schema.json",
   "host": {
@@ -215,25 +215,54 @@
       }
     },
     {
-      "name": "runtime-int-overflow",
-      "covers": "ADD_I overflow",
+      "name": "int64-wraparound",
+      "covers": "PUSH_INT i64, two's complement wraparound of ADD_I SUB_I MUL_I DIV_I MOD_I NEG_I (R34: no overflow trap), I2S of 64-bit values",
       "schema": "schema.json",
-      "bytecode": "runtime-int-overflow.dslb",
-      "source": "runtime-int-overflow.dsl",
+      "bytecode": "int64-wraparound.dslb",
+      "source": "int64-wraparound.dsl",
       "mutated": false,
       "expect": {
-        "runtime_error": "int overflow"
+        "trace": [
+          "int 9007199254740992",
+          "int -9007199254740992",
+          "int -9223372036854775808",
+          "int 9223372036854775807",
+          "int -9223372036854775808",
+          "int -9223372036854775808",
+          "int 0",
+          "int -9223372036854775808",
+          "int -2",
+          "str -9223372036854775808"
+        ]
       }
     },
     {
-      "name": "runtime-neg-min",
-      "covers": "NEG_I of INT32_MIN",
+      "name": "int-remainder",
+      "covers": "MOD_I takes the dividend's sign; DIV_I truncates toward zero",
       "schema": "schema.json",
-      "bytecode": "runtime-neg-min.dslb",
-      "source": "runtime-neg-min.dsl",
+      "bytecode": "int-remainder.dslb",
+      "source": "int-remainder.dsl",
       "mutated": false,
       "expect": {
-        "runtime_error": "negating the smallest int"
+        "trace": [
+          "int 1",
+          "int -1",
+          "int 1",
+          "int -1",
+          "int 2",
+          "int -3"
+        ]
+      }
+    },
+    {
+      "name": "runtime-mod-zero",
+      "covers": "MOD_I by zero",
+      "schema": "schema.json",
+      "bytecode": "runtime-mod-zero.dslb",
+      "source": "runtime-mod-zero.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error": "int modulo by zero"
       }
     },
     {
@@ -249,13 +278,35 @@
     },
     {
       "name": "load-other-version",
-      "covers": "loader: version",
+      "covers": "loader: version (v3 refused, no backward compatibility)",
       "schema": "schema.json",
       "bytecode": "load-other-version.dslb",
       "source": "load-other-version.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "unsupported bytecode version 2"
+        "load_error": "unsupported bytecode version 3"
+      }
+    },
+    {
+      "name": "load-bad-constant-tag",
+      "covers": "loader: constant tag",
+      "schema": "schema.json",
+      "bytecode": "load-bad-constant-tag.dslb",
+      "source": "load-bad-constant-tag.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "constant 0 has unknown tag 7"
+      }
+    },
+    {
+      "name": "load-context-type",
+      "covers": "loader: context declaration type",
+      "schema": "schema-ctx.json",
+      "bytecode": "load-context-type.dslb",
+      "source": "load-context-type.dsl",
+      "mutated": false,
+      "expect": {
+        "load_error": "context variable 't' is declared as Thing by the bytecode, the host provides Trace"
       }
     },
     {
@@ -293,13 +344,13 @@
     },
     {
       "name": "load-unbound-function",
-      "covers": "loader: unbound name",
+      "covers": "loader: unbound import",
       "schema": "schema-extra.json",
       "bytecode": "load-unbound-function.dslb",
       "source": "load-unbound-function.dsl",
       "mutated": false,
       "expect": {
-        "load_error": "host function 'unbound_extra' is not bound"
+        "load_error": "import 'fn unbound_extra() -> int' is not provided by the host"
       }
     },
     {

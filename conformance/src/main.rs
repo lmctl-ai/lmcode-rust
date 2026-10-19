@@ -4,7 +4,7 @@
 use dslvm::{format_g15, Context, Error, Program, Registry, Value};
 use std::path::{Path, PathBuf};
 
-pub struct Thing { pub id: i32 }
+pub struct Thing { pub id: i64 }
 pub struct Trace(pub Vec<String>);
 
 /// The manifest's host stub: `t` (Trace) records calls; `root` is Thing 0; thing/twice/half/yes/fail.
@@ -48,12 +48,12 @@ pub fn read_expect(path: &Path) -> Expect {
     let mut it = text.lines(); let kind = it.next().unwrap_or("").to_string();
     Expect { kind, lines: it.map(|l| l.replace("\\n", "\n")).collect() }
 }
-/// The manifest names the schema per vector; only `schema-extra.json` deviates from the default.
+/// The manifest names the schema file per vector (`"schema": "schema-extra.json"` and the like); default schema.json.
 pub fn schema_for(dir: &Path, name: &str) -> PathBuf {
     let manifest = std::fs::read_to_string(dir.join("manifest.json")).unwrap_or_default();
     if let Some(p) = manifest.find(&format!("\"name\": \"{}\"", name)) {
         let rest = &manifest[p..]; let end = rest[1..].find("\"name\": \"").map(|e| e + 1).unwrap_or(rest.len());
-        if rest[..end].contains("\"schema\": \"schema-extra.json\"") { return dir.join("schema-extra.json"); }
+        if let Some(q) = rest[..end].find("\"schema\": \"") { let v = &rest[q + 11..end]; if let Some(e) = v.find('"') { return dir.join(&v[..e]); } }
     }
     dir.join("schema.json")
 }

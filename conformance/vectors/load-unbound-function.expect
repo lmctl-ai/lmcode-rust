@@ -1,2 +1,2 @@
 load_error
-host function 'unbound_extra' is not bound
+import 'fn unbound_extra() -> int' is not provided by the host

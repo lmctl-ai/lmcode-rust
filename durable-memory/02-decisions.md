@@ -15,8 +15,11 @@
   file; `scripts/sync-vectors.sh`, `--verify` inside `cargo test`). Reason: `cargo test` must work offline and alone; the same
   mechanism the C++ hosts use for the header.
 - **2026-10-18 (S0', spec v4): registration declares the schema's types** (`function(name, &[params], returns, f)`, `method(..)`, all returning `Result` so a duplicate is an error), `signatures()` lists the canonical strings `lmscript --dsl-signatures` prints (hosts diff them), `Error { code, message }` classifies the existing errors and `report_ok/report_error/report_app_failure` print the one-line JSON result with exit codes 3/4. Deliberately NOT added (R33/R34): call-time checks, forged-file defenses, caps.
-- **2026-10-18, crate major version = bytecode version** (3.0.0); the loader refuses other versions; no backward compatibility.
-- **2026-10-18, verifier accepts only what the compiler emits:** forward jumps, HALT last, 4096 locals; UTF-8 constants are
+- **2026-10-18, crate major version = bytecode version** (4.0.0); the loader refuses other versions; no backward compatibility.
+- **2026-10-18, v4 (spec slice S1' under R31-R34):** `Value::Int(i64)` with `wrapping_*` arithmetic (no overflow trap), `MOD_I`,
+  tagged constants, an import table resolved by canonical signature (`Import::Function/Method`), context/locals/lines sections
+  (`Program::locals/max_stack/lines/line_of`), no caps (MAX_STACK, MAX_STRING_BYTES, MAX_LOCALS removed). v3 files are refused.
+- **2026-10-18, verifier accepts only what the compiler emits:** forward jumps, HALT last, 4096 locals (cap removed in v4); UTF-8 constants are
   additionally validated (the C++ header stores raw bytes and does not check this; recorded as a spec gap).
 - **2026-10-18, the router example recomputes the civil date from the Unix epoch** (Hinnant's algorithm) with an optional
   `ROUTER_TZ_OFFSET_SECONDS`, because std has no local-time API and no crates are allowed; `test.sh` derives the offset from

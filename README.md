@@ -1,6 +1,6 @@
 # rust-dsl-sdk
 
-The Rust runtime for lmscript `_dsl_` bytecode (format v3): crate **`dslvm`** (loader, structural verifier, stack VM, host registry),
+The Rust runtime for lmscript `_dsl_` bytecode (format v4): crate **`dslvm`** (loader, structural verifier, stack VM, host registry),
 the **conformance runner** over the `cpp-dsl-sdk` vectors (the contract between runtimes), and an example host **`examples/router`**
 that serves the same schema and the same bytecode file as poc-web's C++ server. Second runtime after the C++ reference
 `lmctlhq/cpp-dsl-sdk`; same semantics and error classes; **no external crates** (SHA-256 is in the crate, checked against FIPS vectors).
@@ -36,7 +36,7 @@ fn main() -> Result<(), dslvm::Error> {
 refuses a file whose names or arities the registry does not provide, before anything runs. `reg.signatures()` lists the sorted
 canonical strings (`context g: Greeter`, `fn now() -> string`, `method Greeter.say(string) -> void`), exactly what
 `lmscript --dsl-signatures SCHEMA` prints, so a host test diffs the two sources of truth (spec v4 S0, A02). It is a consistency
-check, not a defense: per operator decisions R33/R34 the VM performs no call-time type checks. `Value` is `None | Int(i32) |
+check, not a defense: per operator decisions R33/R34 the VM performs no call-time type checks. `Value` is `None | Int(i64) |
 Float(f64) | Str | Bool | Obj{type_name, obj}`; a void method returns `Value::None`; host code returns `Err(dslvm::Error::host(..))`
 for a run-time failure and the VM propagates it.
 
@@ -61,24 +61,26 @@ host move together; the history is in the living spec.
 
 ## What load() guarantees (identical to the C++ runtime)
 
-Wrong magic, another version, a schema-hash mismatch, truncation, trailing bytes, undecodable instructions, non-UTF-8 constants,
-out-of-range constants or locals (locals limited to 4096), jumps that miss an instruction start or go backwards (the language has
-no loops, so every program terminates), a missing HALT, undeclared context names, unbound functions or methods and wrong arities are
-refused with a message naming the problem. `run()` bounds the operand stack (1024) and a concatenated string (16 MiB), checks value
-kinds defensively and never panics on bad input (every-truncation and bit-flip tests).
+Wrong magic, another version (v3 included), a schema-hash mismatch, truncation, trailing bytes, unknown constant tags, undecodable
+instructions, non-UTF-8 constants, out-of-range constant/local/import/context indexes, calls whose import kind or arity differ, jumps
+that miss an instruction start or go backwards (the language has no loops, so every program terminates), a missing HALT, and context
+declarations or import signatures the registry does not provide (the message names the host's own signature) are refused with a
+message naming the problem. `run()` retains existing value-kind errors; every-truncation tests cover structural loading failures
+and imposes no limits (operator decision 2026-10-18: no stack, locals or string cap; `max_stack` is a reservation hint). Ints are
+i64 with wrapping arithmetic (R34); division and remainder by zero are the run-time errors.
 
 ## Tests and conformance
 
-    cargo test                               # dslvm: 2 unit + 43 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
-                                             # dsl-conformance: vectors.lock pin check + all 21 vectors + a negative control
-    cargo run -p dsl-conformance             # prints ok/FAIL per vector: PASS 21/21
+    cargo test                               # dslvm: 2 unit + 54 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
+                                             # dsl-conformance: vectors.lock pin check + all 24 vectors + a negative control
+    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 24/24
     cargo run --release -p dsl-conformance --bin bench [VECTOR] [RUNS]   # runs/s on one vector
 
 `conformance/vectors` is a verbatim copy of `cpp-dsl-sdk/conformance/vectors` pinned by `vectors.lock` (SDK commit + sha256 over
 every file); `scripts/sync-vectors.sh` refreshes it from a sibling checkout `../cpp-dsl-sdk` (or `CPP_DSL_SDK=path`) and
 `--verify` runs inside `cargo test`. A new compiler release regenerates the vectors in the C++ repo first; this repo then syncs.
 
-Performance sanity (release build, this shared 4-core box, 2026-10-18, 200,000 runs of one vector each, discarding stub):
+Historical v3 performance sanity (release build, this shared 4-core box, 2026-10-18, 200,000 runs of one vector each, discarding stub):
 
 | vector | Rust runs/s | C++ runs/s | Rust instructions/s |
 | --- | --- | --- | --- |
@@ -102,6 +104,6 @@ C++ arena of raw pointers. Nothing was tuned.
 ## Depending on it
 
 A host team adds `dslvm = { path = "../rust-dsl-sdk/dslvm" }` (sibling checkout) or
-`dslvm = { git = "https://github.com/lmctlhq/rust-dsl-sdk", tag = "v3.0.0" }` to its `Cargo.toml`; the crate has no dependencies
+`dslvm = { git = "https://github.com/lmctlhq/rust-dsl-sdk", branch = "main" }` to its `Cargo.toml` and commits the resolved revision in `Cargo.lock`; no v4 release tag is published by this slice. The crate has no dependencies
 and no features. Workspace layout: `dslvm/` (the library), `conformance/` (runner, `bench`, pinned vectors), `examples/router/`
 (host example with its own `test.sh`), `scripts/sync-vectors.sh`, `vectors.lock`, `durable-memory/` (team memory, start at its index).
