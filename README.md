@@ -32,8 +32,10 @@ fn main() -> Result<(), dslvm::Error> {
 }
 ```
 
-`Registry` is declared with the schema's types (parameter type names and the return type); `load()` binds by name and arity and
-refuses a file whose names or arities the registry does not provide, before anything runs. `reg.signatures()` lists the sorted
+`Registry` is declared with the schema's types (parameter type names and the return type); entries are keyed by complete canonical
+signatures, so a name may have several overloads with distinct parameter tuples while duplicate parameter tuples are refused.
+`load()` binds the exact canonical signature and refuses a file whose import the registry does not provide, before anything runs.
+`reg.signatures()` lists the sorted
 canonical strings (`context g: Greeter`, `fn now() -> string`, `method Greeter.say(string) -> void`), exactly what
 `lmscript --dsl-signatures SCHEMA` prints, so a host test diffs the two sources of truth (spec v4 S0, A02). It is a consistency
 check, not a defense: per operator decisions R33/R34 the VM performs no call-time type checks. `Value` is `None | Int(i64) |
@@ -79,8 +81,8 @@ signed zero; integer abs wraps at `i64::MIN`.
 ## Tests and conformance
 
     cargo test                               # dslvm: 2 unit + 58 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
-                                             # dsl-conformance: vectors.lock pin check + all 35 vectors + a negative control
-    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 35/35
+                                             # dsl-conformance: vectors.lock pin check + all 37 vectors + a negative control
+    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 37/37
     cargo run --release -p dsl-conformance --bin bench [VECTOR] [RUNS]   # runs/s on one vector
 
 `conformance/vectors` is a verbatim copy of `cpp-dsl-sdk/conformance/vectors` pinned by `vectors.lock` (SDK commit + sha256 over

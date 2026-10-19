@@ -142,25 +142,31 @@ pub struct Signature { pub params: Vec<String>, pub returns: String }
 impl Signature { fn text(&self) -> String { format!("({}) -> {}", self.params.join(", "), self.returns) } }
 
 /// The implementation of the schema the bytecode was compiled against, declared with the schema's types. The loader binds
-/// by name and arity (`params.len()`); `signatures()` lists the canonical strings `lmscript --dsl-signatures SCHEMA` prints so a
-/// host test can diff the two sources of truth (spec v4 S0, A02). Per R33/R34 the VM performs no call-time checks.
-/// Registering a name twice is an error (`LOAD_UNBOUND`): two implementations of one schema entry.
+/// by its complete canonical signature; distinct parameter tuples under one name are overloads. `signatures()` lists the canonical
+/// strings `lmscript --dsl-signatures SCHEMA` prints so a host test can diff the two sources of truth (spec v4 S0, A02). Per
+/// R33/R34 the VM performs no call-time checks. Registering a parameter tuple twice is an error (`LOAD_UNBOUND`).
 #[derive(Default)]
 pub struct Registry {
-    functions: HashMap<String, (Signature, Function)>,
-    methods: HashMap<(String, String), (Signature, Method)>,
+    // Keys include the complete canonical signature. This permits overloads while keeping
+    // import binding exact and deterministic; a duplicate parameter tuple is rejected below.
+    functions: HashMap<String, (String, Signature, Function)>,
+    methods: HashMap<String, (String, String, Signature, Method)>,
     contexts: HashMap<String, String>,
 }
 impl Registry {
     pub fn new() -> Registry { Registry::default() }
     pub fn function(&mut self, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, &Args) -> Result<Value, Error> + 'static) -> Result<&mut Self, Error> {
         let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
-        if self.functions.insert(name.to_string(), (sig, Box::new(f))).is_some() { return load_err("LOAD_UNBOUND", format!("registry: function '{}' is registered twice", name)); }
+        if self.functions.values().any(|(n, old, _f)| n == name && old.params == sig.params) { return load_err("LOAD_UNBOUND", format!("registry: function '{}{}' is registered twice", name, sig.text())); }
+        let canonical = format!("fn {}{}", name, sig.text());
+        self.functions.insert(canonical, (name.to_string(), sig, Box::new(f)));
         Ok(self)
     }
     pub fn method(&mut self, type_name: &str, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, ObjRef, &Args) -> Result<Value, Error> + 'static) -> Result<&mut Self, Error> {
         let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
-        if self.methods.insert((type_name.to_string(), name.to_string()), (sig, Box::new(f))).is_some() { return load_err("LOAD_UNBOUND", format!("registry: method '{}.{}' is registered twice", type_name, name)); }
+        if self.methods.values().any(|(t, n, old, _f)| t == type_name && n == name && old.params == sig.params) { return load_err("LOAD_UNBOUND", format!("registry: method '{}.{}{}' is registered twice", type_name, name, sig.text())); }
+        let canonical = format!("method {}.{}{}", type_name, name, sig.text());
+        self.methods.insert(canonical, (type_name.to_string(), name.to_string(), sig, Box::new(f)));
         Ok(self)
     }
     /// Declares a context variable and its schema type; `Context::set` provides the object per run.
@@ -169,22 +175,26 @@ impl Registry {
         Ok(self)
     }
     pub fn context_type(&self, name: &str) -> Option<&str> { self.contexts.get(name).map(String::as_str) }
-    fn function_by_signature(&self, canonical: &str) -> Option<&(Signature, Function)> { self.functions.iter().find(|(n, (s, _))| format!("fn {}{}", n, s.text()) == canonical).map(|(_, e)| e) }
-    fn method_by_signature(&self, canonical: &str) -> Option<&(Signature, Method)> { self.methods.iter().find(|((t, n), (s, _))| format!("method {}.{}{}", t, n, s.text()) == canonical).map(|(_, e)| e) }
+    fn function_by_signature(&self, canonical: &str) -> Option<&(String, Signature, Function)> { self.functions.get(canonical) }
+    fn method_by_signature(&self, canonical: &str) -> Option<&(String, String, Signature, Method)> { self.methods.get(canonical) }
     /// "fn x(float) -> int" as the host declares the name an import asks for, or "" when the name is unknown.
     fn declared_for(&self, canonical: &str) -> String {
         let (Some(sp), Some(par)) = (canonical.find(' '), canonical.find('(')) else { return String::new() };
         if par < sp { return String::new(); }
         let name = &canonical[sp + 1..par];
-        if let Some(rest) = canonical.strip_prefix("fn ") { let _ = rest; return self.functions.get(name).map(|(s, _)| format!("fn {}{}", name, s.text())).unwrap_or_default(); }
+        if let Some(_rest) = canonical.strip_prefix("fn ") {
+            let mut have: Vec<String> = self.functions.values().filter(|(n, _s, _f)| n == name).map(|(_, s, _)| format!("fn {}{}", name, s.text())).collect();
+            have.sort(); return have.join(", ");
+        }
         let Some((t, n)) = name.split_once('.') else { return String::new() };
-        self.methods.get(&(t.to_string(), n.to_string())).map(|(s, _)| format!("method {}{}", name, s.text())).unwrap_or_default()
+        let mut have: Vec<String> = self.methods.values().filter(|(ty, method, _s, _f)| ty == t && method == n).map(|(_, _, s, _)| format!("method {}{}", name, s.text())).collect();
+        have.sort(); have.join(", ")
     }
     /// Sorted canonical strings: `context NAME: Type`, `fn NAME(T, ...) -> R`, `method Type.name(T, ...) -> R`.
     pub fn signatures(&self) -> Vec<String> {
         let mut out: Vec<String> = self.contexts.iter().map(|(n, t)| format!("context {}: {}", n, t)).collect();
-        out.extend(self.functions.iter().map(|(n, (s, _))| format!("fn {}{}", n, s.text())));
-        out.extend(self.methods.iter().map(|((t, n), (s, _))| format!("method {}.{}{}", t, n, s.text())));
+        out.extend(self.functions.keys().cloned());
+        out.extend(self.methods.keys().cloned());
         out.sort(); out
     }
 }
@@ -227,7 +237,7 @@ impl<'a> Reader<'a> {
 
 /// One resolved import: the host entry a `CALL_FN`/`CALL_METHOD` names (an index into the registry's maps by canonical string).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Import { Function(String), Method(String, String) }
+pub enum Import { Function(String), Method(String, String, String) }
 /// A declared local slot: its type name and whether the compiler hid it (loop machinery, never a user variable).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Local { pub type_name: String, pub hidden: bool }
@@ -265,10 +275,10 @@ impl Program {
         for _ in 0..nimports {
             let canonical = cidx(r.u32()?, "import")?;
             let resolved = if canonical.starts_with("fn ") {
-                reg.function_by_signature(canonical).map(|_| Import::Function(canonical[3..canonical.find('(').unwrap_or(canonical.len())].to_string()))
+                reg.function_by_signature(canonical).map(|_| Import::Function(canonical.to_string()))
             } else if let Some(rest) = canonical.strip_prefix("method ") {
                 let head = &rest[..rest.find('(').unwrap_or(rest.len())];
-                match (reg.method_by_signature(canonical), head.split_once('.')) { (Some(_), Some((t, n))) => Some(Import::Method(t.to_string(), n.to_string())), _ => None }
+                match (reg.method_by_signature(canonical), head.split_once('.')) { (Some(_), Some((t, n))) => Some(Import::Method(canonical.to_string(), t.to_string(), n.to_string())), _ => None }
             } else { None };
             match resolved {
                 Some(imp) => imports.push(imp),
@@ -318,7 +328,7 @@ impl Program {
     pub fn line_of(&self, pc: usize) -> Option<Line> { self.lines.iter().take_while(|l| l.pc as usize <= pc).last().copied() }
 
     fn import_sig<'a>(&self, reg: &'a Registry, i: usize) -> Option<&'a Signature> {
-        match &self.imports[i] { Import::Function(n) => reg.functions.get(n).map(|(s, _)| s), Import::Method(t, n) => reg.methods.get(&(t.clone(), n.clone())).map(|(s, _)| s) }
+        match &self.imports[i] { Import::Function(canonical) => reg.functions.get(canonical).map(|(_, s, _)| s), Import::Method(canonical, _, _) => reg.methods.get(canonical).map(|(_, _, s, _)| s) }
     }
 
     /// Static verification: every instruction decodes, every index is in range, and ordinary jumps land on instruction
@@ -481,22 +491,22 @@ impl Program {
                 CALL_FN => {
                     let i = r.u16()? as usize; let argc = r.u8()? as usize;
                     let mut args = vec![Value::None; argc]; for k in (0..argc).rev() { args[k] = pop(&mut stack)?; }
-                    let Import::Function(name) = &self.imports[i] else { return err("CALL_FN names a method import") };
-                    let (_, f) = reg.functions.get(name).ok_or_else(|| Error::new("RUN_ERROR", format!("host function '{}' is not bound", name)))?;
+                    let Import::Function(canonical) = &self.imports[i] else { return err("CALL_FN names a method import") };
+                    let (_, _, f) = reg.functions.get(canonical).ok_or_else(|| Error::new("RUN_ERROR", format!("host function '{}' is not bound", canonical)))?;
                     let result = f(ctx, &args)?;
                     if result != Value::None { push(&mut stack, result); }
                 }
                 CALL_METHOD => {
                     let i = r.u16()? as usize; let argc = r.u8()? as usize;
                     let mut args = vec![Value::None; argc]; for k in (0..argc).rev() { args[k] = pop(&mut stack)?; }
-                    let Import::Method(type_name, name) = &self.imports[i] else { return err("CALL_METHOD names a function import") };
+                    let Import::Method(canonical, type_name, name) = &self.imports[i] else { return err("CALL_METHOD names a function import") };
                     let this = pop(&mut stack)?;
                     let obj = match &this {
                         Value::Obj { type_name: t, obj } if t == type_name => *obj,
                         Value::Obj { type_name: t, .. } => return err(format!("method {}.{} called on a {}", type_name, name, t)),
                         other => return err(format!("method {}.{} called on a {}", type_name, name, other.kind_name())),
                     };
-                    let (_, m) = reg.methods.get(&(type_name.clone(), name.clone())).ok_or_else(|| Error::new("RUN_ERROR", format!("method '{}.{}' is not bound", type_name, name)))?;
+                    let (_, _, _, m) = reg.methods.get(canonical).ok_or_else(|| Error::new("RUN_ERROR", format!("method '{}.{}' is not bound", type_name, name)))?;
                     let result = m(ctx, obj, &args)?;
                     if result != Value::None { push(&mut stack, result); }
                 }

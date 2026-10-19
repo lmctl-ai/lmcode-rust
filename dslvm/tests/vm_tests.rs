@@ -253,6 +253,41 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
 }
 #[test] fn signatures_are_sorted_canonical_strings() { assert_eq!(registry().signatures(), ["context root: Thing", "context t: Trace", "fn boom() -> void", "fn twice(int) -> int", "method Thing.id() -> int", "method Trace.float(float) -> void", "method Trace.float_bits(float) -> void", "method Trace.int(int) -> void", "method Trace.str(string) -> void"]); }
 #[test] fn duplicate_registration_is_refused() { let mut reg = Registry::new(); reg.function("f", &[], "void", |_, _| Ok(Value::None)).unwrap(); let e = reg.function("f", &[], "void", |_, _| Ok(Value::None)).err().unwrap(); assert_eq!(e.code, "LOAD_UNBOUND"); assert!(e.message.contains("registered twice")); }
+#[test] fn overloads_are_keyed_by_parameter_types() {
+    let mut reg = Registry::new();
+    reg.function("f", &["int"], "int", |_, _| Ok(Value::Int(1))).unwrap();
+    reg.function("f", &["float"], "float", |_, _| Ok(Value::Float(1.0))).unwrap();
+    reg.function("f", &["int", "int"], "int", |_, _| Ok(Value::Int(2))).unwrap();
+    assert_eq!(reg.signatures(), ["fn f(float) -> float", "fn f(int) -> int", "fn f(int, int) -> int"]);
+    let e = reg.function("f", &["int"], "float", |_, _| Ok(Value::Float(1.0))).err().unwrap();
+    assert_eq!(e.code, "LOAD_UNBOUND");
+    assert!(e.message.contains("registered twice"));
+}
+#[test] fn canonical_overloads_dispatch_selected_function_and_method() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+    let picked = Rc::new(Cell::new(0));
+    let mut reg = Registry::new();
+    for (params, value) in [(&["int"][..], 1), (&["float"][..], 2), (&["int", "int"][..], 3)] {
+        let p = Rc::clone(&picked);
+        reg.function("pick", params, "void", move |_, _| { p.set(value); Ok(Value::None) }).unwrap();
+    }
+    reg.context("thing", "Thing").unwrap();
+    for (params, value) in [(&["int"][..], 4), (&["float"][..], 5), (&["int", "int"][..], 6)] {
+        let p = Rc::clone(&picked);
+        reg.method("Thing", "pick", params, "void", move |_, _, _| { p.set(value); Ok(Value::None) }).unwrap();
+    }
+    let bytes = Asm::default().push_int(1).func("fn pick(int) -> void", 1)
+        .push_float(1.5).func("fn pick(float) -> void", 1)
+        .push_int(2).push_int(3).func("fn pick(int, int) -> void", 2)
+        .ctx("thing", "Thing").push_int(1).method("method Thing.pick(int) -> void", 1)
+        .ctx("thing", "Thing").push_float(1.5).method("method Thing.pick(float) -> void", 1)
+        .ctx("thing", "Thing").push_int(2).push_int(3).method("method Thing.pick(int, int) -> void", 2).halt().file();
+    let p = Program::load(&bytes, SCHEMA, &reg).unwrap();
+    let mut ctx = Context::new(); ctx.set_object("thing", "Thing", Thing { id: 0 });
+    p.run(&mut ctx, &reg).unwrap();
+    assert_eq!(picked.get(), 6);
+}
 #[test] fn error_codes_classify_the_existing_errors() {
     assert_eq!(Program::load(&Asm::default().halt().file_v(SCHEMA, VERSION, b"XXXX"), SCHEMA, &registry()).unwrap_err().code, "LOAD_BAD_BYTECODE");
     assert_eq!(Program::load(&Asm::default().halt().file_v(b"other", VERSION, b"DSLB"), SCHEMA, &registry()).unwrap_err().code, "LOAD_SCHEMA_MISMATCH");

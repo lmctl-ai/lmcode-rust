@@ -45,3 +45,11 @@ trace lines with `~ ` and checks finite values with relative tolerance `1e-12`.
 
 S4 verification: 62 integration + 2 library + 4 conformance-harness tests, and 35/35 shared vectors
 pinned to cpp-dsl-sdk 90e100090534eff869c512156742727cf1723ccb. Clippy completed with style warnings.
+
+## S2 canonical overload binding
+
+Multiple signatures may share one function/method name. Registry keys are full canonical signatures;
+duplicate parameter tuples are refused regardless of return type. Enums retain their schema type
+names in signatures and use strings as runtime values. Self expands to the receiver type before
+registration/import binding; no identity check or dynamic overload resolution is added.
+Verified: 64 integration + 2 library + 4 harness tests and 37 shared vectors.

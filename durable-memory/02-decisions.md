@@ -31,3 +31,7 @@
 - **2026-10-18, S4 math:** opcode `MATH (0x32)` carries one function byte. Float min/max propagate NaN and retain the
   first operand for equal values (including signed zero); clamp is `min(max(x, lo), hi)` without a new error path. Rust
   uses its platform libm for sin/cos/pow and the shared conformance tolerance is finite relative error `1e-12`.
+- **2026-10-18, S2 exact overload imports:** function and method registries are keyed by complete canonical signatures, including
+  parameter and return types. Distinct parameter tuples may share a name; duplicate parameter tuples are rejected even with a
+  different return type. Each bytecode import retains its canonical signature and resolves to that exact host closure. Enum names
+  are accepted as ordinary schema type names. The runtime performs no overload, arity, or type dispatch.
