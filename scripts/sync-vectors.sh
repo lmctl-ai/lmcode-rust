@@ -14,5 +14,5 @@ if [ "${1:-}" = "--verify" ]; then
 fi
 [ -d "$SDK/conformance/vectors" ] || { echo "cpp-dsl-sdk checkout not found at $SDK (set CPP_DSL_SDK)" >&2; exit 1; }
 rm -rf "$DST"; mkdir -p "$DST"; cp "$SDK"/conformance/vectors/* "$DST"/
-printf 'repo=https://github.com/lmctlhq/cpp-dsl-sdk\ncommit=%s\nsha256=%s\n' "$(git -C "$SDK" rev-parse HEAD)" "$(digest "$DST")" >"$LOCK"
+printf 'repo=https://github.com/lmctl-ai/cpp-dsl-sdk\ncommit=%s\nsha256=%s\n' "$(git -C "$SDK" rev-parse HEAD)" "$(digest "$DST")" >"$LOCK"
 echo "synced $(ls "$DST" | wc -l) files from cpp-dsl-sdk $(git -C "$SDK" rev-parse --short HEAD)"

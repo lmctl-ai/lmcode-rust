@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # End-to-end test of the Rust router host. Needs cargo (1.92 used), curl and the released lmscript CLI
-# (`npm install -g @lmctl-ai/lmctl`, >= 0.2.328; LMSCRIPT_BIN overrides). Proves that the UNCHANGED bytecode compiled from
-# poc-web's router script runs on this Rust runtime and, when ../../../poc-web/build/server exists, on the C++ runtime too.
+# (`npm install -g @lmctl-ai/lmctl`, >= 0.2.346; LMSCRIPT_BIN overrides). Proves that the UNCHANGED bytecode compiled from
+# lmweb's router script runs on this Rust runtime and, when ../../../lmweb/build/server exists, on the C++ runtime too.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
-LMSCRIPT="${LMSCRIPT_BIN:-lmscript}"; MIN_LMSCRIPT="${LMSCRIPT_MIN:-0.2.328}"
+LMWEB_DIR="${LMWEB_DIR:-}"
+if [ -z "$LMWEB_DIR" ]; then
+  for candidate in "$ROOT/../lmweb" "$ROOT/../poc-web"; do
+    if [ -d "$candidate" ]; then LMWEB_DIR="$candidate"; break; fi
+  done
+fi
+LMSCRIPT="${LMSCRIPT_BIN:-lmscript}"; MIN_LMSCRIPT="${LMSCRIPT_MIN:-0.2.346}"
 if ! command -v "$LMSCRIPT" >/dev/null 2>&1 && [ ! -f "$LMSCRIPT" ]; then echo "FAIL: lmscript not found ($LMSCRIPT). Install the released CLI: npm install -g @lmctl-ai/lmctl (>= $MIN_LMSCRIPT), or set LMSCRIPT_BIN." >&2; exit 1; fi
 HAVE_LMSCRIPT="$("$LMSCRIPT" --version 2>/dev/null | sed -n 's/^lmscript //p')"
 if [ -z "$HAVE_LMSCRIPT" ] || [ "$(printf '%s\n%s\n' "$MIN_LMSCRIPT" "$HAVE_LMSCRIPT" | sort -V | head -1)" != "$MIN_LMSCRIPT" ]; then echo "FAIL: lmscript ${HAVE_LMSCRIPT:-unknown} at $LMSCRIPT is too old: _dsl_ needs >= $MIN_LMSCRIPT (npm install -g @lmctl-ai/lmctl@latest) or set LMSCRIPT_BIN." >&2; exit 1; fi
@@ -25,12 +31,12 @@ ok "Rust router builds (dslvm crate, std::net, no external crates)"
 bash "$ROOT/scripts/sync-vectors.sh" --verify >/dev/null || fail "conformance vectors differ from vectors.lock"
 ok "conformance vectors match vectors.lock"
 
-# 2. Compile poc-web's router chunk with the released lmscript (same schema bytes as poc-web).
-if [ -f "$ROOT/../poc-web/schema/router.dsl.json" ]; then
-  cmp -s "$SCHEMA" "$ROOT/../poc-web/schema/router.dsl.json" || fail "router schema differs from the sibling poc-web schema"
-  ok "schema is byte-identical to poc-web's schema/router.dsl.json"
+# 2. Compile lmweb's router chunk with the released lmscript (same schema bytes as lmweb).
+if [ -n "$LMWEB_DIR" ] && [ -f "$LMWEB_DIR/schema/router.dsl.json" ]; then
+  cmp -s "$SCHEMA" "$LMWEB_DIR/schema/router.dsl.json" || fail "router schema differs from the sibling lmweb schema"
+  ok "schema is byte-identical to lmweb's schema/router.dsl.json"
 else
-  echo "skip - poc-web checkout not found next to this repo; schema identity not checked"
+  echo "skip - lmweb checkout not found next to this repo; schema identity not checked"
 fi
 (cd "$HERE" && HOME="$WORK/home" "$LMSCRIPT" dsl/build_router.lms "$WORK/router.dslb" >"$WORK/compile.out" 2>&1) || { cat "$WORK/compile.out"; fail "lmscript compiles dsl/build_router.lms"; }
 [ "$(head -c 4 "$WORK/router.dslb")" = "DSLB" ] || fail "magic"
@@ -55,16 +61,16 @@ ok "Rust runtime: POST / -> 405 method not allowed"
 stop_server; grep -q '^stopped$' "$WORK/s.err" || fail "clean stop: $(cat "$WORK/s.err")"
 ok "Rust router stops cleanly on SIGTERM"
 
-# 4. The SAME bytecode file on the C++ runtime (poc-web), when it is built next to this repo.
-CPP="$ROOT/../poc-web/build/server"
+# 4. The SAME bytecode file on the C++ runtime (lmweb), when it is built next to this repo.
+CPP="${LMWEB_DIR:+$LMWEB_DIR/build/server}"
 if [ -x "$CPP" ]; then
   start_server "$CPP"
   [ "$(curl -s "http://127.0.0.1:$PORT/")" = "$TODAY" ] || fail "C++ runtime GET body"
   [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/")" = 405 ] || fail "C++ runtime POST"
   stop_server
-  ok "the unchanged bytecode gives the same answers on the C++ runtime (poc-web/build/server)"
+  ok "the unchanged bytecode gives the same answers on the C++ runtime (lmweb/build/server)"
 else
-  echo "skip - poc-web/build/server not built next to this repo"
+  echo "skip - lmweb/build/server not built next to this repo"
 fi
 
 # 5. Refusals before serving: schema mismatch, truncated file, wrong magic (exit 1 with a message).

@@ -1,4 +1,4 @@
-//! Example host on the Rust runtime: the SAME schema and the SAME bytecode file as poc-web's C++ server (lmctlhq/poc-web,
+//! Example host on the Rust runtime: the SAME schema and the SAME bytecode file as lmweb's C++ server (lmctl-ai/lmweb,
 //! cpp/server.cpp). A generic single-threaded HTTP/1.1 server (std::net, Connection: close) that knows nothing about
 //! routing: per request it builds the context (req, res), runs the DSL chunk once, then writes whatever the chunk set
 //! (default 500 when the chunk set no status). Flags: --port N (0 = free port, prints `listening on PORT`), --dsl FILE,
@@ -16,7 +16,7 @@ struct Request { method: String, path: String }
 struct Response { status: i64, body: String, headers: Vec<(String, String)> }
 
 fn today() -> String {
-    // civil date from the Unix epoch (UTC, like poc-web's localtime on a UTC box is close enough for the proof; the test compares with `date +%F`)
+    // civil date from the Unix epoch (UTC, like lmweb's localtime on a UTC box is close enough for the proof; the test compares with `date +%F`)
     let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     let tz = tz_offset_seconds();
     let days = ((secs as i64 + tz) / 86_400) as i64;

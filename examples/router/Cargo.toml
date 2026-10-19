@@ -2,8 +2,9 @@
 name = "router"
 version = "4.0.0"
 edition = "2021"
-description = "Example host: poc-web's router schema and bytecode served by a std::net HTTP server on the Rust runtime"
-license = "UNLICENSED"
+repository = "https://github.com/lmctl-ai/rust-dsl-sdk"
+description = "Example host: lmweb's router schema and bytecode served by a std::net HTTP server on the Rust runtime"
+license = "MIT"
 
 [dependencies]
 dslvm = { path = "../../dslvm" }
