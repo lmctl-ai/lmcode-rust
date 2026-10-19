@@ -1,7 +1,7 @@
 # rust-dsl-sdk durable memory
 
 What this repo is: the Rust runtime for lmscript `_dsl_` bytecode (crate `dslvm`), the conformance runner over the pinned
-`cpp-dsl-sdk` vectors (24/24) and a std::net router example that runs poc-web's unchanged bytecode. Status (2026-10-18):
+`cpp-dsl-sdk` vectors (31/31) and a std::net router example that runs poc-web's unchanged bytecode. Status (2026-10-18):
 EXPERIMENTAL, works; crate major version = bytecode version = 4; private repo `lmctlhq/rust-dsl-sdk`. Operator requirement R21.
 
 Team guide: lmctl-mono `lmscript/durable-memory/dsl-framework.md`. Requirements and findings ("Findings from the Rust runtime"):
@@ -22,3 +22,15 @@ Version 4 crate and wire format: 54 integration + 2 library unit tests, 3 confor
 runs on Rust and C++). No new runtime caps or dynamic checks; integer arithmetic wraps.
 Clippy completed with style suggestions; this slice does not perform unrelated style refactoring.
 Use the matching built v4 compiler via LMSCRIPT_MIN=0/LMSCRIPT_BIN; release 0.2.328 remains v3.
+
+## S3 loop runtime (2026-10-18)
+
+The runtime accepts the structured range pair `FOR_RANGE (0x2f)` and `FOR_NEXT (0x31)`. `FOR_RANGE` consumes start/end
+integers once, stores the index and end in distinct hidden integer locals, and takes a forward exit relative to the end of
+its operands. `FOR_NEXT` carries the end-local marker and a backward relative target to the instruction after its opener;
+the verified pair metadata supplies the counter slot. The verifier enforces nesting, matching slots, instruction targets,
+read-only loop locals, and lexical-region boundaries for ordinary jumps. It imposes no loop budget, time limit, memory cap,
+or new run-time type/termination checks. The compiler owns the hidden locals and proves the loop shape before loading.
+
+S3 verification: 58 integration + 2 library unit + 3 conformance-harness tests pass;
+31 shared vectors pinned to cpp-dsl-sdk 126b592 pass, including one million iterations and 17 nested loops.

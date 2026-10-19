@@ -197,13 +197,13 @@ enum Op {
     EQ = 0x09, NE = 0x0A, NOT = 0x0B, JUMP = 0x0C, JUMP_IF_FALSE = 0x0D, JUMP_IF_TRUE = 0x0E, DUP = 0x0F, POP = 0x10, HALT = 0x11,
     PUSH_FLOAT = 0x12, ADD_I = 0x13, SUB_I = 0x14, MUL_I = 0x15, DIV_I = 0x16, ADD_F = 0x17, SUB_F = 0x18, MUL_F = 0x19, DIV_F = 0x1A, NEG_I = 0x1B, NEG_F = 0x1C,
     LT_I = 0x1D, LE_I = 0x1E, GT_I = 0x1F, GE_I = 0x20, LT_F = 0x21, LE_F = 0x22, GT_F = 0x23, GE_F = 0x24, I2F = 0x25, CONCAT = 0x26, I2S = 0x27, F2S = 0x28, B2S = 0x29,
-    MOD_I = 0x33,
+    MOD_I = 0x33, FOR_RANGE = 0x2F, FOR_NEXT = 0x31,
 }
 impl Op {
     fn decode(b: u8) -> Option<Op> {
         use Op::*;
-        const ALL: [Op; 42] = [PUSH_INT, PUSH_STR, PUSH_BOOL, LOAD_LOCAL, STORE_LOCAL, LOAD_CTX, CALL_FN, CALL_METHOD, EQ, NE, NOT, JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE, DUP, POP, HALT,
-            PUSH_FLOAT, ADD_I, SUB_I, MUL_I, DIV_I, ADD_F, SUB_F, MUL_F, DIV_F, NEG_I, NEG_F, LT_I, LE_I, GT_I, GE_I, LT_F, LE_F, GT_F, GE_F, I2F, CONCAT, I2S, F2S, B2S, MOD_I];
+        const ALL: [Op; 44] = [PUSH_INT, PUSH_STR, PUSH_BOOL, LOAD_LOCAL, STORE_LOCAL, LOAD_CTX, CALL_FN, CALL_METHOD, EQ, NE, NOT, JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE, DUP, POP, HALT,
+            PUSH_FLOAT, ADD_I, SUB_I, MUL_I, DIV_I, ADD_F, SUB_F, MUL_F, DIV_F, NEG_I, NEG_F, LT_I, LE_I, GT_I, GE_I, LT_F, LE_F, GT_F, GE_F, I2F, CONCAT, I2S, F2S, B2S, MOD_I, FOR_RANGE, FOR_NEXT];
         ALL.iter().copied().find(|op| *op as u8 == b)
     }
 }
@@ -237,7 +237,7 @@ pub struct Line { pub pc: u32, pub line: u32, pub column: u16 }
 
 /// A loaded, verified program. Immutable; run it as often as the host likes.
 #[derive(Debug, Clone)]
-pub struct Program { consts: Vec<String>, imports: Vec<Import>, contexts: Vec<String>, locals: Vec<Local>, max_stack: u16, code: Vec<u8>, lines: Vec<Line> }
+pub struct Program { consts: Vec<String>, imports: Vec<Import>, contexts: Vec<String>, locals: Vec<Local>, max_stack: u16, code: Vec<u8>, lines: Vec<Line>, loop_pairs: HashMap<usize, (usize, usize)> }
 
 impl Program {
     /// Parses, binds against the registry and verifies. Nothing executes here; every problem is an `Err`.
@@ -303,8 +303,8 @@ impl Program {
             lines.push(l);
         }
         if !r.done() { return load_err("LOAD_BAD_BYTECODE", format!("bytecode has {} trailing byte(s) after the line table", bytecode.len() - r.pos)); }
-        let p = Program { consts, imports, contexts, locals, max_stack, code, lines };
-        p.verify(reg)?;
+        let mut p = Program { consts, imports, contexts, locals, max_stack, code, lines, loop_pairs: HashMap::new() };
+        p.loop_pairs = p.verify(reg)?;
         Ok(p)
     }
 
@@ -321,13 +321,22 @@ impl Program {
         match &self.imports[i] { Import::Function(n) => reg.functions.get(n).map(|(s, _)| s), Import::Method(t, n) => reg.methods.get(&(t.clone(), n.clone())).map(|(s, _)| s) }
     }
 
-    /// Static verification: every instruction decodes, every index is in range, jumps land on instruction starts and move
-    /// forward (termination without a step counter: the language has no loops), the code ends with HALT, calls name an import
-    /// of the right kind with the import's arity. Imports and context were resolved while reading the tables.
-    fn verify(&self, reg: &Registry) -> Result<(), Error> {
+    /// Static verification: every instruction decodes, every index is in range, and ordinary jumps land on instruction
+    /// starts in the same lexical region.  Range loops are the one structured backward edge: their FOR_NEXT must pair
+    /// with the innermost FOR_RANGE, return to its body start, and use distinct compiler-owned integer locals.  This is
+    /// deliberately structural; there is no iteration counter or other run-time termination check (R25/R34).
+    fn verify(&self, reg: &Registry) -> Result<HashMap<usize, (usize, usize)>, Error> {
         let mut r = Reader::new(&self.code);
         let mut starts: Vec<usize> = Vec::new();
-        let mut jumps: Vec<(usize, i64)> = Vec::new();
+        #[derive(Clone, Copy)]
+        struct LoopFrame { opener: usize, body: usize, counter: usize, end: usize, exit: usize }
+        #[derive(Clone, Copy)]
+        struct Jump { at: usize, target: usize, ordinary: bool }
+        let mut jumps: Vec<Jump> = Vec::new();
+        let mut loops: Vec<LoopFrame> = Vec::new();
+        let mut all_loops: Vec<LoopFrame> = Vec::new();
+        let mut loop_pairs: HashMap<usize, (usize, usize)> = HashMap::new();
+        let mut loop_slots: Vec<usize> = Vec::new();
         let mut halted = false;
         let index = |i: usize, n: usize, what: &str| -> Result<(), Error> { if i >= n { load_err("LOAD_BAD_BYTECODE", format!("{} index {} out of range ({} entries)", what, i, n)) } else { Ok(()) } };
         while !r.done() {
@@ -341,7 +350,13 @@ impl Program {
                 PUSH_FLOAT => { r.f64()?; }
                 PUSH_STR => { index(r.u32()? as usize, self.consts.len(), "constant")?; }
                 PUSH_BOOL => { let v = r.u8()?; if v > 1 { return load_err("LOAD_BAD_BYTECODE", "PUSH_BOOL operand must be 0 or 1"); } }
-                LOAD_LOCAL | STORE_LOCAL => { index(r.u16()? as usize, self.locals.len(), "local slot")?; }
+                LOAD_LOCAL | STORE_LOCAL => {
+                    let slot = r.u16()? as usize;
+                    index(slot, self.locals.len(), "local slot")?;
+                    if op == STORE_LOCAL && self.locals[slot].hidden {
+                        return load_err("LOAD_BAD_BYTECODE", format!("STORE_LOCAL at offset {} writes compiler-owned loop local {}", at, slot));
+                    }
+                }
                 LOAD_CTX => { index(r.u16()? as usize, self.contexts.len(), "context")?; }
                 CALL_FN | CALL_METHOD => {
                     let i = r.u16()? as usize; let argc = r.u8()? as usize; index(i, self.imports.len(), "import")?;
@@ -357,18 +372,74 @@ impl Program {
                 EQ | NE | NOT | DUP | POP | ADD_I | SUB_I | MUL_I | DIV_I | MOD_I | ADD_F | SUB_F | MUL_F | DIV_F | NEG_I | NEG_F | LT_I | LE_I | GT_I | GE_I | LT_F | LE_F | GT_F | GE_F | I2F | CONCAT | I2S | F2S | B2S => {}
                 JUMP | JUMP_IF_FALSE | JUMP_IF_TRUE => {
                     let rel = r.i32()?;
-                    if rel < 0 { return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} goes backwards (the language has no loops; every jump must move forward)", at)); }
-                    jumps.push((r.pos, r.pos as i64 + rel as i64));
+                    if rel < 0 { return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} goes backwards outside a range loop", at)); }
+                    let target = r.pos as i64 + rel as i64;
+                    if target < 0 { return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} has an invalid target", at)); }
+                    jumps.push(Jump { at, target: target as usize, ordinary: true });
                 }
-                HALT => { halted = true; }
+                FOR_RANGE => {
+                    let counter = r.u16()? as usize;
+                    let end = r.u16()? as usize;
+                    let rel = r.i32()?;
+                    index(counter, self.locals.len(), "FOR_RANGE counter local")?;
+                    index(end, self.locals.len(), "FOR_RANGE end local")?;
+                    if counter == end { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} reuses local {} for counter and end", at, counter)); }
+                    for slot in [counter, end] {
+                        if !self.locals[slot].hidden || self.locals[slot].type_name != "int" {
+                            return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} requires hidden int local {}, got {}{}", at, slot, if self.locals[slot].hidden { "" } else { "visible " }, self.locals[slot].type_name));
+                        }
+                        if loop_slots.contains(&slot) { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} reuses loop local {}", at, slot)); }
+                        loop_slots.push(slot);
+                    }
+                    let target = r.pos as i64 + rel as i64;
+                    if target < 0 { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} has an invalid exit target", at)); }
+                    let exit = target as usize;
+                    if exit <= at { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} exits backwards", at)); }
+                    let frame = LoopFrame { opener: at, body: r.pos, counter, end, exit };
+                    loops.push(frame);
+                    all_loops.push(frame);
+                }
+                FOR_NEXT => {
+                    let end = r.u16()? as usize;
+                    let rel = r.i32()?;
+                    let Some(frame) = loops.pop() else { return load_err("LOAD_BAD_BYTECODE", format!("FOR_NEXT at offset {} has no matching FOR_RANGE", at)); };
+                    if end != frame.end { return load_err("LOAD_BAD_BYTECODE", format!("FOR_NEXT at offset {} closes the wrong range loop (end local {}, expected {})", at, end, frame.end)); }
+                    let target = r.pos as i64 + rel as i64;
+                    if target != frame.body as i64 { return load_err("LOAD_BAD_BYTECODE", format!("FOR_NEXT at offset {} must jump to its FOR_RANGE body start {}", at, frame.body)); }
+                    if rel >= 0 { return load_err("LOAD_BAD_BYTECODE", format!("FOR_NEXT at offset {} must jump backwards", at)); }
+                    jumps.push(Jump { at, target: frame.body, ordinary: false });
+                    loop_pairs.insert(at, (frame.counter, frame.end));
+                    // The FOR_RANGE exit is the only legal edge out of this loop. It must land after the matching NEXT.
+                    if frame.exit != r.pos { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} must exit immediately after its FOR_NEXT", frame.opener)); }
+                }
+                HALT => {
+                    if !loops.is_empty() { return load_err("LOAD_BAD_BYTECODE", format!("HALT at offset {} is inside a range loop", at)); }
+                    halted = true;
+                }
             }
         }
         if !halted { return load_err("LOAD_BAD_BYTECODE", "code does not end with HALT"); }
-        for (from, target) in jumps {
-            if target < 0 || !starts.contains(&(target as usize)) { return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} targets {}, not an instruction start", from, target)); }
+        if let Some(frame) = loops.last() { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} is not closed by FOR_NEXT", frame.opener)); }
+        for jump in jumps {
+            if !starts.contains(&jump.target) { return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} targets {}, not an instruction start", jump.at, jump.target)); }
+            if jump.ordinary {
+                // Ordinary jumps may not cross a structured loop boundary. The compiler uses FOR_RANGE's exit edge
+                // to leave a loop, and FOR_NEXT's paired edge to re-enter one.
+                let region = |pc: usize| -> Option<usize> {
+                    let mut owner = None;
+                    for frame in &all_loops {
+                        if frame.body <= pc && pc < frame.exit { owner = Some(frame.opener); }
+                    }
+                    owner
+                };
+                if region(jump.at) != region(jump.target) { return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} crosses a range-loop boundary", jump.at)); }
+            }
+        }
+        for frame in &all_loops {
+            if !starts.contains(&frame.exit) { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} exits to {}, not an instruction start", frame.opener, frame.exit)); }
         }
         for l in &self.lines { if l.pc as usize >= self.code.len() { return load_err("LOAD_BAD_BYTECODE", format!("line table entry points at pc {}, beyond the code", l.pc)); } }
-        Ok(())
+        Ok(loop_pairs)
     }
 
     /// Executes the chunk once against the host's objects.
@@ -454,6 +525,34 @@ impl Program {
                 JUMP_IF_FALSE | JUMP_IF_TRUE => {
                     let rel = r.i32()?; let c = pop(&mut stack)?;
                     match c { Value::Bool(b) => { if b == (op == JUMP_IF_TRUE) { jump(&mut r, rel)?; } } o => return err(format!("condition is a {}, not a bool", o.kind_name())) }
+                }
+                FOR_RANGE => {
+                    let counter = r.u16()? as usize;
+                    let end = r.u16()? as usize;
+                    let rel = r.i32()?;
+                    let end_value = pop(&mut stack)?;
+                    let start_value = pop(&mut stack)?;
+                    let (Value::Int(start), Value::Int(end_value)) = (start_value, end_value) else {
+                        unreachable!("compiler guarantees integer range bounds")
+                    };
+                    locals[counter] = Value::Int(start);
+                    locals[end] = Value::Int(end_value);
+                    if start >= end_value { jump(&mut r, rel)?; }
+                }
+                FOR_NEXT => {
+                    let encoded_end = r.u16()? as usize;
+                    let rel = r.i32()?;
+                    let (counter, end) = self.loop_pairs.get(&(r.pos - 7)).copied().expect("verified FOR_NEXT metadata");
+                    let _ = encoded_end;
+                    locals[counter] = match locals[counter] {
+                        Value::Int(i) => Value::Int(i.wrapping_add(1)),
+                        _ => unreachable!("verified range counter local is an int"),
+                    };
+                    let current = match (&locals[counter], &locals[end]) {
+                        (Value::Int(i), Value::Int(limit)) => (*i, *limit),
+                        _ => unreachable!("verified range locals are ints"),
+                    };
+                    if current.0 < current.1 { jump(&mut r, rel)?; }
                 }
                 DUP => { let top = stack.last().cloned().ok_or_else(|| Error::new("RUN_ERROR", "stack underflow"))?; push(&mut stack, top) }
                 POP => { pop(&mut stack)?; }

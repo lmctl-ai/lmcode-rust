@@ -4,7 +4,7 @@
   "generated_by": "lmscript dsl.ts (scripts/generate-dsl-conformance.ts)",
   "schema": "schema.json",
   "host": {
-    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C).",
+    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. bound(i) records bound N and returns i; thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C).",
     "expect": "trace: the recorded lines in order, after a successful run. runtime_error: run() throws and the message contains the substring. load_error: load() throws (nothing runs) and the message contains the substring."
   },
   "vectors": [
@@ -263,6 +263,114 @@
       "mutated": false,
       "expect": {
         "runtime_error": "int modulo by zero"
+      }
+    },
+    {
+      "name": "range-deep",
+      "covers": "nesting beyond the withdrawn 16-level cap",
+      "schema": "schema.json",
+      "bytecode": "range-deep.dslb",
+      "source": "range-deep.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 17"
+        ]
+      }
+    },
+    {
+      "name": "range-empty",
+      "covers": "FOR_RANGE empty and reversed ranges; negative counters",
+      "schema": "schema.json",
+      "bytecode": "range-empty.dslb",
+      "source": "range-empty.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int -2",
+          "int -1",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "range-nested-snapshot",
+      "covers": "nested FOR_RANGE/FOR_NEXT with computed bounds and bound snapshot",
+      "schema": "schema.json",
+      "bytecode": "range-nested-snapshot.dslb",
+      "source": "range-nested-snapshot.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 10",
+          "int 11",
+          "int 20",
+          "int 21",
+          "int 22",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "range-computed",
+      "covers": "host-computed bounds evaluated exactly once left-to-right; if inside loop",
+      "schema": "schema.json",
+      "bytecode": "range-computed.dslb",
+      "source": "range-computed.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bound 1",
+          "bound 4",
+          "int 1",
+          "int 3"
+        ]
+      }
+    },
+    {
+      "name": "range-million",
+      "covers": "large finite count without budget, wrapping i64 accumulator",
+      "schema": "schema.json",
+      "bytecode": "range-million.dslb",
+      "source": "range-million.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 499999500000"
+        ]
+      }
+    },
+    {
+      "name": "range-i64-edges",
+      "covers": "short loops near INT64_MIN/MAX terminate without overflow; extreme reversed range empty",
+      "schema": "schema.json",
+      "bytecode": "range-i64-edges.dslb",
+      "source": "range-i64-edges.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 9223372036854775805",
+          "int 9223372036854775806",
+          "int -9223372036854775808",
+          "int -9223372036854775807"
+        ]
+      }
+    },
+    {
+      "name": "range-scopes",
+      "covers": "fresh counter scopes, branch around a whole loop, local reinitialization per iteration",
+      "schema": "schema.json",
+      "bytecode": "range-scopes.dslb",
+      "source": "range-scopes.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 9",
+          "int 9",
+          "int 0",
+          "int 1"
+        ]
       }
     },
     {

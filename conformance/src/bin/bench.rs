@@ -18,16 +18,18 @@ fn main() {
     reg.method("Thing", "scaled", &["float"], "float", |ctx, this, a| Ok(Value::Float(ctx.get::<Thing>(this)?.id as f64 * a[0].as_float()?))).unwrap();
     reg.function("thing", &["int"], "Thing", |ctx, a| { let r = ctx.insert("Thing", Thing { id: a[0].as_int()? }); Ok(Value::object("Thing", r)) }).unwrap();
     reg.function("twice", &["int"], "int", |_, a| Ok(Value::Int(a[0].as_int()? * 2))).unwrap();
+    reg.function("bound", &["int"], "int", |_, a| Ok(Value::Int(a[0].as_int()?))).unwrap();
     reg.function("half", &["float"], "float", |_, a| Ok(Value::Float(a[0].as_float()? / 2.0))).unwrap();
     reg.function("yes", &[], "bool", |_, _| Ok(Value::Bool(true))).unwrap();
     reg.function("fail", &["string"], "void", |_, _| Ok(Value::None)).unwrap();
     let program = Program::load(&bytecode, &schema, &reg).expect("load");
-    // count instructions per run once (decode loop mirrors the verifier's walk)
-    let ops = count_ops(&bytecode);
+    // Count statically encoded operations once. A loop executes its body repeatedly, so this is not a dynamic
+    // instruction count and is intentionally not multiplied into the throughput report.
+    let static_ops = count_ops(&bytecode);
     let t0 = std::time::Instant::now();
     for _ in 0..runs { let mut ctx = Context::new(); ctx.set_object("t", "Trace", ()); ctx.set_object("root", "Thing", Thing { id: 0 }); program.run(&mut ctx, &reg).expect("run"); }
     let secs = t0.elapsed().as_secs_f64();
-    println!("rust {}: {} runs x {} instructions in {:.3} s = {:.0} runs/s, {:.1} M instructions/s", name, runs, ops, secs, runs as f64 / secs, (runs * ops) as f64 / secs / 1e6);
+    println!("rust {}: {} runs x {} static ops in {:.3} s = {:.0} runs/s", name, runs, static_ops, secs, runs as f64 / secs);
 }
 fn count_ops(file: &[u8]) -> usize {  // v4 header: constants, imports, contexts, locals, max_stack, then code
     let mut p = 38;
@@ -38,6 +40,6 @@ fn count_ops(file: &[u8]) -> usize {  // v4 header: constants, imports, contexts
     let n = u16::from_be_bytes(file[p..p + 2].try_into().unwrap()) as usize; p += 2 + 5 * n + 2;
     let len = u32::from_be_bytes(file[p..p + 4].try_into().unwrap()) as usize; p += 4;
     let code = &file[p..p + len]; let mut i = 0; let mut ops = 0;
-    while i < code.len() { ops += 1; i += 1 + match code[i] { 0x01 | 0x12 => 8, 0x02 => 4, 0x04 | 0x05 | 0x06 => 2, 0x03 => 1, 0x07 | 0x08 => 3, 0x0C | 0x0D | 0x0E => 4, _ => 0 }; }
+    while i < code.len() { ops += 1; i += 1 + match code[i] { 0x01 | 0x12 => 8, 0x02 => 4, 0x04 | 0x05 | 0x06 => 2, 0x03 => 1, 0x07 | 0x08 => 3, 0x0C | 0x0D | 0x0E => 4, 0x2F => 8, 0x31 => 6, _ => 0 }; }
     ops
 }

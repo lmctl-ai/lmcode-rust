@@ -66,6 +66,21 @@ fn load_err(bytes: &[u8]) -> String { Program::load(bytes, SCHEMA, &registry()).
 fn run_err(bytes: &[u8]) -> String { run(bytes).err().expect("run must fail").message }
 fn t() -> Asm { Asm::default().ctx("t", "Trace") }
 
+fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
+    let mut a = t();
+    for _ in 0..locals { a = a.local("int", 1); }
+    a = a.push_int(start).push_int(end).u8(0x2f).u16((locals - 2) as u16).u16((locals - 1) as u16).i32(0);
+    let body_start = a.code.len();
+    a.code.extend_from_slice(body);
+    let next = a.code.len();
+    a.code.extend_from_slice(&[0x31, 0, (locals - 1) as u8, 0, 0, 0, 0]);
+    let after_next = a.code.len();
+    a.code.push(0x11);
+    a.code[body_start - 4..body_start].copy_from_slice(&((after_next - body_start) as i32).to_be_bytes());
+    a.code[next + 3..next + 7].copy_from_slice(&((body_start as i32) - (after_next as i32)).to_be_bytes());
+    a.file()
+}
+
 #[test] fn arithmetic_concat_methods() { let a = t().push_int(1).push_int(2).u8(0x13).method(T_INT, 1).ctx("t", "Trace").push_str("a").push_str("b").u8(0x26).method(T_STR, 1).halt(); assert_eq!(run(&a.file()).unwrap(), ["int 3", "str ab"]); }
 #[test] fn host_function_and_locals() { let a = Asm::default().local("int", 0).push_int(21).func(TWICE, 1).u8(0x05).u16(0).ctx("t", "Trace").u8(0x04).u16(0).method(T_INT, 1).halt(); assert_eq!(run(&a.file()).unwrap(), ["int 42"]); }
 #[test] fn forward_jumps_select_branch() { let a = Asm::default().push_bool(true).u8(0x0D).i32(21).ctx("t", "Trace").push_int(1).method(T_INT, 1).u8(0x0C).i32(16).ctx("t", "Trace").push_int(2).method(T_INT, 1).halt(); assert_eq!(run(&a.file()).unwrap(), ["int 1"]); }
@@ -123,6 +138,57 @@ fn t() -> Asm { Asm::default().ctx("t", "Trace") }
 #[test] fn method_on_wrong_object_type() { assert!(run_err(&t().method(THING_ID, 0).halt().file()).contains("method Thing.id called on a Trace")); }
 #[test] fn no_stack_cap() { let mut a = Asm::default(); a.max_stack = 1; for _ in 0..5000 { a = a.push_int(1); } for _ in 0..4999 { a = a.u8(0x13); } let a = a.ctx("t", "Trace").u8(0x0F).u8(0x10).halt(); assert!(run(&a.file()).is_ok()); }
 #[test] fn no_string_cap() { let mut a = t().push_str(&"x".repeat(65536)); for _ in 0..9 { a = a.u8(0x0F).u8(0x26); } let got = run(&a.method(T_STR, 1).halt().file()).unwrap(); assert_eq!(got[0].len(), 4 + 65536 * 512); }
+#[test] fn range_loop_executes_snapshot_and_empty() {
+    // PUSH start/end, FOR_RANGE(counter=0,end=1,exit=44), body prints i, FOR_NEXT(end=1,back=-17), HALT.
+    let a = t().local("int", 1).local("int", 1)
+        .push_int(0).push_int(3).u8(0x2f).u16(0).u16(1).i32(17)
+        .ctx("t", "Trace").u8(0x04).u16(0).method(T_INT, 1)
+        .u8(0x31).u16(1).i32(-17).halt();
+    assert_eq!(run(&a.file()).unwrap(), ["int 0", "int 1", "int 2"]);
+
+    let empty = t().local("int", 1).local("int", 1)
+        .push_int(4).push_int(4).u8(0x2f).u16(0).u16(1).i32(17)
+        .ctx("t", "Trace").u8(0x04).u16(0).method(T_INT, 1)
+        .u8(0x31).u16(1).i32(-17).halt();
+    assert!(run(&empty.file()).unwrap().is_empty());
+}
+#[test] fn range_loop_rejects_bad_structure() {
+    let base = t().local("int", 1).local("int", 1)
+        .push_int(0).push_int(1).u8(0x2f).u16(0).u16(1).i32(17)
+        .ctx("t", "Trace").u8(0x04).u16(0).method(T_INT, 1)
+        .u8(0x31).u16(1).i32(-17).halt();
+    let mut bad = base.file();
+    // FOR_NEXT's encoded end slot no longer matches its FOR_RANGE.
+    let next_end = bad.windows(2).rposition(|w| w == [0x00, 0x01]).unwrap();
+    bad[next_end + 1] = 0;
+    assert!(load_err(&bad).contains("closes the wrong range loop"));
+
+    // The exit is required to be the instruction immediately following the paired FOR_NEXT.
+    let mut wrong_exit = t().local("int", 1).local("int", 1)
+        .push_int(0).push_int(1).u8(0x2f).u16(0).u16(1).i32(10)
+        .ctx("t", "Trace").u8(0x04).u16(0).method(T_INT, 1)
+        .u8(0x31).u16(1).i32(-17).halt();
+    assert!(load_err(&wrong_exit.file()).contains("must exit immediately after its FOR_NEXT"));
+}
+#[test] fn range_loop_snapshot_and_i64_edges() {
+    // The bound is copied into its hidden local at entry; body execution cannot alter the trip bound.
+    let body = [0x04, 0, 0, 0x10];
+    assert!(run(&range_file(0, 3, 2, &body)).unwrap().is_empty());
+    assert!(run(&range_file(i64::MAX - 2, i64::MAX, 2, &[])).is_ok());
+    assert!(run(&range_file(i64::MIN, i64::MIN + 2, 2, &[])).is_ok());
+}
+#[test] fn range_loop_million_iterations_without_per_iteration_trace() {
+    // The body only loads/pops the read-only counter; one trace call after the loop observes the final value.
+    let body = [0x04, 0, 0, 0x10];
+    let bytes = range_file(0, 1_000_000, 2, &body);
+    let reg = registry();
+    let mut ctx = Context::new();
+    let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
+    ctx.set_object("root", "Thing", Thing { id: 0 });
+    let p = Program::load(&bytes, SCHEMA, &reg).unwrap();
+    p.run(&mut ctx, &reg).unwrap();
+    assert!(ctx.take::<Trace>(t).unwrap().0.is_empty());
+}
 #[test] fn every_truncation_is_refused() {
     let f = t().push_int(1).push_int(2).u8(0x13).method(T_INT, 1).push_bool(true).u8(0x0D).i32(0).halt().file();
     for n in 0..f.len() { assert!(Program::load(&f[..n], SCHEMA, &registry()).is_err(), "truncation at {} must fail", n); }

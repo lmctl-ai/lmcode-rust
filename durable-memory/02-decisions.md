@@ -19,6 +19,10 @@
 - **2026-10-18, v4 (spec slice S1' under R31-R34):** `Value::Int(i64)` with `wrapping_*` arithmetic (no overflow trap), `MOD_I`,
   tagged constants, an import table resolved by canonical signature (`Import::Function/Method`), context/locals/lines sections
   (`Program::locals/max_stack/lines/line_of`), no caps (MAX_STACK, MAX_STRING_BYTES, MAX_LOCALS removed). v3 files are refused.
+- **2026-10-18, v4 S3 range loops:** `FOR_RANGE`/`FOR_NEXT` are the sole structured backward edge. Bounds are evaluated once,
+  loop counter and end are distinct hidden `int` locals, and `FOR_NEXT` uses verified pair metadata for the counter slot. The
+  loader proves proper nesting, matching targets, no writes to loop locals, and no ordinary jump across a loop region. There is
+  no iteration budget or dynamic termination check; the compiler and structural loader checks own the guarantee.
 - **2026-10-18, verifier accepts only what the compiler emits:** forward jumps, HALT last, 4096 locals (cap removed in v4); UTF-8 constants are
   additionally validated (the C++ header stores raw bytes and does not check this; recorded as a spec gap).
 - **2026-10-18, the router example recomputes the civil date from the Unix epoch** (Hinnant's algorithm) with an optional

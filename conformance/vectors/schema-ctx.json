@@ -60,6 +60,12 @@
     }
   },
   "functions": {
+    "bound": {
+      "params": [
+        "int"
+      ],
+      "returns": "int"
+    },
     "thing": {
       "params": [
         "int"

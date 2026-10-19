@@ -3,8 +3,8 @@
 - **Toolchain facts:** cargo/rustc 1.92, edition 2021, no dependencies; debug build of the workspace about 10 s, release about
   20 s on the shared box (use `nice -n 10 cargo ...`). curl and the released lmscript (>= 0.2.328, `npm install -g @lmctl-ai/lmctl`;
   `latest` 0.2.328 / `staging` 0.2.330 on 2026-10-18) for the router test.
-- **Commands:** `cargo test` (dslvm: 2 unit + 54 integration tests; dsl-conformance: pin check + 24 vectors + a negative control);
-  `cargo run -p dsl-conformance --bin dsl-conformance` (report, `PASS 24/24 vectors`); `cargo run --release -p dsl-conformance --bin bench int-arith 200000`;
+- **Commands:** `cargo test` (dslvm: 2 unit + 58 integration tests; dsl-conformance: pin check + 31 vectors + a negative control);
+  `cargo run -p dsl-conformance --bin dsl-conformance` (report, `PASS 31/31 vectors`); `cargo run --release -p dsl-conformance --bin bench int-arith 200000`;
   `bash examples/router/test.sh` (11 checks; `LMSCRIPT_BIN=path` overrides the compiler; the script refuses an lmscript older than
   0.2.328 with a message).
 - **Numbers (2026-10-18, release, 200k runs, discarding stub):** int-arith 883k runs/s (C++ 893k), handles-and-chains 468k (C++ 626k),
