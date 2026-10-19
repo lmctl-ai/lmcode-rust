@@ -340,7 +340,7 @@ impl Program {
         let mut r = Reader::new(&self.code);
         let mut starts: Vec<usize> = Vec::new();
         #[derive(Clone, Copy)]
-        struct LoopFrame { opener: usize, body: usize, counter: usize, end: usize, exit: usize, op: Op, parent: Option<usize>, tested: bool }
+        struct LoopFrame { opener: usize, body: usize, counter: usize, end: usize, exit: usize, op: Op, parent: Option<usize>, tested: bool, test: usize }
         #[derive(Clone, Copy)]
         struct Jump { at: usize, target: usize, ordinary: bool }
         let mut jumps: Vec<Jump> = Vec::new();
@@ -411,7 +411,7 @@ impl Program {
                     if target < 0 { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} has an invalid exit target", at)); }
                     let exit = target as usize;
                     if exit <= at { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} exits backwards", at)); }
-                    let frame = LoopFrame { opener: at, body: r.pos, counter, end, exit, op: FOR_RANGE, parent: loops.last().map(|f| f.opener), tested: false };
+                    let frame = LoopFrame { opener: at, body: r.pos, counter, end, exit, op: FOR_RANGE, parent: loops.last().map(|f| f.opener), tested: false, test: 0 };
                     loops.push(frame);
                     all_loops.push(frame);
                 }
@@ -429,7 +429,7 @@ impl Program {
                     if frame.exit != r.pos { return load_err("LOAD_BAD_BYTECODE", format!("FOR_RANGE at offset {} must exit immediately after its FOR_NEXT", frame.opener)); }
                 }
                 WHILE_BEGIN => {
-                    let frame = LoopFrame { opener: at, body: r.pos, counter: 0, end: 0, exit: 0, op: WHILE_BEGIN, parent: loops.last().map(|f| f.opener), tested: false };
+                    let frame = LoopFrame { opener: at, body: r.pos, counter: 0, end: 0, exit: 0, op: WHILE_BEGIN, parent: loops.last().map(|f| f.opener), tested: false, test: 0 };
                     loops.push(frame);
                 }
                 WHILE_TEST => {
@@ -438,7 +438,7 @@ impl Program {
                     if frame.op != WHILE_BEGIN { return load_err("LOAD_BAD_BYTECODE", format!("WHILE_TEST at offset {} has no matching WHILE_BEGIN", at)); }
                     if frame.tested { return load_err("LOAD_BAD_BYTECODE", format!("WHILE_BEGIN at offset {} has more than one WHILE_TEST", frame.opener)); }
                     if rel < 0 { return load_err("LOAD_BAD_BYTECODE", format!("WHILE_TEST at offset {} exits backwards", at)); }
-                    frame.tested = true; frame.exit = (r.pos as i64 + rel as i64) as usize; while_exits.push((at, frame.exit));
+                    frame.test = at; frame.tested = true; frame.exit = (r.pos as i64 + rel as i64) as usize; while_exits.push((at, frame.exit));
                 }
                 LOOP_BACK => {
                     let rel = r.i32()?;
@@ -469,6 +469,13 @@ impl Program {
                     owner
                 };
                 let from = region(jump.at); let to = region(jump.target);
+                if let Some(owner) = from {
+                    if let Some(loop_frame) = all_loops.iter().find(|f| f.opener == owner && f.op == Op::WHILE_BEGIN) {
+                        if jump.at < loop_frame.test && jump.target > loop_frame.test {
+                            return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} skips its WHILE_TEST", jump.at));
+                        }
+                    }
+                }
                 if from != to {
                     let is_break = from.and_then(|owner| all_loops.iter().find(|f| f.opener == owner)).map(|f| f.exit == jump.target && to == f.parent).unwrap_or(false);
                     if !is_break { return load_err("LOAD_BAD_BYTECODE", format!("jump at offset {} crosses a loop boundary", jump.at)); }
@@ -491,10 +498,11 @@ impl Program {
     // joins and loop backedges. This is a structural fact only; it adds no run-time budget/check.
     fn verify_stack(&self, reg: &Registry) -> Result<(), Error> {
         use Op::*;
-        let mut starts = Vec::new(); let mut r = Reader::new(&self.code); let mut has_loop = false;
+        let mut starts = Vec::new(); let mut r = Reader::new(&self.code); let mut has_loop = false; let mut while_heads: Vec<usize> = Vec::new(); let mut while_pairs: Vec<(usize, usize)> = Vec::new();
         while !r.done() {
             starts.push(r.pos); let op = Op::decode(r.u8()?).ok_or_else(|| Error::new("LOAD_BAD_BYTECODE", "unknown opcode during stack verification"))?;
             if matches!(op, FOR_RANGE | WHILE_BEGIN) { has_loop = true; }
+            match op { WHILE_BEGIN => while_heads.push(starts[starts.len() - 1]), WHILE_TEST => { if let Some(head) = while_heads.last().copied() { while_pairs.push((starts[starts.len() - 1], head)); } }, LOOP_BACK => { while_heads.pop(); }, _ => {} }
             match op {
                 PUSH_INT => { r.i64()?; }, PUSH_FLOAT => { r.f64()?; }, PUSH_STR => { r.u32()?; }, PUSH_BOOL => { r.u8()?; },
                 LOAD_LOCAL | STORE_LOCAL => { r.u16()?; }, LOAD_CTX => { r.u16()?; }, CALL_FN | CALL_METHOD => { r.u16()?; r.u8()?; },
@@ -534,6 +542,13 @@ impl Program {
             let depth = incoming[ix].unwrap(); if depth < pop { return load_err("LOAD_BAD_BYTECODE", format!("operand stack underflow at offset {}", pc)); }
             let after = depth - pop + push; for target in targets { merge(target, after, &starts, &mut incoming, &mut work)?; }
             if fall { if ix + 1 >= starts.len() { return load_err("LOAD_BAD_BYTECODE", "control flow falls past the end of code"); } merge(starts[ix + 1], after, &starts, &mut incoming, &mut work)?; }
+        }
+        for (test, head) in while_pairs {
+            let Some(test_ix) = starts.iter().position(|pc| *pc == test) else { continue };
+            let Some(head_ix) = starts.iter().position(|pc| *pc == head) else { continue };
+            if let (Some(test_depth), Some(head_depth)) = (incoming[test_ix], incoming[head_ix]) {
+                if test_depth != head_depth + 1 { return load_err("LOAD_BAD_BYTECODE", format!("WHILE_TEST must leave the loop-head stack depth at offset {}", test)); }
+            }
         }
         Ok(())
     }

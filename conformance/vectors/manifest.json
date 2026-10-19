@@ -582,6 +582,30 @@
       }
     },
     {
+      "name": "while-inline-mixed",
+      "covers": "inline loops with caller operands, mixed while/range/foreach, first break and last continue, loops in conditions",
+      "schema": "schema.json",
+      "bytecode": "while-inline-mixed.dslb",
+      "source": "while-inline-mixed.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 100",
+          "int 0",
+          "int 1",
+          "int 2",
+          "int 101",
+          "int 10",
+          "int 11",
+          "int 12",
+          "int 2",
+          "int 0",
+          "int 1",
+          "int 2"
+        ]
+      }
+    },
+    {
       "name": "load-bad-magic",
       "covers": "loader: magic",
       "schema": "schema.json",

@@ -79,9 +79,9 @@ signed zero; integer abs wraps at `i64::MIN`.
 
 ## Tests and conformance
 
-    cargo test                               # dslvm: 2 unit + 66 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
-                                             # dsl-conformance: vectors.lock pin check + all 42 vectors + a negative control
-    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 42/42
+    cargo test                               # dslvm: 2 unit + 68 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
+                                             # dsl-conformance: vectors.lock pin check + all 43 vectors + a negative control
+    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 43/43
     cargo run --release -p dsl-conformance --bin bench [VECTOR] [RUNS]   # runs/s on one vector
 
 `conformance/vectors` is a verbatim copy of `cpp-dsl-sdk/conformance/vectors` pinned by `vectors.lock` (SDK commit + sha256 over

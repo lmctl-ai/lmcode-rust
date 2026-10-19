@@ -21,7 +21,7 @@ Version 4 crate and wire format: 54 integration + 2 library unit tests, 3 confor
 24/24 shared vectors pinned to cpp-dsl-sdk cd7396b, and 11 router checks (the same 388-byte program
 runs on Rust and C++). No new runtime caps or dynamic checks; integer arithmetic wraps.
 Clippy completed with style suggestions; this slice does not perform unrelated style refactoring.
-Use the matching built v4 compiler via LMSCRIPT_MIN=0/LMSCRIPT_BIN; release 0.2.328 remains v3.
+For that historical v4 checkpoint, use the matching built v4 compiler via LMSCRIPT_MIN=0/LMSCRIPT_BIN; release 0.2.328 remains v3.
 
 ## S3 loop runtime (2026-10-18)
 
@@ -70,3 +70,5 @@ budget or termination limit. Version 4 files are refused.
 
 Verified after regeneration: 66 integration + 2 library + 4 harness tests; all 42 shared v5 vectors pass.
 The earlier 37/39-vector results above are historical checkpoints.
+
+Latest v5 verification: 68 integration + 2 library + 4 harness tests and all 43 shared vectors pass after porting upstream while-test structure/depth rules. The router parity test passes 11 checks with byte-identical C++/Rust schema bytes; an existing sibling schema mismatch now fails instead of being reported as a missing checkout.

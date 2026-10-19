@@ -168,6 +168,18 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
     let a = Asm::default().while_begin().push_bool(false).while_test(10).jump(0).loop_back(-18).halt();
     assert!(run(&a.file()).is_ok());
 }
+#[test] fn while_test_must_consume_only_the_condition() {
+    // A caller operand remains below the condition, so the test depth is head+2 instead of head+1.
+    let a = Asm::default().while_begin().push_int(1).push_bool(false).while_test(6).u8(0x10).loop_back(-23).halt();
+    let error = load_err(&a.file());
+    assert!(error.contains("WHILE_TEST must leave the loop-head stack depth"), "got {error}");
+}
+#[test] fn jump_may_not_skip_a_paired_while_test() {
+    // begin 0, jump ends 6 and lands at the body after WHILE_TEST at 8..12.
+    let a = Asm::default().while_begin().jump(7).push_bool(false).while_test(5).loop_back(-18).halt();
+    let error = load_err(&a.file());
+    assert!(error.contains("skips its WHILE_TEST"), "got {error}");
+}
 #[test] fn schema_mismatch() { assert!(load_err(&Asm::default().halt().file_v(b"other", VERSION, b"DSLB")).contains("schema mismatch")); }
 #[test] fn truncated() { let f = t().halt().file(); assert!(load_err(&f[..f.len() - 3]).contains("bytecode is truncated")); }
 #[test] fn trailing_bytes() { let mut f = Asm::default().halt().file(); f.push(0); assert!(load_err(&f).contains("trailing byte(s) after the line table")); }
