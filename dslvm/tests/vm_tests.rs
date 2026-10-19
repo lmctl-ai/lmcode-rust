@@ -4,6 +4,8 @@ use dslvm::*;
 
 const SCHEMA: &[u8] = br#"{"dsl.schema":1,"name":"t"}"#;
 const T_INT: &str = "method Trace.int(int) -> void";
+const T_FLOAT: &str = "method Trace.float(float) -> void";
+const T_FLOAT_BITS: &str = "method Trace.float_bits(float) -> void";
 const T_STR: &str = "method Trace.str(string) -> void";
 const THING_ID: &str = "method Thing.id() -> int";
 const TWICE: &str = "fn twice(int) -> int";
@@ -51,6 +53,8 @@ fn registry() -> Registry {
     let mut reg = Registry::new();
     reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap();
     reg.method("Trace", "int", &["int"], "void", |ctx, this, a| { let v = a[0].as_int()?; ctx.get_mut::<Trace>(this)?.0.push(format!("int {}", v)); Ok(Value::None) }).unwrap();
+    reg.method("Trace", "float", &["float"], "void", |ctx, this, a| { let v = a[0].as_float()?; ctx.get_mut::<Trace>(this)?.0.push(format!("float {}", format_g15(v))); Ok(Value::None) }).unwrap();
+    reg.method("Trace", "float_bits", &["float"], "void", |ctx, this, a| { let v = a[0].as_float()?; ctx.get_mut::<Trace>(this)?.0.push(format!("bits {:016x}", v.to_bits())); Ok(Value::None) }).unwrap();
     reg.method("Trace", "str", &["string"], "void", |ctx, this, a| { let v = a[0].as_str()?.to_string(); ctx.get_mut::<Trace>(this)?.0.push(format!("str {}", v)); Ok(Value::None) }).unwrap();
     reg.method("Thing", "id", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id))).unwrap();
     reg.function("twice", &["int"], "int", |_, a| Ok(Value::Int(a[0].as_int()?.wrapping_mul(2)))).unwrap();
@@ -85,6 +89,56 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
 #[test] fn host_function_and_locals() { let a = Asm::default().local("int", 0).push_int(21).func(TWICE, 1).u8(0x05).u16(0).ctx("t", "Trace").u8(0x04).u16(0).method(T_INT, 1).halt(); assert_eq!(run(&a.file()).unwrap(), ["int 42"]); }
 #[test] fn forward_jumps_select_branch() { let a = Asm::default().push_bool(true).u8(0x0D).i32(21).ctx("t", "Trace").push_int(1).method(T_INT, 1).u8(0x0C).i32(16).ctx("t", "Trace").push_int(2).method(T_INT, 1).halt(); assert_eq!(run(&a.file()).unwrap(), ["int 1"]); }
 #[test] fn context_floats_conversions_equality() { let a = t().ctx("root", "Thing").method(THING_ID, 0).method(T_INT, 1).ctx("t", "Trace").push_float(2.5).u8(0x28).method(T_STR, 1).ctx("t", "Trace").push_int(7).push_int(2).u8(0x16).u8(0x25).push_float(0.5).u8(0x17).u8(0x28).method(T_STR, 1).ctx("t", "Trace").push_int(3).push_int(3).u8(0x09).u8(0x29).method(T_STR, 1).halt(); assert_eq!(run(&a.file()).unwrap(), ["int 0", "str 2.5", "str 3.5", "str true"]); }
+#[test] fn math_opcode_covers_float_integer_and_edge_semantics() {
+    let a = t()
+        .push_float(std::f64::consts::FRAC_PI_2).u8(0x32).u8(0).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(2.0).u8(0x32).u8(2).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(-2.75).u8(0x32).u8(4).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(2.0).push_float(3.0).u8(0x32).u8(5).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(7.0).push_float(3.0).u8(0x32).u8(6).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(7.0).push_float(3.0).u8(0x32).u8(7).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(8.0).push_float(0.0).push_float(3.0).u8(0x32).u8(8).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(2.0).push_float(10.0).push_float(0.25).u8(0x32).u8(9).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(-1.0).u8(0x32).u8(10).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(2.9).u8(0x32).u8(13).method(T_INT, 1)
+        .ctx("t", "Trace").push_int(i64::MIN).u8(0x32).u8(14).method(T_INT, 1)
+        .ctx("t", "Trace").push_int(3).push_int(8).u8(0x32).u8(15).method(T_INT, 1)
+        .ctx("t", "Trace").push_int(3).push_int(8).u8(0x32).u8(16).method(T_INT, 1)
+        .ctx("t", "Trace").push_int(8).push_int(0).push_int(3).u8(0x32).u8(17).method(T_INT, 1)
+        .halt();
+    assert_eq!(run(&a.file()).unwrap(), [
+        "float 1", "float 1.4142135623731", "float -3", "float 8", "float 3", "float 7", "float 3", "float 4", "float 0",
+        "int 2", "int -9223372036854775808", "int 3", "int 8", "int 3"
+    ]);
+}
+#[test] fn math_opcode_rejects_unknown_function_at_load() {
+    let a = t().push_float(1.0).u8(0x32).u8(99).halt();
+    assert!(load_err(&a.file()).contains("MATH at offset 12 has unknown function 99"));
+}
+#[test] fn math_nan_and_signed_zero_contract() {
+    let a = t()
+        .push_float(f64::NAN).push_float(1.0).u8(0x32).u8(6).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(-0.0).push_float(0.0).u8(0x32).u8(6).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(0.0).push_float(-0.0).u8(0x32).u8(7).method(T_FLOAT, 1)
+        .ctx("t", "Trace").push_float(f64::NAN).u8(0x32).u8(10).method(T_FLOAT, 1)
+        .halt();
+    assert_eq!(run(&a.file()).unwrap(), ["float nan", "float -0", "float 0", "float nan"]);
+}
+#[test] fn math_native_results_are_captured_without_decimal_formatting() {
+    let a = t()
+        .push_float(2.0).u8(0x32).u8(2).method(T_FLOAT_BITS, 1)
+        .ctx("t", "Trace").push_float(2.0).push_float(0.5).u8(0x32).u8(5).method(T_FLOAT_BITS, 1)
+        .ctx("t", "Trace").push_float(1.0).push_float(3.0).push_float(0.25).u8(0x32).u8(9).method(T_FLOAT_BITS, 1)
+        .ctx("t", "Trace").push_float(-0.0).push_float(0.0).u8(0x32).u8(6).method(T_FLOAT_BITS, 1)
+        .halt();
+    let expected = [
+        format!("bits {:016x}", 2.0_f64.sqrt().to_bits()),
+        format!("bits {:016x}", 2.0_f64.powf(0.5).to_bits()),
+        format!("bits {:016x}", (1.0_f64 + (3.0 - 1.0) * 0.25).to_bits()),
+        format!("bits {:016x}", (-0.0_f64).to_bits()),
+    ];
+    assert_eq!(run(&a.file()).unwrap(), expected);
+}
 #[test] fn empty_program_loads() { let p = Program::load(&Asm::default().halt().file(), SCHEMA, &registry()).unwrap(); assert_eq!((p.constant_count(), p.code_size(), p.import_count(), p.locals().len(), p.lines().len()), (0, 1, 0, 0, 0)); }
 #[test] fn int64_literals_and_wraparound() {
     let a = t().push_int(i64::MAX).method(T_INT, 1).ctx("t", "Trace").push_int(i64::MIN).method(T_INT, 1).ctx("t", "Trace").push_int(i64::MAX).push_int(1).u8(0x13).method(T_INT, 1).ctx("t", "Trace").push_int(i64::MIN).u8(0x1B).method(T_INT, 1).ctx("t", "Trace").push_int(i64::MIN).push_int(-1).u8(0x16).method(T_INT, 1).ctx("t", "Trace").push_int(i64::MIN).push_int(-1).u8(0x33).method(T_INT, 1).ctx("t", "Trace").push_int(i64::MAX).push_int(i64::MAX).u8(0x15).method(T_INT, 1).halt();
@@ -197,7 +251,7 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
     let mut ctx = Context::new(); let t = ctx.insert("Thing", Thing { id: 7 });
     assert!(ctx.get::<Trace>(t).is_err()); assert_eq!(ctx.get::<Thing>(t).unwrap().id, 7); assert_eq!(ctx.take::<Thing>(t).unwrap().id, 7); assert!(ctx.take::<Thing>(t).is_err());
 }
-#[test] fn signatures_are_sorted_canonical_strings() { assert_eq!(registry().signatures(), ["context root: Thing", "context t: Trace", "fn boom() -> void", "fn twice(int) -> int", "method Thing.id() -> int", "method Trace.int(int) -> void", "method Trace.str(string) -> void"]); }
+#[test] fn signatures_are_sorted_canonical_strings() { assert_eq!(registry().signatures(), ["context root: Thing", "context t: Trace", "fn boom() -> void", "fn twice(int) -> int", "method Thing.id() -> int", "method Trace.float(float) -> void", "method Trace.float_bits(float) -> void", "method Trace.int(int) -> void", "method Trace.str(string) -> void"]); }
 #[test] fn duplicate_registration_is_refused() { let mut reg = Registry::new(); reg.function("f", &[], "void", |_, _| Ok(Value::None)).unwrap(); let e = reg.function("f", &[], "void", |_, _| Ok(Value::None)).err().unwrap(); assert_eq!(e.code, "LOAD_UNBOUND"); assert!(e.message.contains("registered twice")); }
 #[test] fn error_codes_classify_the_existing_errors() {
     assert_eq!(Program::load(&Asm::default().halt().file_v(SCHEMA, VERSION, b"XXXX"), SCHEMA, &registry()).unwrap_err().code, "LOAD_BAD_BYTECODE");

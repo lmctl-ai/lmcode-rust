@@ -49,6 +49,19 @@ pub fn read_expect(path: &Path) -> Expect {
     let mut it = text.lines(); let kind = it.next().unwrap_or("").to_string();
     Expect { kind, lines: it.map(|l| l.replace("\\n", "\n")).collect() }
 }
+/// A trace line beginning with `~ ` compares its final numeric field within the shared math tolerance.
+/// The text before that field (for example `float`) must still match exactly.
+fn trace_line_matches(expected: &str, actual: &str) -> bool {
+    let Some(expected) = expected.strip_prefix("~ ") else { return expected == actual };
+    let Some((eprefix, enumber)) = expected.rsplit_once(' ') else { return false };
+    let Some((aprefix, anumber)) = actual.rsplit_once(' ') else { return false };
+    let (Ok(e), Ok(a)) = (enumber.parse::<f64>(), anumber.parse::<f64>()) else { return false };
+    eprefix == aprefix && e.is_finite() && a.is_finite() && (a - e).abs() <= 1e-12 * e.abs().max(1e-300)
+}
+
+fn trace_matches(expected: &[String], actual: &[String]) -> bool {
+    expected.len() == actual.len() && expected.iter().zip(actual).all(|(e, a)| trace_line_matches(e, a))
+}
 /// The manifest names the schema file per vector (`"schema": "schema-extra.json"` and the like); default schema.json.
 pub fn schema_for(dir: &Path, name: &str) -> PathBuf {
     let manifest = std::fs::read_to_string(dir.join("manifest.json")).unwrap_or_default();
@@ -70,7 +83,7 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
     let schema = std::fs::read(schema_for(dir, name)).map_err(|e| e.to_string())?;
     let outcome = run_vector(&bytecode, &schema);
     let ok = match (expect.kind.as_str(), &outcome) {
-        ("trace", Outcome::Trace(lines)) => *lines == expect.lines,
+        ("trace", Outcome::Trace(lines)) => trace_matches(&expect.lines, lines),
         ("runtime_error", Outcome::RuntimeError(m)) => m.contains(&expect.lines[0]),
         ("load_error", Outcome::LoadError(m)) => m.contains(&expect.lines[0]),
         _ => false,
@@ -110,5 +123,15 @@ mod tests {
         let dir = default_dir();
         let bytecode = std::fs::read(dir.join("literals.dslb")).unwrap(); let schema = std::fs::read(dir.join("schema.json")).unwrap();
         match run_vector(&bytecode, &schema) { Outcome::Trace(lines) => assert_ne!(lines, vec!["int 41".to_string()]), other => panic!("{:?}", other) }
+    }
+    #[test]
+    fn approximate_trace_lines_use_prefix_and_relative_tolerance() {
+        assert!(trace_line_matches("~ float 1.0", "float 1.0000000000005"));
+        assert!(!trace_line_matches("~ float 1.0", "int 1.0"));
+        assert!(!trace_line_matches("~ float 1.0", "float 1.00000000001"));
+        assert!(!trace_line_matches("~ float nan", "float nan"));
+        assert!(!trace_line_matches("~ float 1.0", "float inf"));
+        assert!(!trace_line_matches("~ float 1.0", "float 1.0 extra"));
+        assert!(trace_line_matches("float 1", "float 1"));
     }
 }

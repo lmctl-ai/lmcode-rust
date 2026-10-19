@@ -70,11 +70,17 @@ message naming the problem. `run()` retains existing value-kind errors; every-tr
 and imposes no limits (operator decision 2026-10-18: no stack, locals or string cap; `max_stack` is a reservation hint). Ints are
 i64 with wrapping arithmetic (R34); division and remainder by zero are the run-time errors.
 
+`MATH (0x32)` is the compiler's built-in numeric library. Its byte operand selects sin, cos, sqrt, abs, floor, pow,
+min, max, clamp, lerp, smoothstep/ease variants, truncating `int(float)`, or the integer abs/min/max/clamp forms.
+The VM uses the platform Rust/libm implementations for transcendental functions; shared vectors allow finite sin/cos/pow
+trace values within relative tolerance `1e-12`. Float min/max propagate NaN and retain the first equal operand, including
+signed zero; integer abs wraps at `i64::MIN`.
+
 ## Tests and conformance
 
     cargo test                               # dslvm: 2 unit + 58 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
-                                             # dsl-conformance: vectors.lock pin check + all 31 vectors + a negative control
-    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 31/31
+                                             # dsl-conformance: vectors.lock pin check + all 35 vectors + a negative control
+    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 35/35
     cargo run --release -p dsl-conformance --bin bench [VECTOR] [RUNS]   # runs/s on one vector
 
 `conformance/vectors` is a verbatim copy of `cpp-dsl-sdk/conformance/vectors` pinned by `vectors.lock` (SDK commit + sha256 over

@@ -197,13 +197,13 @@ enum Op {
     EQ = 0x09, NE = 0x0A, NOT = 0x0B, JUMP = 0x0C, JUMP_IF_FALSE = 0x0D, JUMP_IF_TRUE = 0x0E, DUP = 0x0F, POP = 0x10, HALT = 0x11,
     PUSH_FLOAT = 0x12, ADD_I = 0x13, SUB_I = 0x14, MUL_I = 0x15, DIV_I = 0x16, ADD_F = 0x17, SUB_F = 0x18, MUL_F = 0x19, DIV_F = 0x1A, NEG_I = 0x1B, NEG_F = 0x1C,
     LT_I = 0x1D, LE_I = 0x1E, GT_I = 0x1F, GE_I = 0x20, LT_F = 0x21, LE_F = 0x22, GT_F = 0x23, GE_F = 0x24, I2F = 0x25, CONCAT = 0x26, I2S = 0x27, F2S = 0x28, B2S = 0x29,
-    MOD_I = 0x33, FOR_RANGE = 0x2F, FOR_NEXT = 0x31,
+    MATH = 0x32, MOD_I = 0x33, FOR_RANGE = 0x2F, FOR_NEXT = 0x31,
 }
 impl Op {
     fn decode(b: u8) -> Option<Op> {
         use Op::*;
-        const ALL: [Op; 44] = [PUSH_INT, PUSH_STR, PUSH_BOOL, LOAD_LOCAL, STORE_LOCAL, LOAD_CTX, CALL_FN, CALL_METHOD, EQ, NE, NOT, JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE, DUP, POP, HALT,
-            PUSH_FLOAT, ADD_I, SUB_I, MUL_I, DIV_I, ADD_F, SUB_F, MUL_F, DIV_F, NEG_I, NEG_F, LT_I, LE_I, GT_I, GE_I, LT_F, LE_F, GT_F, GE_F, I2F, CONCAT, I2S, F2S, B2S, MOD_I, FOR_RANGE, FOR_NEXT];
+        const ALL: [Op; 45] = [PUSH_INT, PUSH_STR, PUSH_BOOL, LOAD_LOCAL, STORE_LOCAL, LOAD_CTX, CALL_FN, CALL_METHOD, EQ, NE, NOT, JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE, DUP, POP, HALT,
+            PUSH_FLOAT, ADD_I, SUB_I, MUL_I, DIV_I, ADD_F, SUB_F, MUL_F, DIV_F, NEG_I, NEG_F, LT_I, LE_I, GT_I, GE_I, LT_F, LE_F, GT_F, GE_F, I2F, CONCAT, I2S, F2S, B2S, MATH, MOD_I, FOR_RANGE, FOR_NEXT];
         ALL.iter().copied().find(|op| *op as u8 == b)
     }
 }
@@ -369,6 +369,10 @@ impl Program {
                     let sig = self.import_sig(reg, i).ok_or_else(|| Error::new("LOAD_UNBOUND", format!("import {} vanished from the registry", i)))?;
                     if sig.params.len() != argc { return load_err("LOAD_BAD_BYTECODE", format!("{} at offset {} passes {} argument(s), the import takes {}", name, at, argc, sig.params.len())); }
                 }
+                MATH => {
+                    let fn_id = r.u8()?;
+                    if !matches!(fn_id, 0..=17) { return load_err("LOAD_BAD_BYTECODE", format!("MATH at offset {} has unknown function {}", at, fn_id)); }
+                }
                 EQ | NE | NOT | DUP | POP | ADD_I | SUB_I | MUL_I | DIV_I | MOD_I | ADD_F | SUB_F | MUL_F | DIV_F | NEG_I | NEG_F | LT_I | LE_I | GT_I | GE_I | LT_F | LE_F | GT_F | GE_F | I2F | CONCAT | I2S | F2S | B2S => {}
                 JUMP | JUMP_IF_FALSE | JUMP_IF_TRUE => {
                     let rel = r.i32()?;
@@ -520,6 +524,48 @@ impl Program {
                 NEG_I => { let a = pop(&mut stack)?; match a { Value::Int(i) => push(&mut stack, Value::Int(i.wrapping_neg())), o => return err(format!("int negation applied to {}", o.kind_name())) } }
                 NEG_F => { let a = pop(&mut stack)?; match a { Value::Float(f) => push(&mut stack, Value::Float(-f)), o => return err(format!("float negation applied to {}", o.kind_name())) } }
                 I2F => { let a = pop(&mut stack)?; match a { Value::Int(i) => push(&mut stack, Value::Float(i as f64)), o => return err(format!("float() applied to {}", o.kind_name())) } }
+                MATH => {
+                    let fn_id = r.u8()?;
+                    fn math_min(a: f64, b: f64) -> f64 { if a.is_nan() || b.is_nan() { f64::NAN } else if a <= b { a } else { b } }
+                    fn math_max(a: f64, b: f64) -> f64 { if a.is_nan() || b.is_nan() { f64::NAN } else if a >= b { a } else { b } }
+                    match fn_id {
+                        0..=4 | 10..=12 => {
+                            let a = pop(&mut stack)?;
+                            let Value::Float(x) = a else { unreachable!("verified float math operand") };
+                            let v = match fn_id {
+                                0 => x.sin(), 1 => x.cos(), 2 => x.sqrt(), 3 => x.abs(), 4 => x.floor(),
+                                10 => { let t = math_min(math_max(x, 0.0), 1.0); let t2 = t * t; let slope = 3.0 - 2.0 * t; t2 * slope },
+                                11 => { let t = math_min(math_max(x, 0.0), 1.0); t * t },
+                                12 => { let t = math_min(math_max(x, 0.0), 1.0); let d = 1.0 - t; let d2 = d * d; 1.0 - d2 },
+                                _ => unreachable!(),
+                            };
+                            push(&mut stack, Value::Float(v));
+                        }
+                        13 => { let a = pop(&mut stack)?; let Value::Float(x) = a else { unreachable!("verified float math operand") }; push(&mut stack, Value::Int(x as i64)); }
+                        14 => { let a = pop(&mut stack)?; let Value::Int(x) = a else { unreachable!("verified integer math operand") }; push(&mut stack, Value::Int(x.wrapping_abs())); }
+                        5 | 6 | 7 | 15 | 16 => {
+                            let b = pop(&mut stack)?; let a = pop(&mut stack)?;
+                            match (fn_id, a, b) {
+                                (5, Value::Float(x), Value::Float(y)) => push(&mut stack, Value::Float(x.powf(y))),
+                                (6, Value::Float(x), Value::Float(y)) => push(&mut stack, Value::Float(math_min(x, y))),
+                                (7, Value::Float(x), Value::Float(y)) => push(&mut stack, Value::Float(math_max(x, y))),
+                                (15, Value::Int(x), Value::Int(y)) => push(&mut stack, Value::Int(x.min(y))),
+                                (16, Value::Int(x), Value::Int(y)) => push(&mut stack, Value::Int(x.max(y))),
+                                _ => unreachable!("verified math operands"),
+                            }
+                        }
+                        8 | 9 | 17 => {
+                            let hi = pop(&mut stack)?; let lo = pop(&mut stack)?; let x = pop(&mut stack)?;
+                            match (fn_id, x, lo, hi) {
+                                (8, Value::Float(x), Value::Float(lo), Value::Float(hi)) => push(&mut stack, Value::Float(math_min(math_max(x, lo), hi))),
+                                (9, Value::Float(a), Value::Float(b), Value::Float(t)) => { let delta = b - a; let scaled = delta * t; push(&mut stack, Value::Float(a + scaled)); },
+                                (17, Value::Int(x), Value::Int(lo), Value::Int(hi)) => push(&mut stack, Value::Int(x.max(lo).min(hi))),
+                                _ => unreachable!("verified math operands"),
+                            }
+                        }
+                        _ => unreachable!("verified math function"),
+                    }
+                }
                 NOT => { let a = pop(&mut stack)?; match a { Value::Bool(b) => push(&mut stack, Value::Bool(!b)), o => return err(format!("! applied to a {}", o.kind_name())) } }
                 JUMP => { let rel = r.i32()?; jump(&mut r, rel)?; }
                 JUMP_IF_FALSE | JUMP_IF_TRUE => {

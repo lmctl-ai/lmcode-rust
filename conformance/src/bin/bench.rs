@@ -40,6 +40,6 @@ fn count_ops(file: &[u8]) -> usize {  // v4 header: constants, imports, contexts
     let n = u16::from_be_bytes(file[p..p + 2].try_into().unwrap()) as usize; p += 2 + 5 * n + 2;
     let len = u32::from_be_bytes(file[p..p + 4].try_into().unwrap()) as usize; p += 4;
     let code = &file[p..p + len]; let mut i = 0; let mut ops = 0;
-    while i < code.len() { ops += 1; i += 1 + match code[i] { 0x01 | 0x12 => 8, 0x02 => 4, 0x04 | 0x05 | 0x06 => 2, 0x03 => 1, 0x07 | 0x08 => 3, 0x0C | 0x0D | 0x0E => 4, 0x2F => 8, 0x31 => 6, _ => 0 }; }
+    while i < code.len() { ops += 1; i += 1 + match code[i] { 0x01 | 0x12 => 8, 0x02 => 4, 0x04 | 0x05 | 0x06 => 2, 0x03 => 1, 0x07 | 0x08 => 3, 0x0C | 0x0D | 0x0E => 4, 0x2F => 8, 0x31 => 6, 0x32 => 1, _ => 0 }; }
     ops
 }

@@ -5,9 +5,99 @@
   "schema": "schema.json",
   "host": {
     "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. bound(i) records bound N and returns i; thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C).",
-    "expect": "trace: the recorded lines in order, after a successful run. runtime_error: run() throws and the message contains the substring. load_error: load() throws (nothing runs) and the message contains the substring."
+    "expect": "trace: the recorded lines in order, after a successful run. A line prefixed ~ compares the last numeric token with relative tolerance 1e-12 (floor scale 1e-300), exact prefix; both values must be finite. This applies only to sin/cos/pow, assuming the platform binary64 libm meets that tolerance (no universal correct-rounding guarantee). Other traces compare exactly; native unit tests also compare exact binary64 results and signed zero. runtime_error: run() throws and the message contains the substring. load_error: load() throws (nothing runs) and the message contains the substring."
   },
   "vectors": [
+    {
+      "name": "math-exact",
+      "covers": "MATH all exact float functions and integer overloads",
+      "schema": "schema.json",
+      "bytecode": "math-exact.dslb",
+      "source": "math-exact.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "float 2",
+          "float 2.5",
+          "float -3",
+          "float 2.5",
+          "float 3.5",
+          "float 2",
+          "float 3",
+          "float 10",
+          "float 0.15625",
+          "float 0.0625",
+          "float 0.4375",
+          "int -2",
+          "int 7",
+          "int 3",
+          "int 7",
+          "int 5"
+        ]
+      }
+    },
+    {
+      "name": "math-libm",
+      "covers": "sin cos pow: platform binary64 libm, relative tolerance 1e-12",
+      "schema": "schema.json",
+      "bytecode": "math-libm.dslb",
+      "source": "math-libm.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "~ float 0.479425538604203",
+          "~ float 0.877582561890373",
+          "~ float 1.4142135623730951",
+          "~ float 0.3333333333333333",
+          "float 0",
+          "float 1",
+          "float 8"
+        ]
+      }
+    },
+    {
+      "name": "math-value-edges",
+      "covers": "R34 no new errors: saturating int, wrapping abs, reversed clamp, NaN propagation, signed zero",
+      "schema": "schema.json",
+      "bytecode": "math-value-edges.dslb",
+      "source": "math-value-edges.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "int 0",
+          "int 9223372036854775807",
+          "int -9223372036854775808",
+          "int 9223372036854775807",
+          "int -9223372036854775808",
+          "int -9223372036854775808",
+          "int 2",
+          "float 2",
+          "bool true",
+          "bool true",
+          "float -0",
+          "float 0",
+          "float 0",
+          "float 0",
+          "float 1",
+          "float 0",
+          "float 1"
+        ]
+      }
+    },
+    {
+      "name": "math-loop",
+      "covers": "common math in nested DSL animation loops; integer conversion result feeds range",
+      "schema": "schema.json",
+      "bytecode": "math-loop.dslb",
+      "source": "math-loop.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "float 9"
+        ]
+      }
+    },
     {
       "name": "literals",
       "covers": "PUSH_INT PUSH_FLOAT PUSH_STR PUSH_BOOL I2S F2S B2S CALL_METHOD LOAD_CTX HALT",

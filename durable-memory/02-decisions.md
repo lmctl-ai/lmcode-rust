@@ -28,3 +28,6 @@
 - **2026-10-18, the router example recomputes the civil date from the Unix epoch** (Hinnant's algorithm) with an optional
   `ROUTER_TZ_OFFSET_SECONDS`, because std has no local-time API and no crates are allowed; `test.sh` derives the offset from
   `date +%z`.
+- **2026-10-18, S4 math:** opcode `MATH (0x32)` carries one function byte. Float min/max propagate NaN and retain the
+  first operand for equal values (including signed zero); clamp is `min(max(x, lo), hi)` without a new error path. Rust
+  uses its platform libm for sin/cos/pow and the shared conformance tolerance is finite relative error `1e-12`.
