@@ -323,3 +323,22 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
     assert_eq!(run(&Asm::default().push_int(1).push_int(0).u8(0x16).halt().file()).unwrap_err().code, "RUN_ERROR");
 }
 #[test] fn result_line_exit_codes() { assert_eq!(report_error("load", &Error::new("LOAD_UNBOUND", "x")), 3); assert_eq!(report_error("run", &Error::host("no")), 3); assert_eq!(report_app_failure("nothing"), 4); assert_eq!(report_ok("42"), 0); assert_eq!(json_escape("a\"b\n"), "\"a\\\"b\\n\""); }
+#[test] fn error_json_has_exact_optional_location_fields() {
+    let mut full = Error::new("RUN_ERROR", "bad"); full.locate(4, 2);
+    let mut line = Error::host("host"); line.locate(5, 0);
+    let app = Error::new("APP_FAIL", "app");
+    assert_eq!(error_json("run", &full), "{\"ok\": false, \"phase\": \"run\", \"code\": \"RUN_ERROR\", \"message\": \"dsl line 4:2: bad\", \"line\": 4, \"column\": 2}");
+    assert_eq!(error_json("run", &line), "{\"ok\": false, \"phase\": \"run\", \"code\": \"RUN_HOST\", \"message\": \"dsl line 5: host\", \"line\": 5}");
+    assert_eq!(error_json("app", &app), "{\"ok\": false, \"phase\": \"app\", \"code\": \"APP_FAIL\", \"message\": \"app\"}");
+    full.locate(9, 9); assert_eq!((full.line, full.column), (Some(4), Some(2)));
+}
+#[test] fn runtime_errors_use_faulting_opcode_locations_and_empty_tables_stay_unlocated() {
+    let error = run(&Asm::default().line(0, 1, 1).push_int(1).push_int(0).line(18, 9, 7).u8(0x16).line(19, 99, 1).halt().file()).unwrap_err();
+    assert_eq!(error.code, "RUN_ERROR"); assert_eq!((error.line, error.column), (Some(9), Some(7))); assert!(error.message.starts_with("dsl line 9:7: int division by zero"));
+    let error = run(&Asm::default().line(0, 4, 2).func(BOOM, 0).halt().file()).unwrap_err();
+    assert_eq!(error.code, "RUN_HOST"); assert_eq!((error.line, error.column), (Some(4), Some(2)));
+    let error = run(&Asm::default().push_int(1).push_int(0).u8(0x16).halt().file()).unwrap_err();
+    assert_eq!((error.line, error.column), (None, None));
+    let mut error = Error::new("RUN_ERROR", "x"); error.locate(6, 0); assert_eq!((error.line, error.column, error.message), (Some(6), None, "dsl line 6: x".into()));
+    let mut empty = Error::new("RUN_ERROR", "x"); empty.locate(0, 0); assert_eq!((empty.line, empty.column, empty.message), (None, None, "x".into()));
+}

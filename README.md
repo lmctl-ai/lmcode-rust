@@ -45,7 +45,8 @@ for a run-time failure and the VM propagates it.
 **Result line and exit codes (spec v5 D7, R26).** `Error { code, message }` with codes `LOAD_BAD_BYTECODE`, `LOAD_SCHEMA_MISMATCH`,
 `LOAD_UNBOUND`, `RUN_ERROR` (VM), `RUN_HOST` (host closure), `APP_FAIL`; CLI hosts print exactly one JSON line through
 `report_ok(json)`, `report_error("load"|"run", &e)` (returns 3) or `report_app_failure(msg)` (returns 4) and exit with the returned
-code; compile failures are lmscript's exit 2.
+code; compile failures are lmscript's exit 2. A run/load error with a line-table location is prefixed `dsl line N:C: ` and its
+numeric `line` and `column` are included in the JSON result when known; a zero column emits only `line`, and empty line tables leave the message and fields unchanged.
 
 ## Host-object ownership (why `Context` is an arena)
 
@@ -79,9 +80,9 @@ signed zero; integer abs wraps at `i64::MIN`.
 
 ## Tests and conformance
 
-    cargo test                               # dslvm: 2 unit + 68 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
-                                             # dsl-conformance: vectors.lock pin check + all 43 vectors + a negative control
-    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 43/43
+    cargo test                               # dslvm: 2 unit + 70 integration tests (mirror of the C++ checks plus robustness, signatures, codes);
+                                             # dsl-conformance: vectors.lock pin check + all 50 vectors + a negative control
+    cargo run -p dsl-conformance --bin dsl-conformance # prints ok/FAIL per vector: PASS 50/50
     cargo run --release -p dsl-conformance --bin bench [VECTOR] [RUNS]   # runs/s on one vector
 
 `conformance/vectors` is a verbatim copy of `cpp-dsl-sdk/conformance/vectors` pinned by `vectors.lock` (SDK commit + sha256 over

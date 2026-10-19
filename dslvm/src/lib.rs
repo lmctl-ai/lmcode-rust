@@ -38,10 +38,11 @@ const MAGIC: &[u8; 4] = b"DSLB";
 /// application failure). `Error::host(msg)` is what host closures return. Exit-code convention (spec v4 D7, R26): 2 compile
 /// (lmscript), 3 load or run, 4 application; see [`report_error`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Error { pub code: String, pub message: String }
+pub struct Error { pub code: String, pub message: String, pub line: Option<u32>, pub column: Option<u16> }
 impl Error {
-    pub fn new(code: &str, message: impl Into<String>) -> Error { Error { code: code.to_string(), message: message.into() } }
+    pub fn new(code: &str, message: impl Into<String>) -> Error { Error { code: code.to_string(), message: message.into(), line: None, column: None } }
     pub fn host(message: impl Into<String>) -> Error { Error::new("RUN_HOST", message) }
+    pub fn locate(&mut self, line: u32, column: u16) { if self.line.is_some() || line == 0 { return; } self.line = Some(line); self.column = (column != 0).then_some(column); self.message = format!("dsl line {}{}: {}", line, self.column.map(|c| format!(":{}", c)).unwrap_or_default(), self.message); }
 }
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str(&self.message) }
@@ -58,9 +59,14 @@ pub fn json_escape(s: &str) -> String {
 }
 /// The standard result line (spec v4 D7, R26): exactly one JSON line on stdout. `result_json` is JSON text already.
 pub fn report_ok(result_json: &str) -> i32 { println!("{{\"ok\": true, \"result\": {}}}", result_json); 0 }
+pub fn error_json(phase: &str, e: &Error) -> String {
+    let mut result = format!("{{\"ok\": false, \"phase\": {}, \"code\": {}, \"message\": {}", json_escape(phase), json_escape(&e.code), json_escape(&e.message));
+    if let Some(line) = e.line { result.push_str(&format!(", \"line\": {}", line)); if let Some(column) = e.column { result.push_str(&format!(", \"column\": {}", column)); } }
+    result.push('}'); result
+}
 /// phase is "load" or "run" (compile failures are lmscript's, exit 2); returns the exit code: 4 for APP_FAIL, else 3.
 pub fn report_error(phase: &str, e: &Error) -> i32 {
-    println!("{{\"ok\": false, \"phase\": {}, \"code\": {}, \"message\": {}}}", json_escape(phase), json_escape(&e.code), json_escape(&e.message));
+    println!("{}", error_json(phase, e));
     if e.code == "APP_FAIL" { 4 } else { 3 }
 }
 pub fn report_app_failure(message: &str) -> i32 { report_error("app", &Error::new("APP_FAIL", message)) }
@@ -569,6 +575,9 @@ impl Program {
             match (&a, &b) { (Value::Float(x), Value::Float(y)) => Ok((*x, *y)), _ => err(format!("{} applied to {} and {}", what, a.kind_name(), b.kind_name())) }
         }
         loop {
+            let fault_pc = r.pos;
+            let mut halted = false;
+            let outcome: Result<(), Error> = (|| {
             let byte = r.u8()?;
             let op = Op::decode(byte).ok_or_else(|| Error::new("RUN_ERROR", format!("unknown opcode {}", byte)))?;
             use Op::*;
@@ -715,7 +724,7 @@ impl Program {
                 LOOP_BACK => { let rel = r.i32()?; jump(&mut r, rel)?; }
                 DUP => { let top = stack.last().cloned().ok_or_else(|| Error::new("RUN_ERROR", "stack underflow"))?; push(&mut stack, top) }
                 POP => { pop(&mut stack)?; }
-                HALT => return Ok(()),
+                HALT => { halted = true; }
                 CONCAT => {
                     let b = pop(&mut stack)?; let a = pop(&mut stack)?;
                     match (a, b) {
@@ -726,6 +735,13 @@ impl Program {
                 I2S => { let a = pop(&mut stack)?; match a { Value::Int(i) => push(&mut stack, Value::Str(i.to_string())), o => return err(format!("str(int) applied to {}", o.kind_name())) } }
                 F2S => { let a = pop(&mut stack)?; match a { Value::Float(f) => push(&mut stack, Value::Str(format_g15(f))), o => return err(format!("str(float) applied to {}", o.kind_name())) } }
                 B2S => { let a = pop(&mut stack)?; match a { Value::Bool(b) => push(&mut stack, Value::Str(if b { "true".into() } else { "false".into() })), o => return err(format!("str(bool) applied to {}", o.kind_name())) } }
+            }
+            Ok(())
+            })();
+            match outcome {
+                Ok(()) if halted => return Ok(()),
+                Ok(()) => {},
+                Err(mut error) => { if let Some(line) = self.line_of(fault_pc) { error.locate(line.line, line.column); } return Err(error); }
             }
         }
     }

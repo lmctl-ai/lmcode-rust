@@ -72,3 +72,7 @@ Verified after regeneration: 66 integration + 2 library + 4 harness tests; all 4
 The earlier 37/39-vector results above are historical checkpoints.
 
 Latest v5 verification: 68 integration + 2 library + 4 harness tests and all 43 shared vectors pass after porting upstream while-test structure/depth rules. The router parity test passes 11 checks with byte-identical C++/Rust schema bytes; an existing sibling schema mismatch now fails instead of being reported as a missing checkout.
+
+## S5: located existing runtime errors
+
+Errors retain their codes and carry optional line/column from the faulting opcode. Error::locate prefixes once, preserving nested locations; report_error includes numeric JSON fields only when known. Empty tables remain unlocated and column 0 is line-only, so long source lines impose no new cap. Shared runtime_error_at vectors match exact code/line/column and message substring. Verified: 70 integration + 2 library + 4 harness tests, all 50 shared vectors. No new dynamic checks or limits.

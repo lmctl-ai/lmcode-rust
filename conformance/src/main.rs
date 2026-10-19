@@ -48,7 +48,7 @@ pub fn stub_registry() -> Registry {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Outcome { Trace(Vec<String>), RuntimeError(String), LoadError(String) }
+pub enum Outcome { Trace(Vec<String>), RuntimeError(Error), LoadError(String) }
 
 /// Runs one vector: load (phase 1) then run (phase 2) with a fresh context.
 pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome {
@@ -59,7 +59,7 @@ pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome {
     ctx.set_object("root", "Thing", Thing { id: 0 });
     ctx.set_object("v", "Var", Thing { id: 0 });
     ctx.set_object("xs", "IntList", IntList { values: vec![0, 1, 2, 3] });
-    match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e.message) }
+    match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e) }
 }
 
 pub struct Expect { pub kind: String, pub lines: Vec<String> }
@@ -103,7 +103,12 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
     let outcome = run_vector(&bytecode, &schema);
     let ok = match (expect.kind.as_str(), &outcome) {
         ("trace", Outcome::Trace(lines)) => trace_matches(&expect.lines, lines),
-        ("runtime_error", Outcome::RuntimeError(m)) => m.contains(&expect.lines[0]),
+        ("runtime_error", Outcome::RuntimeError(e)) => e.message.contains(&expect.lines[0]),
+        ("runtime_error_at", Outcome::RuntimeError(e)) => {
+            let line = expect.lines.get(1).and_then(|s| s.parse::<u32>().ok()).filter(|v| *v != 0);
+            let column = expect.lines.get(2).and_then(|s| s.parse::<u16>().ok()).filter(|v| *v != 0);
+            expect.lines.len() >= 4 && e.code == expect.lines[0] && e.line == line && e.column == column && e.message.contains(&expect.lines[3])
+        },
         ("load_error", Outcome::LoadError(m)) => m.contains(&expect.lines[0]),
         _ => false,
     };

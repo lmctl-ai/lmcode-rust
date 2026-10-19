@@ -4,8 +4,8 @@
   "generated_by": "lmscript dsl.ts (scripts/generate-dsl-conformance.ts)",
   "schema": "schema.json",
   "host": {
-    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. bound(i) records bound N and returns i; thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C). S2: Trace.int(float) records float using the same formatting. Trace.status() returns string OPTIMAL typed Status, without a trace. twice(float) doubles its float with no trace. Context v is Var id 0. var(int) records var N and creates Var N; Var.id returns its id, Var.expr records expr N and returns a new Thing N. thing(int) does not record a trace. Thing.plus(Thing), minus(Thing), times(int), neg(), rminus(int) return new Things with sum, difference, product, negation, or argument minus receiver id, respectively (wrapping i64). Thing.len() records len N and returns its id N as a collection length. Thing.at(int) records at I and returns a new Thing I. Thing.set(int) changes its id and returns the receiver, with concrete canonical return type Thing for schema self.",
-    "expect": "trace: the recorded lines in order, after a successful run. A line prefixed ~ compares the last numeric token with relative tolerance 1e-12 (floor scale 1e-300), exact prefix; both values must be finite. This applies only to sin/cos/pow, assuming the platform binary64 libm meets that tolerance (no universal correct-rounding guarantee). Other traces compare exactly; native unit tests also compare exact binary64 results and signed zero. runtime_error: run() throws and the message contains the substring. load_error: load() throws (nothing runs) and the message contains the substring."
+    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. Context xs is IntList [0, 1, 2, 3] with len() and at(int), neither recording a trace. bound(i) records bound N and returns i; thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C). S2: Trace.int(float) records float using the same formatting. Trace.status() returns string OPTIMAL typed Status, without a trace. twice(float) doubles its float with no trace. Context v is Var id 0. var(int) records var N and creates Var N; Var.id returns its id, Var.expr records expr N and returns a new Thing N. thing(int) does not record a trace. Thing.plus(Thing), minus(Thing), times(int), neg(), rminus(int) return new Things with sum, difference, product, negation, or argument minus receiver id, respectively (wrapping i64). Thing.len() records len N and returns its id N as a collection length. Thing.at(int) records at I and returns a new Thing I. Thing.set(int) changes its id and returns the receiver, with concrete canonical return type Thing for schema self.",
+    "expect": "trace: the recorded lines in order, after a successful run. A line prefixed ~ compares the last numeric token with relative tolerance 1e-12 (floor scale 1e-300), exact prefix; both values must be finite. This applies only to sin/cos/pow, assuming the platform binary64 libm meets that tolerance (no universal correct-rounding guarantee). Other traces compare exactly; native unit tests also compare exact binary64 results and signed zero. runtime_error: run() throws and the message contains the substring. runtime_error_at: run() throws with exact code, line and column plus a message substring; .expect payload lines are CODE, LINE, COLUMN, MESSAGE. Zero line/column means unavailable; a positive line with zero column is line-only. load_error: load() throws (nothing runs) and the message contains the substring."
   },
   "vectors": [
     {
@@ -388,6 +388,118 @@
       "mutated": false,
       "expect": {
         "runtime_error": "int division by zero"
+      }
+    },
+    {
+      "name": "runtime-host-error-at",
+      "covers": "S5 located host error inside a nested while loop",
+      "schema": "schema.json",
+      "bytecode": "runtime-host-error-at.dslb",
+      "source": "runtime-host-error-at.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 3,
+          "column": 3,
+          "message": "located host"
+        }
+      }
+    },
+    {
+      "name": "runtime-div-zero-at",
+      "covers": "S5 located integer division error after argument evaluation",
+      "schema": "schema.json",
+      "bytecode": "runtime-div-zero-at.dslb",
+      "source": "runtime-div-zero-at.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_ERROR",
+          "line": 2,
+          "column": 10,
+          "message": "int division by zero"
+        }
+      }
+    },
+    {
+      "name": "runtime-mod-zero-at",
+      "covers": "S5 located integer remainder error",
+      "schema": "schema.json",
+      "bytecode": "runtime-mod-zero-at.dslb",
+      "source": "runtime-mod-zero-at.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_ERROR",
+          "line": 2,
+          "column": 9,
+          "message": "int modulo by zero"
+        }
+      }
+    },
+    {
+      "name": "runtime-inline-error-at",
+      "covers": "S5 located error in an inlined callee",
+      "schema": "schema.json",
+      "bytecode": "runtime-inline-error-at.dslb",
+      "source": "runtime-inline-error-at.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 1,
+          "column": 22,
+          "message": "inner fault"
+        }
+      }
+    },
+    {
+      "name": "runtime-after-inline-error-at",
+      "covers": "S5 caller location after a multiline host call with an inlined argument",
+      "schema": "schema.json",
+      "bytecode": "runtime-after-inline-error-at.dslb",
+      "source": "runtime-after-inline-error-at.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 1,
+          "message": "caller fault"
+        }
+      }
+    },
+    {
+      "name": "runtime-empty-lines-fallback",
+      "covers": "S5 empty line table leaves runtime location unavailable",
+      "schema": "schema.json",
+      "bytecode": "runtime-empty-lines-fallback.dslb",
+      "source": "runtime-empty-lines-fallback.dsl",
+      "mutated": true,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 0,
+          "column": 0,
+          "message": "no source table"
+        }
+      }
+    },
+    {
+      "name": "runtime-long-column-fallback",
+      "covers": "S5 columns beyond u16 encode as zero while preserving line",
+      "schema": "schema.json",
+      "bytecode": "runtime-long-column-fallback.dslb",
+      "source": "runtime-long-column-fallback.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 1,
+          "column": 0,
+          "message": "long column"
+        }
       }
     },
     {
