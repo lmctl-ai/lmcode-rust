@@ -26,11 +26,16 @@ bash "$ROOT/scripts/sync-vectors.sh" --verify >/dev/null || fail "conformance ve
 ok "conformance vectors match vectors.lock"
 
 # 2. Compile poc-web's router chunk with the released lmscript (same schema bytes as poc-web).
-cmp -s "$SCHEMA" "$ROOT/../poc-web/schema/router.dsl.json" 2>/dev/null && ok "schema is byte-identical to poc-web's schema/router.dsl.json" || echo "skip - poc-web checkout not found next to this repo; schema identity not checked"
+if [ -f "$ROOT/../poc-web/schema/router.dsl.json" ]; then
+  cmp -s "$SCHEMA" "$ROOT/../poc-web/schema/router.dsl.json" || fail "router schema differs from the sibling poc-web schema"
+  ok "schema is byte-identical to poc-web's schema/router.dsl.json"
+else
+  echo "skip - poc-web checkout not found next to this repo; schema identity not checked"
+fi
 (cd "$HERE" && HOME="$WORK/home" "$LMSCRIPT" dsl/build_router.lms "$WORK/router.dslb" >"$WORK/compile.out" 2>&1) || { cat "$WORK/compile.out"; fail "lmscript compiles dsl/build_router.lms"; }
 [ "$(head -c 4 "$WORK/router.dslb")" = "DSLB" ] || fail "magic"
-[ "$(od -An -tu1 -j4 -N2 "$WORK/router.dslb" | xargs)" = "0 4" ] || fail "bytecode version 4 (use a v4 compiler)"
-ok "lmscript $HAVE_LMSCRIPT compiles the router to $(wc -c <"$WORK/router.dslb") bytes (bytecode v4)"
+[ "$(od -An -tu1 -j4 -N2 "$WORK/router.dslb" | xargs)" = "0 5" ] || fail "bytecode version 5 (use a v5 compiler)"
+ok "lmscript $HAVE_LMSCRIPT compiles the router to $(wc -c <"$WORK/router.dslb") bytes (bytecode v5)"
 
 # 3. Serve it on the Rust runtime.
 start_server() { # $1 binary; sets PORT and SERVER_PID

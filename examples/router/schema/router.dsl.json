@@ -4,57 +4,20 @@
   "types": {
     "Request": {
       "methods": {
-        "method": [
-          {
-            "params": [],
-            "returns": "string"
-          }
-        ],
-        "path": [
-          {
-            "params": [],
-            "returns": "string"
-          }
-        ]
+        "method": [{"params":[],"returns":"string"}],
+        "path": [{"params":[],"returns":"string"}]
       }
     },
     "Response": {
       "methods": {
-        "status": [
-          {
-            "params": [
-              "int"
-            ],
-            "returns": "void"
-          }
-        ],
-        "body": [
-          {
-            "params": [
-              "string"
-            ],
-            "returns": "void"
-          }
-        ],
-        "header": [
-          {
-            "params": [
-              "string",
-              "string"
-            ],
-            "returns": "void"
-          }
-        ]
+        "status": [{"params":["int"],"returns":"void"}],
+        "body": [{"params":["string"],"returns":"void"}],
+        "header": [{"params":["string","string"],"returns":"void"}]
       }
     }
   },
   "functions": {
-    "now_date": [
-      {
-        "params": [],
-        "returns": "string"
-      }
-    ]
+    "now_date": [{"params":[],"returns":"string"}]
   },
   "context": {
     "req": "Request",
