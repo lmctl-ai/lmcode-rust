@@ -1,14 +1,21 @@
 //! Example host on the Rust runtime: the SAME schema and the SAME bytecode file as lmweb's C++ server (lmctl-ai/lmweb,
 //! cpp/server.cpp). A generic single-threaded HTTP/1.1 server (std::net, Connection: close) that knows nothing about
 //! routing: per request it builds the context (req, res), runs the DSL chunk once, then writes whatever the chunk set
-//! (default 500 when the chunk set no status). Flags: --port N (0 = free port, prints `listening on PORT`), --dsl FILE,
-//! --schema FILE. Exit: 1 load refused, 2 usage. Stop with SIGTERM/SIGINT (the accept loop polls a shutdown flag).
+//! (default 500 when the chunk set no status). The schema is embedded at build time (DSL host flag standard, lmscript R42):
+//! `router --dsl FILE [--port N]` serves (0 = free port, prints `listening on PORT`); `router --dsl-schema` prints the
+//! human summary, `router --dsl-schema --json` the embedded schema bytes exactly, `router --dsl-signatures` one canonical
+//! signature per line. Any other combination (including the removed `--schema FILE`) exits 2 with empty stdout.
+//! Exit: 1 load refused, 2 usage. Stop with SIGTERM/SIGINT (the accept loop polls a shutdown flag).
 use dslvm::{Context, Error, Program, Registry, Value};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+
+/// The schema this host implements, embedded at build time; bytecode is verified against exactly these bytes.
+const SCHEMA: &[u8] = include_bytes!("../schema/router.dsl.json");
+const USAGE: &str = "usage: router --dsl-schema [--json] | --dsl-signatures | --dsl FILE [--port N]  (0 picks a free port)";
 
 #[derive(Default)]
 struct Request { method: String, path: String }
@@ -65,25 +72,36 @@ fn read_request(stream: &mut TcpStream) -> Option<Request> {
     Some(req)
 }
 
+fn usage() -> ! { eprintln!("{}", USAGE); std::process::exit(2) }
+
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let (mut port, mut dsl, mut schema) = (8080u16, String::new(), String::new());
-    let mut i = 1;
-    while i < args.len() {
-        let value = |i: &mut usize| -> String { *i += 1; args.get(*i).cloned().unwrap_or_else(|| { eprintln!("error: {} needs a value", args[*i - 1]); std::process::exit(2) }) };
-        match args[i].as_str() { "--port" => port = value(&mut i).parse().unwrap_or_else(|_| { eprintln!("error: --port needs a number"); std::process::exit(2) }), "--dsl" => dsl = value(&mut i), "--schema" => schema = value(&mut i),
-            "--dsl-signatures" => { for s in registry().signatures() { println!("{}", s); } std::process::exit(0) }  // diffed against `lmscript --dsl-signatures` by test.sh
-            _ => { eprintln!("usage: router --dsl FILE --schema FILE [--port N]  (0 picks a free port)"); std::process::exit(2) } }
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let a: Vec<&str> = args.iter().map(String::as_str).collect();
+    // Introspection modes take exactly these argument lists; every other use of the flags is a usage error.
+    match a.as_slice() {
+        ["--dsl-schema"] => { print!("{}", registry().schema_summary()); std::process::exit(0) }
+        ["--dsl-schema", "--json"] => { let mut o = std::io::stdout().lock(); std::process::exit(if o.write_all(SCHEMA).and_then(|_| o.flush()).is_ok() { 0 } else { 4 }) }
+        ["--dsl-signatures"] => { for s in registry().signatures() { println!("{}", s); } std::process::exit(0) }  // diffed against `lmscript --dsl-signatures` by test.sh
+        _ => {}
+    }
+    let (mut port, mut dsl) = (8080u16, None::<String>);
+    let mut i = 0;
+    while i < a.len() {
+        let value = |i: &mut usize| -> String { *i += 1; match a.get(*i) { Some(v) if !v.is_empty() && !v.starts_with("--") => v.to_string(), _ => usage() } };
+        match a[i] {
+            "--port" => port = value(&mut i).parse().unwrap_or_else(|_| usage()),
+            "--dsl" if dsl.is_none() => dsl = Some(value(&mut i)),
+            _ => usage(),  // --schema (removed), --json, --dsl-schema/--dsl-signatures mixed with run flags, repeats, strays
+        }
         i += 1;
     }
-    if dsl.is_empty() || schema.is_empty() { eprintln!("error: --dsl FILE and --schema FILE are required"); std::process::exit(2); }
-    // (1) the host starts and initializes: the registry is the implementation of the schema
+    let Some(dsl) = dsl else { usage() };
+    // (1) the host starts and initializes: the registry is the implementation of the embedded schema
     let reg = registry();
-    // (2) load and verify the DSL; refused here, before the socket opens
-    let program = match (std::fs::read(&dsl), std::fs::read(&schema)) {
-        (Ok(b), Ok(s)) => match Program::load(&b, &s, &reg) { Ok(p) => p, Err(Error { message: m, .. }) => { eprintln!("error: {}: {}", dsl, m); std::process::exit(1) } },
-        (Err(e), _) => { eprintln!("error: cannot read {}: {}", dsl, e); std::process::exit(1) }
-        (_, Err(e)) => { eprintln!("error: cannot read {}: {}", schema, e); std::process::exit(1) }
+    // (2) load and verify the DSL against the embedded schema; refused here, before the socket opens
+    let program = match std::fs::read(&dsl) {
+        Ok(b) => match Program::load(&b, SCHEMA, &reg) { Ok(p) => p, Err(Error { message: m, .. }) => { eprintln!("error: {}: {}", dsl, m); std::process::exit(1) } },
+        Err(e) => { eprintln!("error: cannot read {}: {}", dsl, e); std::process::exit(1) }
     };
     eprintln!("loaded {} ({} constants, {} code bytes)", dsl, program.constant_count(), program.code_size());
     // (3) the host continues: serve, letting the DSL decide each response

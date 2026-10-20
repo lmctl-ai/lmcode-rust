@@ -20,13 +20,27 @@ cargo test --workspace
 bash examples/router/test.sh
 ```
 
-The test requires `lmscript` 0.2.346 or newer from `PATH`. It compiles the public
+The test requires `lmscript` (or `lmctl`) 0.2.346 or newer from `PATH`. It compiles the public
 router example, runs it on the Rust host, checks the shared vectors, and uses a sibling
 `lmweb` checkout when available for cross-runtime comparison. The test accepts
 `LMWEB_DIR`; before the repository move it also recognizes the legacy sibling checkout.
 
+The router follows the DSL host flag standard (lmscript R42). Its schema is embedded at
+build time (`include_bytes!`), and bytecode is verified against those exact bytes:
+
+```sh
+router --dsl FILE [--port N]     # load, verify against the embedded schema, serve
+router --dsl-schema              # human summary: context/fn lines, then Owner: and "  Owner.method(...)" lines
+router --dsl-schema --json       # the embedded schema bytes, exactly
+router --dsl-signatures          # one canonical signature per line (as `lmscript --dsl-signatures SCHEMA`)
+```
+
+The former `--schema FILE` flag is refused. Any other combination of these flags exits 2
+with empty stdout. `Registry::schema_summary()` produces the summary, so every Rust host
+prints the same format.
+
 The runtime API is small: register context objects, typed methods, and typed host
-functions; load bytecode with the exact schema bytes; create a host context; and run
+functions; load bytecode with the exact schema bytes (embed them in the host binary); create a host context; and run
 the program. Handles remain owned by the host. Schema 2 supports overloads, declared
 conversions, operators, enums, and `returns: "self"`; compiler-inlined functions do
 not add a runtime function table.

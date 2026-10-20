@@ -277,6 +277,10 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
     let mut ctx = Context::new(); let t = ctx.insert("Thing", Thing { id: 7 });
     assert!(ctx.get::<Trace>(t).is_err()); assert_eq!(ctx.get::<Thing>(t).unwrap().id, 7); assert_eq!(ctx.take::<Thing>(t).unwrap().id, 7); assert!(ctx.take::<Thing>(t).is_err());
 }
+#[test] fn schema_summary_groups_methods_by_owner() {
+    assert_eq!(registry().schema_summary(), "context root: Thing\ncontext t: Trace\nfn boom() -> void\nfn twice(int) -> int\nThing:\n  Thing.id() -> int\nTrace:\n  Trace.float(float) -> void\n  Trace.float_bits(float) -> void\n  Trace.int(int) -> void\n  Trace.str(string) -> void\n");
+    assert_eq!(Registry::new().schema_summary(), "");
+}
 #[test] fn signatures_are_sorted_canonical_strings() { assert_eq!(registry().signatures(), ["context root: Thing", "context t: Trace", "fn boom() -> void", "fn twice(int) -> int", "method Thing.id() -> int", "method Trace.float(float) -> void", "method Trace.float_bits(float) -> void", "method Trace.int(int) -> void", "method Trace.str(string) -> void"]); }
 #[test] fn duplicate_registration_is_refused() { let mut reg = Registry::new(); reg.function("f", &[], "void", |_, _| Ok(Value::None)).unwrap(); let e = reg.function("f", &[], "void", |_, _| Ok(Value::None)).err().unwrap(); assert_eq!(e.code, "LOAD_UNBOUND"); assert!(e.message.contains("registered twice")); }
 #[test] fn overloads_are_keyed_by_parameter_types() {

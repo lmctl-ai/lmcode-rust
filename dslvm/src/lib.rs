@@ -203,6 +203,22 @@ impl Registry {
         out.extend(self.methods.keys().cloned());
         out.sort(); out
     }
+    /// The human schema summary every DSL host prints for `HOST --dsl-schema` (host flag standard, lmscript R42): the
+    /// `context ...` and `fn ...` signature lines, then per owner type `Owner:` followed by `  Owner.method(...) -> R`
+    /// lines, all in `signatures()` order, each line newline-terminated. Same format as the C++ hosts' summary.
+    pub fn schema_summary(&self) -> String {
+        let mut out = String::new();
+        let mut owners: Vec<(String, Vec<String>)> = Vec::new();
+        for s in self.signatures() {
+            if s.starts_with("context ") || s.starts_with("fn ") { out.push_str(&s); out.push('\n'); }
+            else if let Some(body) = s.strip_prefix("method ") {
+                let owner = body.split('.').next().unwrap_or("").to_string();
+                match owners.iter_mut().find(|(o, _)| *o == owner) { Some((_, m)) => m.push(body.to_string()), None => owners.push((owner, vec![body.to_string()])) }
+            }
+        }
+        for (owner, methods) in owners { out.push_str(&owner); out.push_str(":\n"); for m in methods { out.push_str("  "); out.push_str(&m); out.push('\n'); } }
+        out
+    }
 }
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]

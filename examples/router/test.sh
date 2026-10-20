@@ -10,9 +10,10 @@ if [ -z "$LMWEB_DIR" ]; then
     if [ -d "$candidate" ]; then LMWEB_DIR="$candidate"; break; fi
   done
 fi
-LMSCRIPT="${LMSCRIPT_BIN:-lmscript}"; MIN_LMSCRIPT="${LMSCRIPT_MIN:-0.2.346}"
+LMSCRIPT="${LMSCRIPT_BIN:-}"
+if [ -z "$LMSCRIPT" ]; then LMSCRIPT=lmscript; command -v lmscript >/dev/null 2>&1 || LMSCRIPT=lmctl; fi; MIN_LMSCRIPT="${LMSCRIPT_MIN:-0.2.346}"
 if ! command -v "$LMSCRIPT" >/dev/null 2>&1 && [ ! -f "$LMSCRIPT" ]; then echo "FAIL: lmscript not found ($LMSCRIPT). Install the released CLI: npm install -g @lmctl-ai/lmctl (>= $MIN_LMSCRIPT), or set LMSCRIPT_BIN." >&2; exit 1; fi
-HAVE_LMSCRIPT="$("$LMSCRIPT" --version 2>/dev/null | sed -n 's/^lmscript //p')"
+HAVE_LMSCRIPT="$("$LMSCRIPT" --version 2>/dev/null | sed -n 's/^lm\(script\|ctl\) //p')"
 if [ -z "$HAVE_LMSCRIPT" ] || [ "$(printf '%s\n%s\n' "$MIN_LMSCRIPT" "$HAVE_LMSCRIPT" | sort -V | head -1)" != "$MIN_LMSCRIPT" ]; then echo "FAIL: lmscript ${HAVE_LMSCRIPT:-unknown} at $LMSCRIPT is too old: _dsl_ needs >= $MIN_LMSCRIPT (npm install -g @lmctl-ai/lmctl@latest) or set LMSCRIPT_BIN." >&2; exit 1; fi
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/rust-router-test-XXXXXX")"; mkdir -p "$WORK/home"
 PIDS=""
@@ -31,6 +32,30 @@ ok "Rust router builds (dslvm crate, std::net, no external crates)"
 bash "$ROOT/scripts/sync-vectors.sh" --verify >/dev/null || fail "conformance vectors differ from vectors.lock"
 ok "conformance vectors match vectors.lock"
 
+# 1b. DSL host flag standard (lmscript R42): the schema is embedded; introspection flags are exact, --schema is gone.
+"$SERVER" --dsl-schema --json >"$WORK/embedded.json" || fail "--dsl-schema --json exit"
+cmp -s "$WORK/embedded.json" "$SCHEMA" || fail "--dsl-schema --json differs from schema/router.dsl.json"
+ok "--dsl-schema --json prints the embedded schema bytes exactly"
+"$SERVER" --dsl-signatures >"$WORK/sigs.txt" || fail "--dsl-signatures exit"
+{ grep -E '^(context|fn) ' "$WORK/sigs.txt"
+  sed -n 's/^method //p' "$WORK/sigs.txt" | awk -F. '$1 != owner { owner = $1; print owner ":" } { print "  " $0 }'
+} >"$WORK/summary.expect"
+"$SERVER" --dsl-schema >"$WORK/summary.txt" || fail "--dsl-schema exit"
+cmp -s "$WORK/summary.txt" "$WORK/summary.expect" || { diff "$WORK/summary.expect" "$WORK/summary.txt"; fail "--dsl-schema summary format"; }
+grep -q '^Response:$' "$WORK/summary.txt" && grep -q '^  Response.status(int) -> void$' "$WORK/summary.txt" || fail "summary groups methods by owner"
+ok "--dsl-schema prints the shared summary (context/fn lines, then Owner: and indented Owner.method lines)"
+if "$LMSCRIPT" --dsl-signatures "$SCHEMA" >"$WORK/lmscript-sigs.txt" 2>/dev/null; then
+  cmp -s "$WORK/sigs.txt" "$WORK/lmscript-sigs.txt" || { diff "$WORK/lmscript-sigs.txt" "$WORK/sigs.txt"; fail "--dsl-signatures differs from lmscript --dsl-signatures"; }
+  ok "--dsl-signatures equals lmscript --dsl-signatures SCHEMA"
+fi
+for flags in "--schema $SCHEMA" "--dsl $WORK/x.dslb --schema $SCHEMA" "--schema" "--json" "--dsl-schema --json extra" "--json --dsl-schema" \
+             "--dsl-schema $SCHEMA" "--dsl-schema --dsl $WORK/x.dslb" "--dsl $WORK/x.dslb --dsl-schema" "--dsl $WORK/x.dslb --json" \
+             "--dsl-signatures --json" "--port 0" ""; do
+  out="$("$SERVER" $flags 2>/dev/null)"; code=$?
+  [ "$code" = 2 ] && [ -z "$out" ] || fail "router $flags: exit $code, stdout '$out' (want 2, empty)"
+done
+ok "--schema FILE and every other flag combination are refused (exit 2, empty stdout)"
+
 # 2. Compile lmweb's router chunk with the released lmscript (same schema bytes as lmweb).
 if [ -n "$LMWEB_DIR" ] && [ -f "$LMWEB_DIR/schema/router.dsl.json" ]; then
   cmp -s "$SCHEMA" "$LMWEB_DIR/schema/router.dsl.json" || fail "router schema differs from the sibling lmweb schema"
@@ -45,7 +70,10 @@ ok "lmscript $HAVE_LMSCRIPT compiles the router to $(wc -c <"$WORK/router.dslb")
 
 # 3. Serve it on the Rust runtime.
 start_server() { # $1 binary; sets PORT and SERVER_PID
-  "$1" --port 0 --dsl "$WORK/router.dslb" --schema "$SCHEMA" >"$WORK/s.out" 2>"$WORK/s.err" & SERVER_PID=$!; PIDS="$PIDS $SERVER_PID"
+  # A host on the flag standard embeds its schema; an older C++ server still takes --schema FILE.
+  set -- "$1" --port 0 --dsl "${2:-$WORK/router.dslb}"
+  "$1" --dsl-schema --json >/dev/null 2>&1 || set -- "$@" --schema "$SCHEMA"
+  "$@" >"$WORK/s.out" 2>"$WORK/s.err" & SERVER_PID=$!; PIDS="$PIDS $SERVER_PID"
   PORT=""; for _ in $(seq 1 50); do PORT="$(sed -n 's/^listening on //p' "$WORK/s.out")"; [ -n "$PORT" ] && break; sleep 0.1; done
   [ -n "$PORT" ] || { cat "$WORK/s.err"; fail "$1 did not print its port"; }
 }
@@ -61,6 +89,18 @@ ok "Rust runtime: POST / -> 405 method not allowed"
 stop_server; grep -q '^stopped$' "$WORK/s.err" || fail "clean stop: $(cat "$WORK/s.err")"
 ok "Rust router stops cleanly on SIGTERM"
 
+# 3b. _dsl_ cli="PROGRAM" (lmscript R42) compiles against the binary's own embedded schema; older compilers reject it.
+printf 'p = _dsl_ cli="%s";\nres.status(200);\nres.body("cli");\nend _dsl_\nsavedsl(p, "%s");\n' "$SERVER" "$WORK/cli.dslb" >"$WORK/cli.lms"
+if HOME="$WORK/home" "$LMSCRIPT" --check "$WORK/cli.lms" >/dev/null 2>&1; then
+  HOME="$WORK/home" "$LMSCRIPT" "$WORK/cli.lms" >/dev/null 2>"$WORK/cli.err" || { cat "$WORK/cli.err"; fail "compiling with cli=$SERVER"; }
+  start_server "$SERVER" "$WORK/cli.dslb"
+  [ "$(curl -s "http://127.0.0.1:$PORT/")" = cli ] || fail "running a cli= compiled program"
+  stop_server
+  ok "_dsl_ cli=\"router\" compiles against the binary's own schema and serves"
+else
+  echo "skip - _dsl_ cli= (this lmscript predates lmscript R42)"
+fi
+
 # 4. The SAME bytecode file on the C++ runtime (lmweb), when it is built next to this repo.
 CPP="${LMWEB_DIR:+$LMWEB_DIR/build/server}"
 if [ -x "$CPP" ]; then
@@ -74,11 +114,15 @@ else
 fi
 
 # 5. Refusals before serving: schema mismatch, truncated file, wrong magic (exit 1 with a message).
-sed 's/"name": "router"/"name": "router2"/' "$SCHEMA" >"$WORK/other.json"
-out="$("$SERVER" --port 0 --dsl "$WORK/router.dslb" --schema "$WORK/other.json" 2>&1)"; code=$?; [ "$code" = 1 ] && case "$out" in *"schema mismatch"*) ;; *) fail "mismatch: $code $out";; esac
+# The mismatch: the same chunk compiled against a schema whose bytes differ from the embedded one.
+mkdir -p "$WORK/other/dsl" "$WORK/other/schema"; cp "$HERE/dsl/build_router.lms" "$WORK/other/dsl/"
+sed 's/"name": "router"/"name": "router2"/' "$SCHEMA" >"$WORK/other/schema/router.dsl.json"
+cmp -s "$SCHEMA" "$WORK/other/schema/router.dsl.json" && fail "the mismatch schema must differ"
+(cd "$WORK/other" && HOME="$WORK/home" "$LMSCRIPT" dsl/build_router.lms "$WORK/other.dslb" >"$WORK/other.out" 2>&1) || { cat "$WORK/other.out"; fail "compile against the other schema"; }
+out="$("$SERVER" --port 0 --dsl "$WORK/other.dslb" 2>&1)"; code=$?; [ "$code" = 1 ] && case "$out" in *"schema mismatch"*) ;; *) fail "mismatch: $code $out";; esac
 ok "refuses a schema-hash mismatch before serving"
-head -c 60 "$WORK/router.dslb" >"$WORK/trunc.dslb"; out="$("$SERVER" --port 0 --dsl "$WORK/trunc.dslb" --schema "$SCHEMA" 2>&1)"; case "$out" in *"bytecode is truncated"*) ;; *) fail "truncated: $out";; esac
+head -c 60 "$WORK/router.dslb" >"$WORK/trunc.dslb"; out="$("$SERVER" --port 0 --dsl "$WORK/trunc.dslb" 2>&1)"; case "$out" in *"bytecode is truncated"*) ;; *) fail "truncated: $out";; esac
 ok "refuses a truncated file"
-{ printf 'XXXX'; tail -c +5 "$WORK/router.dslb"; } >"$WORK/magic.dslb"; out="$("$SERVER" --port 0 --dsl "$WORK/magic.dslb" --schema "$SCHEMA" 2>&1)"; case "$out" in *"bad magic"*) ;; *) fail "magic: $out";; esac
+{ printf 'XXXX'; tail -c +5 "$WORK/router.dslb"; } >"$WORK/magic.dslb"; out="$("$SERVER" --port 0 --dsl "$WORK/magic.dslb" 2>&1)"; case "$out" in *"bad magic"*) ;; *) fail "magic: $out";; esac
 ok "refuses a wrong magic"
 echo "PASS $pass checks"
