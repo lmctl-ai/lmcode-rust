@@ -75,3 +75,12 @@ VM strings are arbitrary bytes: invalid UTF-8 and embedded NUL are legal. Consta
 Host callbacks use `value.as_bytes()?` for unchanged bytes, `value.as_str()?` for validated UTF-8 (a conversion failure is `RUN_HOST`), or `value.to_string_lossy()?` for replacement-character text. `ByteString` also offers `as_bytes()`, `as_str()`, `to_string_lossy()`, and byte indexing. Registry identifiers remain UTF-8 host text. Host adapters such as the router choose their own text validation at their API boundary.
 
 The string catalog uses byte offsets and ASCII case/whitespace rules. Substrings clamp negative starts to zero and overlong counts to the end; negative counts return empty. Search returns the first byte offset, or -1 (0 for an empty needle); replacement consumes non-overlapping matches and treats an empty search as a no-op. Repeat and replacement preflight a 64 MiB output cap, including no-op replacement copies; repeat also rejects negative counts. Numeric parsing accepts complete signed decimal tokens without whitespace, rejects overflow and floating-point underflow to zero, and returns zero on failure (`str_is_int`/`str_is_float` distinguish valid zero). NaN and infinity are invalid; representable subnormals and signed zero are preserved. Glob matching supports `*` (including slash), `?`, classes/ranges, `[!class]`, and backslash escapes. Unterminated classes and trailing backslashes are literal; leading `]` in a class is literal and descending ranges match no bytes. A deterministic 2^27 work cap counts matcher iterations, scanned class entries, and skipped trailing stars. Catalog policy failures return `RUN_HOST`.
+
+The conformance runner also supports the optional catalog fixtures from a matching
+C++ checkout, including its raw-byte hex adapters:
+
+```sh
+cargo run -p dsl-conformance --bin dsl-conformance -- ../lmcode-cpp/conformance/stdlib-vectors
+```
+
+An empty vector directory is an error, never a successful zero-case run.

@@ -9,8 +9,24 @@ pub struct IntList { pub values: Vec<i64> }
 pub struct Trace(pub Vec<String>);
 
 /// The manifest's host stub: `t` (Trace) records calls; `root` is Thing 0; thing/twice/half/yes/fail.
+// Decode the language-neutral catalog fixture adapter without UTF-8 conversion.
+fn fixture_bytes(hex: &[u8]) -> Result<Vec<u8>, Error> {
+    fn digit(byte: u8) -> Result<u8, Error> {
+        match byte {
+            b'0'..=b'9' => Ok(byte - b'0'),
+            b'a'..=b'f' => Ok(byte - b'a' + 10),
+            _ => Err(Error::host("bytes: expected lowercase hexadecimal pairs")),
+        }
+    }
+    if hex.len() % 2 != 0 { return Err(Error::host("bytes: expected lowercase hexadecimal pairs")); }
+    hex.chunks_exact(2).map(|pair| Ok(digit(pair[0])? * 16 + digit(pair[1])?)).collect()
+}
+
 pub fn stub_registry() -> Registry {
     let mut reg = Registry::new();
+    dslvm::stdlib::register_string(&mut reg).unwrap();
+    reg.function("bytes", &["string"], "string", |_, a| Ok(Value::string(fixture_bytes(a[0].as_bytes()?)?))).unwrap();
+    reg.method("Trace", "hex", &["string"], "void", |ctx, _, a| trace(ctx, format!("hex {}", dslvm::hex(a[0].as_bytes()?)))).unwrap();
     reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap().context("v", "Var").unwrap().context("xs", "IntList").unwrap();
     fn trace(ctx: &mut Context, line: String) -> Result<Value, Error> { let t = ctx.lookup("t").ok_or_else(|| Error::host("no t"))?; ctx.get_mut::<Trace>(t)?.0.push(line); Ok(Value::None) }
     reg.method("Trace", "int", &["int"], "void", |ctx, _, a| trace(ctx, format!("int {}", a[0].as_int()?))).unwrap();
@@ -119,7 +135,12 @@ pub fn default_dir() -> PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).join("ve
 
 fn main() {
     let dir = std::env::args().nth(1).map(PathBuf::from).unwrap_or_else(default_dir);
-    let names = vector_names(&dir); let mut failed = 0;
+    let names = vector_names(&dir);
+    if names.is_empty() {
+        eprintln!("no vectors in {}", dir.display());
+        std::process::exit(2);
+    }
+    let mut failed = 0;
     for name in &names {
         match check_vector(&dir, name) { Ok(kind) => println!("ok - {} ({})", name, kind), Err(e) => { failed += 1; println!("FAIL - {}", e); } }
     }
@@ -130,6 +151,16 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn catalog_fixture_bytes_preserve_binary_values() {
+        assert_eq!(fixture_bytes(b"ff00c3a9").unwrap(), [0xff, 0, 0xc3, 0xa9]);
+        assert_eq!(fixture_bytes(b"").unwrap(), []);
+        for bad in [b"0".as_slice(), b"gg", b"FF", b"\xff\x00"] {
+            let error = fixture_bytes(bad).unwrap_err();
+            assert_eq!(error.code, "RUN_HOST");
+            assert_eq!(error.message, "bytes: expected lowercase hexadecimal pairs");
+        }
+    }
     #[test]
     fn pinned_vectors_match_the_lock() {
         // Same digest as scripts/sync-vectors.sh: sha256 over the `sha256sum` lines of every vector file in byte-sorted order.
