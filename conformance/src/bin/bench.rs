@@ -40,6 +40,29 @@ fn count_ops(file: &[u8]) -> usize {  // v5 header: constants, imports, contexts
     let n = u16::from_be_bytes(file[p..p + 2].try_into().unwrap()) as usize; p += 2 + 5 * n + 2;
     let len = u32::from_be_bytes(file[p..p + 4].try_into().unwrap()) as usize; p += 4;
     let code = &file[p..p + len]; let mut i = 0; let mut ops = 0;
-    while i < code.len() { ops += 1; i += 1 + match code[i] { 0x01 | 0x12 => 8, 0x02 => 4, 0x04..=0x06 => 2, 0x03 => 1, 0x07 | 0x08 => 3, 0x0C..=0x0E => 4, 0x2F => 8, 0x31 => 6, 0x32 => 1, _ => 0 }; }
+    while i < code.len() { ops += 1; i += 1 + match code[i] { 0x01 | 0x12 => 8, 0x02 => 4, 0x04..=0x06 => 2, 0x03 => 1, 0x07 | 0x08 => 3, 0x0C..=0x0E | 0x35 | 0x36 => 4, 0x2F => 8, 0x31 => 6, 0x32 => 1, _ => 0 }; }
     ops
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn while_operands_are_not_counted_as_instructions() {
+        // while false {}: begin, push false, test/exit, back-edge, halt.
+        let code = [0x34, 0x03, 0, 0x35, 0, 0, 0, 5, 0x36, 0xff, 0xff, 0xff, 0xf3, 0x11];
+        let mut file = b"DSLB".to_vec();
+        file.extend_from_slice(&dslvm::VERSION.to_be_bytes());
+        file.extend_from_slice(&dslvm::sha256(b""));
+        file.extend_from_slice(&0u32.to_be_bytes()); // constants
+        for _ in 0..3 { file.extend_from_slice(&0u16.to_be_bytes()); } // imports, contexts, locals
+        file.extend_from_slice(&1u16.to_be_bytes()); // stack hint
+        file.extend_from_slice(&(code.len() as u32).to_be_bytes());
+        file.extend_from_slice(&code);
+        file.extend_from_slice(&0u32.to_be_bytes()); // line table
+        let registry = Registry::new();
+        Program::load(&file, b"", &registry).unwrap().run(&mut Context::new(), &registry).unwrap();
+        assert_eq!(count_ops(&file), 5);
+    }
 }
