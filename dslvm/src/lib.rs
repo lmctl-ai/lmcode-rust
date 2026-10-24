@@ -288,13 +288,6 @@ impl Registry {
     pub fn context_type(&self, name: &str) -> Option<&str> { self.contexts.get(name).map(String::as_str) }
     pub(crate) fn begin_compatibility_registration(&mut self) { self.compatibility_registration = true; }
     pub(crate) fn end_compatibility_registration(&mut self) { self.compatibility_registration = false; }
-    pub(crate) fn replace_standard_function(&mut self, name: &str, params: &[&str], returns: &str, f: Function) -> Result<(), Error> {
-        let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
-        let canonical = format!("fn {}{}", name, sig.text());
-        if !self.std_signatures.contains(&canonical) { return load_err("LOAD_UNBOUND", format!("standard function '{}' is not installed", canonical)); }
-        self.functions.insert(canonical, (name.to_string(), sig, f));
-        Ok(())
-    }
     fn function_by_signature(&self, canonical: &str) -> Option<&(String, Signature, Function)> { self.functions.get(canonical) }
     fn method_by_signature(&self, canonical: &str) -> Option<&(String, String, Signature, Method)> { self.methods.get(canonical) }
     /// "fn x(float) -> int" as the host declares the name an import asks for, or "" when the name is unknown.

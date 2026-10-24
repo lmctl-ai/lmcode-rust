@@ -136,8 +136,13 @@ mod tests {
             let root = std::env::temp_dir().join(format!("lmcode-rust-raw-{}", std::process::id())); std::fs::create_dir_all(&root).unwrap();
             let raw = root.join(std::ffi::OsString::from_vec(vec![b'x', 0xff]));
             let raw_bytes = ByteString::from(raw.as_os_str().as_bytes());
-            write_bytes("file_write", &raw_bytes, b"raw", false).unwrap();
-            assert_eq!(read_bytes("file_read", &raw_bytes).unwrap(), b"raw");
+            match write_bytes("file_write", &raw_bytes, b"raw", false) {
+                Ok(()) => assert_eq!(read_bytes("file_read", &raw_bytes).unwrap(), b"raw"),
+                Err(error) => {
+                    #[cfg(target_os = "macos")] assert!(error.message.contains("Illegal byte sequence"), "{}", error.message);
+                    #[cfg(not(target_os = "macos"))] panic!("{}", error.message);
+                }
+            }
             let _ = std::fs::remove_dir_all(root);
         }
     }

@@ -89,3 +89,13 @@ fn canonical_std_schema_is_pinned_and_matches_default_registry() {
     assert_eq!(compiler.len(), 72);
     assert_eq!(compiler, Registry::new().signatures());
 }
+
+#[test]
+fn testing_catalog_is_explicit_host_surface() {
+    let mut registry = Registry::new();
+    stdlib::register_testing(&mut registry, None).unwrap();
+    assert_eq!(registry.std_signatures().len(), 72);
+    assert!(registry.host_signatures().iter().any(|s| s == "fn print(string) -> void"));
+    assert!(registry.host_signatures().iter().any(|s| s == "fn assert_close(float, float, float) -> void"));
+    assert!(stdlib::register_testing(&mut registry, None).is_err());
+}
