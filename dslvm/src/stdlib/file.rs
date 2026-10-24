@@ -57,8 +57,25 @@ fn write_bytes(function: &str, path: &ByteString, bytes: &[u8], append: bool) ->
     file.write_all(bytes).map_err(|e| failure(function, path, e))?;
     file.flush().map_err(|e| failure(function, path, e))?;
     file.sync_all().map_err(|e| failure(function, path, e))?;
-    Ok(())
+    close_checked(file).map_err(|e| failure(function, path, e))
 }
+#[cfg(unix)]
+fn close_checked(file: File) -> std::io::Result<()> {
+    use std::os::fd::IntoRawFd;
+    let fd = file.into_raw_fd();
+    unsafe { if close(fd) == 0 { Ok(()) } else { Err(std::io::Error::last_os_error()) } }
+}
+#[cfg(unix)]
+unsafe extern "C" { fn close(fd: std::ffi::c_int) -> std::ffi::c_int; }
+#[cfg(windows)]
+fn close_checked(file: File) -> std::io::Result<()> {
+    use std::os::windows::io::IntoRawHandle;
+    let handle = file.into_raw_handle();
+    unsafe { if CloseHandle(handle) != 0 { Ok(()) } else { Err(std::io::Error::last_os_error()) } }
+}
+#[cfg(windows)]
+#[link(name = "kernel32")]
+unsafe extern "system" { fn CloseHandle(handle: *mut std::ffi::c_void) -> i32; }
 fn lines(bytes: &[u8]) -> Vec<ByteString> {
     let mut output = Vec::new(); let mut start = 0;
     for (i, byte) in bytes.iter().enumerate() { if *byte == b'\n' { output.push(ByteString::from(&bytes[start..i])); start = i + 1; } }
@@ -101,5 +118,7 @@ mod tests {
         assert!(regular("file_exists", &missing, true).unwrap().is_none());
         let nul = ByteString::from(b"bad\0path".as_slice());
         assert_eq!(regular("file_exists", &nul, true).unwrap_err().code, "RUN_HOST");
+        assert!(!exists("file_exists", &ByteString::from(b"".as_slice())).unwrap());
+        #[cfg(unix)] assert!(!exists("file_exists", &ByteString::from(b"/dev/null".as_slice())).unwrap());
     }
 }
