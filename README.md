@@ -78,11 +78,10 @@ The same bytecode v5 and the same conformance vectors are implemented by [lmcode
 
 ## Standard library catalog
 
-`dslvm::stdlib` holds optional host functions shared with the other lmcode SDKs; copy the matching `functions` fragment from
-`stdlib/string.schema-fragment.json` into the host schema and call `stdlib::register_string(&mut registry)`. The 16 byte-oriented functions match the C++ catalog: `str_len`, `str_starts_with`, `str_ends_with`, `str_contains`, `str_find`, `str_substr`, `str_lower`, `str_upper`, `str_trim`, `str_repeat`, `str_to_int`, `str_is_int`, `str_to_float`, `str_is_float`, `str_replace`, and `str_match`. Signature parity with the compiler is checked by
+`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The 16 byte-oriented functions match the C++ catalog: `str_len`, `str_starts_with`, `str_ends_with`, `str_contains`, `str_find`, `str_substr`, `str_lower`, `str_upper`, `str_trim`, `str_repeat`, `str_to_int`, `str_is_int`, `str_to_float`, `str_is_float`, `str_replace`, and `str_match`. Signature parity with the compiler is checked by
 `cargo test -p dslvm --test stdlib_string` whenever `lmscript` (or `$LMSCRIPT_BIN`) is on PATH.
 
-The optional numeric catalog in `stdlib/math.schema-fragment.json` is registered with `stdlib::register_math`; it provides int/float overloads of `math_abs`, `math_min`, `math_max`, `math_floor`, `math_ceil`, `math_round`, `math_pow`, and `math_sqrt`. Integer operations wrap at 64 bits, integer roots are exact floor roots, and float operations preserve IEEE NaN, infinity, and signed-zero behavior described by the shared catalog.
+The built-in numeric catalog is also described by `stdlib/math.schema-fragment.json`; it provides int/float overloads of `math_abs`, `math_min`, `math_max`, `math_floor`, `math_ceil`, `math_round`, `math_pow`, and `math_sqrt`. Integer operations wrap at 64 bits, integer roots are exact floor roots, and float operations preserve IEEE NaN, infinity, and signed-zero behavior described by the shared catalog.
 
 ## VM strings and host text
 
