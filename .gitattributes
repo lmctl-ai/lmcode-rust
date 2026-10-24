@@ -1,0 +1,8 @@
+# Precompiled vectors bind to the exact schema bytes, including line endings.
+conformance/vectors/*.json text eol=lf
+*.dslb binary
+vectors.lock text eol=lf
+conformance/vectors/*.expect text eol=lf
+conformance/vectors/*.dsl text eol=lf
+stdlib/*.json text eol=lf
+dslvm/tests/fixtures/*.json text eol=lf
