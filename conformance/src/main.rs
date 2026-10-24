@@ -5,6 +5,7 @@ use dslvm::{format_g15, Context, Error, Program, Registry, Value};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Thing { pub id: i64 }
 pub struct IntList { pub values: Vec<i64> }
@@ -72,7 +73,7 @@ fn stub_registry_mode(std_catalog: bool) -> Registry {
 #[derive(Debug, PartialEq)]
 pub enum Outcome { Trace(Vec<String>), RuntimeError(Error), LoadError(String) }
 
-fn catalog_registry(schema: &[u8]) -> (Registry, Rc<RefCell<Vec<u8>>>) {
+fn catalog_registry(schema: &[u8], temp_dir: Option<String>) -> (Registry, Rc<RefCell<Vec<u8>>>) {
     let std_catalog = [b"\"str_len\"".as_slice(), b"\"math_abs\"", b"\"str_list\"", b"\"print\""].iter().any(|needle| schema.windows(needle.len()).any(|w| w == *needle));
     let mut reg = stub_registry_mode(std_catalog);
     let printed = Rc::new(RefCell::new(Vec::new()));
@@ -83,20 +84,38 @@ fn catalog_registry(schema: &[u8]) -> (Registry, Rc<RefCell<Vec<u8>>>) {
     if std_catalog {
         let captured = Rc::clone(&printed);
         reg.function("printed", &[], "string", move |_, _| Ok(Value::string(captured.borrow().clone()))).unwrap();
+        if let Some(path) = temp_dir {
+            let long_path = path.clone();
+            reg.function("test_temp_dir", &[], "string", move |_, _| Ok(Value::string(path.clone()))).unwrap();
+            reg.function("test_long_path", &[], "string", move |_, _| {
+                let mut dir = std::path::PathBuf::from(&long_path);
+                for i in 0..7 { dir.push(format!("segment-{}{}", i, "a".repeat(40))); }
+                std::fs::create_dir_all(&dir).map_err(|e| Error::host(format!("fixture: cannot create long-path directory: {}", e)))?;
+                dir.push("résumé-文件-😀.bin");
+                Ok(Value::string(dir.to_string_lossy().into_owned()))
+            }).unwrap();
+        }
     }
     (reg, printed)
 }
 
 /// Runs one vector: load (phase 1) then run (phase 2) with a fresh context.
 pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome {
-    let (reg, _) = catalog_registry(schema);
+    let temp_dir = if schema.windows(b"\"test_temp_dir\"".len()).any(|w| w == b"\"test_temp_dir\"") {
+        let path = std::env::temp_dir().join(format!("lmcode-file-vector-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir(&path).map_err(|e| Outcome::RuntimeError(Error::host(format!("fixture: cannot create fresh temp directory: {}", e)))).ok();
+        Some(path.to_string_lossy().into_owned())
+    } else { None };
+    let (reg, _) = catalog_registry(schema, temp_dir.clone());
     let program = match Program::load(bytecode, schema, &reg) { Ok(p) => p, Err(e) => return Outcome::LoadError(e.message) };
     let mut ctx = Context::new();
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
     ctx.set_object("root", "Thing", Thing { id: 0 });
     ctx.set_object("v", "Var", Thing { id: 0 });
     ctx.set_object("xs", "IntList", IntList { values: vec![0, 1, 2, 3] });
-    match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e) }
+    let outcome = match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e) };
+    if let Some(path) = temp_dir { let _ = std::fs::remove_dir_all(path); }
+    outcome
 }
 
 pub struct Expect { pub kind: String, pub lines: Vec<String> }
@@ -147,6 +166,12 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
         ("trace", Outcome::Trace(lines)) => trace_matches(&expect.lines, lines),
         ("runtime_error", Outcome::RuntimeError(e)) => expect.lines.len() == 1 && e.message.contains(&expect.lines[0]),
         ("runtime_error_exact", Outcome::RuntimeError(e)) => expect.lines.len() == 2 && e.code == expect.lines[0] && bare_error(e) == expect.lines[1],
+        ("runtime_error_file", Outcome::RuntimeError(e)) => {
+            let function = expect.lines.get(1).cloned().unwrap_or_default();
+            let path_suffix = expect.lines.get(2).map(|p| format!("/{}: ", p)).unwrap_or_default();
+            let message = bare_error(e);
+            e.code == expect.lines.first().map(String::as_str).unwrap_or("") && message.contains(&format!("{}: ", function)) && message.contains(&path_suffix) && message.rsplit_once(": ").map(|(_, reason)| reason.chars().any(|c| !c.is_whitespace())).unwrap_or(false)
+        },
         ("runtime_error_at", Outcome::RuntimeError(e)) => {
             let line = expect.lines.get(1).and_then(|s| s.parse::<u32>().ok()).filter(|v| *v != 0);
             let column = expect.lines.get(2).and_then(|s| s.parse::<u16>().ok()).filter(|v| *v != 0);
@@ -222,7 +247,7 @@ mod tests {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("stdlib-vectors");
         for name in ["schema.json", "math.schema.json", "collections.schema.json"] {
             let schema = std::fs::read(dir.join(name)).unwrap();
-            let (registry, _) = catalog_registry(&schema);
+            let (registry, _) = catalog_registry(&schema, None);
             assert_eq!(registry.std_signatures().len(), 72, "{}", name);
         }
     }

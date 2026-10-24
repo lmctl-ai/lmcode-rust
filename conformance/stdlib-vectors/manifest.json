@@ -4,9 +4,119 @@
   "generated_by": "lmscript (one wrapper line preceding NAME.dsl)",
   "schema": "schema.json",
   "host": {
-    "description": "Register all functions from stdlib/string.schema-fragment.json. Context t is Trace: int records int N, float records float %.15g, bool records bool true|false, hex records hex SPACE followed by lowercase hexadecimal bytes (two digits per byte, no decoding). bytes(string) decodes an even-length ASCII hexadecimal fixture literal to raw bytes, without recording a trace. This helper intentionally supplies invalid UTF-8 and NUL without depending on source encoding or compiler literal escapes. Strings, offsets and lengths are bytes. Runtime error expectations use exact code/line/column and message substring, matching the core runner. Collections/testing fixtures register both catalogs, with an arena per vector. print writes raw bytes plus LF to a captured byte sink; printed() returns the entire sink as a VM string. Legacy core IntList stub and the catalog IntList must not both be registered. runtime_error_exact requires RUN_HOST and equality of the complete message after removing only the SDK source-location prefix; code/phase are checked. It never uses substring matching."
+    "description": "Register the string, math, collections, testing, and file catalog functions. Context t is Trace: int records int N, float records float %.15g, bool records bool true|false, hex records hex SPACE followed by lowercase hexadecimal bytes (two digits per byte, no decoding). bytes(string) decodes an even-length ASCII hexadecimal fixture literal to raw bytes, without recording a trace. test_temp_dir() returns a fresh per-vector directory for file cases. Strings, offsets and lengths are bytes. runtime_error_file requires RUN_HOST, the function/path prefix, and a nonempty OS reason while allowing localized diagnostics. runtime_error_exact requires RUN_HOST and equality of the complete message after removing only the SDK source-location prefix. test_long_path() creates nested directories under the per-vector temporary directory, returning an ordinary absolute UTF-8 path longer than 260 characters ending in r\u00e9sum\u00e9-\u6587\u4ef6-\ud83d\ude00.bin; the runner uses native extended-length paths for Windows fixture setup and cleanup, but does not return the extended prefix. File error reasons must contain at least one non-whitespace character."
   },
   "vectors": [
+    {
+      "name": "file-basic",
+      "covers": "raw byte write, read, append, and regular-file existence",
+      "schema": "file.schema.json",
+      "source": "file-basic.dsl",
+      "bytecode": "file-basic.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6100ff",
+          "bool true",
+          "hex 6100ff0a62",
+          "bool false",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "file-lines",
+      "covers": "LF splitting, CR preservation, final empty fields, and empty files",
+      "schema": "file.schema.json",
+      "source": "file-lines.dsl",
+      "bytecode": "file-lines.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 3",
+          "int 2",
+          "hex 610d00",
+          "int 0",
+          "hex 00",
+          "int 0",
+          "hex 00",
+          "int 1"
+        ]
+      }
+    },
+    {
+      "name": "file-large",
+      "covers": "binary content above one MiB and append",
+      "schema": "file.schema.json",
+      "source": "file-large.dsl",
+      "bytecode": "file-large.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 1200000",
+          "bool true",
+          "int 1200001"
+        ]
+      }
+    },
+    {
+      "name": "file-truncate",
+      "covers": "write truncates an existing regular file",
+      "schema": "file.schema.json",
+      "source": "file-truncate.dsl",
+      "bytecode": "file-truncate.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex ff00"
+        ]
+      }
+    },
+    {
+      "name": "file-missing",
+      "covers": "missing-file OS error",
+      "schema": "file.schema.json",
+      "source": "file-missing.dsl",
+      "bytecode": "file-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": [
+          "RUN_HOST",
+          "file_read",
+          "missing.bin"
+        ]
+      }
+    },
+    {
+      "name": "file-directory",
+      "covers": "directory is not a regular file",
+      "schema": "file.schema.json",
+      "source": "file-directory.dsl",
+      "bytecode": "file-directory.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": [
+          "RUN_HOST",
+          "file_read",
+          "."
+        ]
+      }
+    },
+    {
+      "name": "file-unwritable",
+      "covers": "regular intermediate path component failure",
+      "schema": "file.schema.json",
+      "source": "file-unwritable.dsl",
+      "bytecode": "file-unwritable.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": [
+          "RUN_HOST",
+          "file_write",
+          "blocker/child"
+        ]
+      }
+    },
     {
       "name": "starts-with",
       "covers": "str_starts_with byte semantics and edge cases",
@@ -990,6 +1100,146 @@
         "trace": [
           "hex ff00610a0ac3a90a"
         ]
+      }
+    },
+    {
+      "name": "file-append-directory",
+      "covers": "raw file bytes, portable native paths and failure contracts",
+      "schema": "file.schema.json",
+      "source": "file-append-directory.dsl",
+      "bytecode": "file-append-directory.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": {
+          "code": "RUN_HOST",
+          "function": "file_append",
+          "relative_path": "."
+        }
+      }
+    },
+    {
+      "name": "file-append-unwritable",
+      "covers": "raw file bytes, portable native paths and failure contracts",
+      "schema": "file.schema.json",
+      "source": "file-append-unwritable.dsl",
+      "bytecode": "file-append-unwritable.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": {
+          "code": "RUN_HOST",
+          "function": "file_append",
+          "relative_path": "blocker/child"
+        }
+      }
+    },
+    {
+      "name": "file-empty-append",
+      "covers": "raw file bytes, portable native paths and failure contracts",
+      "schema": "file.schema.json",
+      "source": "file-empty-append.dsl",
+      "bytecode": "file-empty-append.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool false",
+          "bool true",
+          "int 0",
+          "hex 00ff",
+          "int 0",
+          "hex 61"
+        ]
+      }
+    },
+    {
+      "name": "file-lines-boundaries",
+      "covers": "raw file bytes, portable native paths and failure contracts",
+      "schema": "file.schema.json",
+      "source": "file-lines-boundaries.dsl",
+      "bytecode": "file-lines-boundaries.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "hex 00",
+          "hex 00",
+          "int 2",
+          "hex ff0000",
+          "hex 610d6200"
+        ]
+      }
+    },
+    {
+      "name": "file-lines-directory",
+      "covers": "raw file bytes, portable native paths and failure contracts",
+      "schema": "file.schema.json",
+      "source": "file-lines-directory.dsl",
+      "bytecode": "file-lines-directory.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": {
+          "code": "RUN_HOST",
+          "function": "file_lines",
+          "relative_path": "."
+        }
+      }
+    },
+    {
+      "name": "file-lines-missing",
+      "covers": "raw file bytes, portable native paths and failure contracts",
+      "schema": "file.schema.json",
+      "source": "file-lines-missing.dsl",
+      "bytecode": "file-lines-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": {
+          "code": "RUN_HOST",
+          "function": "file_lines",
+          "relative_path": "missing-lines.bin"
+        }
+      }
+    },
+    {
+      "name": "file-long-path",
+      "covers": "raw file bytes, portable native paths and failure contracts",
+      "schema": "file.schema.json",
+      "source": "file-long-path.dsl",
+      "bytecode": "file-long-path.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool true",
+          "hex ff0061"
+        ]
+      }
+    },
+    {
+      "name": "file-unicode-path",
+      "covers": "raw file bytes, portable native paths and failure contracts",
+      "schema": "file.schema.json",
+      "source": "file-unicode-path.dsl",
+      "bytecode": "file-unicode-path.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "hex 00ff0d0a"
+        ]
+      }
+    },
+    {
+      "name": "file-write-directory",
+      "covers": "raw file bytes, portable native paths and failure contracts",
+      "schema": "file.schema.json",
+      "source": "file-write-directory.dsl",
+      "bytecode": "file-write-directory.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": {
+          "code": "RUN_HOST",
+          "function": "file_write",
+          "relative_path": "."
+        }
       }
     }
   ]

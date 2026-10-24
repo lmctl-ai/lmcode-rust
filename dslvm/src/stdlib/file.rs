@@ -32,6 +32,14 @@ fn regular(function: &str, path: &ByteString, allow_missing: bool) -> Result<Opt
         Err(error) => Err(failure(function, path, error)),
     }
 }
+fn exists(function: &str, path: &ByteString) -> Result<bool, Error> {
+    let native = native_path(function, path)?;
+    match fs::metadata(native) {
+        Ok(metadata) => Ok(metadata.is_file()),
+        Err(error) if matches!(error.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory) => Ok(false),
+        Err(error) => Err(failure(function, path, error)),
+    }
+}
 fn read_bytes(function: &str, path: &ByteString) -> Result<Vec<u8>, Error> {
     regular(function, path, false)?;
     let native = native_path(function, path)?;
@@ -63,7 +71,7 @@ pub fn register_file(registry: &mut Registry) -> Result<&mut Registry, Error> {
     registry.function("file_read", &["string"], "string", |_, args| Ok(Value::string(read_bytes("file_read", args[0].as_string()?)?)))?;
     registry.function("file_write", &["string", "string"], "void", |_, args| { let path = args[0].as_string()?; write_bytes("file_write", path, args[1].as_bytes()?, false)?; Ok(Value::None) })?;
     registry.function("file_append", &["string", "string"], "void", |_, args| { let path = args[0].as_string()?; write_bytes("file_append", path, args[1].as_bytes()?, true)?; Ok(Value::None) })?;
-    registry.function("file_exists", &["string"], "bool", |_, args| Ok(Value::Bool(regular("file_exists", args[0].as_string()?, true)?.is_some())))?;
+    registry.function("file_exists", &["string"], "bool", |_, args| Ok(Value::Bool(exists("file_exists", args[0].as_string()?)?)))?;
     registry.function("file_lines", &["string"], "StrList", |ctx: &mut Context, args| {
         let bytes = read_bytes("file_lines", args[0].as_string()?)?;
         Ok(Value::object("StrList", ctx.insert_collection("StrList", crate::stdlib::collections::CollectionList { items: lines(&bytes) })?))
