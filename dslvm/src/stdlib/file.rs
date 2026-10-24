@@ -5,7 +5,11 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 fn failure(function: &str, path: &ByteString, error: impl std::fmt::Display) -> Error {
-    Error::host(format!("{}: {}: {}", function, String::from_utf8_lossy(path.as_bytes()), error))
+    let display = match std::str::from_utf8(path.as_bytes()) {
+        Ok(text) => text.to_string(),
+        Err(_) => format!("bytes:{}", crate::hex(path.as_bytes())),
+    };
+    Error::host(format!("{}: {}: {}", function, display, error))
 }
 fn reject_nul(function: &str, path: &ByteString) -> Result<(), Error> {
     if path.as_bytes().contains(&0) { Err(failure(function, path, "invalid argument")) } else { Ok(()) }
@@ -33,6 +37,7 @@ fn regular(function: &str, path: &ByteString, allow_missing: bool) -> Result<Opt
     }
 }
 fn exists(function: &str, path: &ByteString) -> Result<bool, Error> {
+    if path.as_bytes().is_empty() { return Ok(false); }
     let native = native_path(function, path)?;
     match fs::metadata(native) {
         Ok(metadata) => Ok(metadata.is_file()),
@@ -46,6 +51,7 @@ fn read_bytes(function: &str, path: &ByteString) -> Result<Vec<u8>, Error> {
     let mut file = File::open(native).map_err(|e| failure(function, path, e))?;
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes).map_err(|e| failure(function, path, e))?;
+    close_checked(file).map_err(|e| failure(function, path, e))?;
     Ok(bytes)
 }
 fn write_bytes(function: &str, path: &ByteString, bytes: &[u8], append: bool) -> Result<(), Error> {
@@ -102,23 +108,37 @@ mod tests {
 
     #[test]
     fn raw_file_round_trip_and_lf_lines() {
-        let path = std::env::temp_dir().join(format!("lmcode-rust-file-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("lmcode-rust-file-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("raw.bin");
         let path = ByteString::from(path.to_string_lossy().as_bytes());
         write_bytes("file_write", &path, b"a\n\xff\n", false).unwrap();
         assert_eq!(read_bytes("file_read", &path).unwrap(), b"a\n\xff\n");
         assert_eq!(lines(&read_bytes("file_read", &path).unwrap()), vec![ByteString::from(b"a"), ByteString::from(b"\xff"), ByteString::from(b"")]);
         write_bytes("file_append", &path, b"z", true).unwrap();
         assert_eq!(read_bytes("file_read", &path).unwrap(), b"a\n\xff\nz");
-        let _ = std::fs::remove_file(String::from_utf8(path.into_bytes()).unwrap());
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
     fn exists_distinguishes_missing_and_invalid_paths() {
-        let missing = ByteString::from(b"/tmp/lmcode-rust-file-missing".as_slice());
+        let missing = ByteString::from(std::env::temp_dir().join(format!("lmcode-rust-file-missing-{}", std::process::id())).to_string_lossy().as_bytes());
         assert!(regular("file_exists", &missing, true).unwrap().is_none());
         let nul = ByteString::from(b"bad\0path".as_slice());
         assert_eq!(regular("file_exists", &nul, true).unwrap_err().code, "RUN_HOST");
         assert!(!exists("file_exists", &ByteString::from(b"".as_slice())).unwrap());
-        #[cfg(unix)] assert!(!exists("file_exists", &ByteString::from(b"/dev/null".as_slice())).unwrap());
+        #[cfg(unix)] {
+            let special = ByteString::from(b"/dev/null".as_slice());
+            assert!(!exists("file_exists", &special).unwrap());
+            assert!(read_bytes("file_read", &special).is_err());
+            assert!(write_bytes("file_write", &special, b"x", false).is_err());
+            use std::os::unix::ffi::{OsStrExt, OsStringExt};
+            let root = std::env::temp_dir().join(format!("lmcode-rust-raw-{}", std::process::id())); std::fs::create_dir_all(&root).unwrap();
+            let raw = root.join(std::ffi::OsString::from_vec(vec![b'x', 0xff]));
+            let raw_bytes = ByteString::from(raw.as_os_str().as_bytes());
+            write_bytes("file_write", &raw_bytes, b"raw", false).unwrap();
+            assert_eq!(read_bytes("file_read", &raw_bytes).unwrap(), b"raw");
+            let _ = std::fs::remove_dir_all(root);
+        }
     }
 }
