@@ -24,6 +24,7 @@ fn integer_edges_wrap_and_root_exactly() {
     assert_eq!(stdlib::math_sqrt(0).unwrap(), 0);
     assert_eq!(stdlib::math_sqrt(1).unwrap(), 1);
     assert_eq!(stdlib::math_sqrt(i64::MAX).unwrap(), 3037000499);
+    assert_eq!(stdlib::math_sqrt(9_223_372_030_926_249_000).unwrap(), 3_037_000_498);
     assert_eq!(
         stdlib::math_sqrt(-1).unwrap_err().message,
         "math_sqrt: integer argument must be nonnegative"
