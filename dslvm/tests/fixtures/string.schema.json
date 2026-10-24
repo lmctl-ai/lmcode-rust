@@ -1,0 +1,9 @@
+{
+  "dsl.schema": 2,
+  "name": "lmcode_rust_string_catalog_test",
+  "types": {},
+  "functions": {
+    "str_len": [{ "params": ["string"], "returns": "int" }]
+  },
+  "context": {}
+}

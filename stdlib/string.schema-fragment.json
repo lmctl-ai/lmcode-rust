@@ -1,0 +1,5 @@
+{
+  "functions": {
+    "str_len": [{ "params": ["string"], "returns": "int" }]
+  }
+}

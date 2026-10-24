@@ -13,6 +13,7 @@
 //! the host owns their lifetime. Inline functions may pass handles between calls during that run, but the DSL cannot retain
 //! or return a handle after the host context ends.
 
+pub mod stdlib;
 pub mod sha256;
 pub use sha256::{hex, sha256};
 

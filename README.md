@@ -61,3 +61,10 @@ and [lmcpp](https://github.com/lmctl-ai/lmcpp).
 The same bytecode v5 and the same conformance vectors are implemented by [lmcode-cpp](https://github.com/lmctl-ai/lmcode-cpp),
 [lmcode-rust](https://github.com/lmctl-ai/lmcode-rust), [lmcode-go](https://github.com/lmctl-ai/lmcode-go) and
 [lmcode-csharp](https://github.com/lmctl-ai/lmcode-csharp). Each is a library that turns an AOT executable into an lmscript host.
+
+## Standard library catalog
+
+`dslvm::stdlib` holds optional host functions shared with the other lmcode SDKs; copy the matching `functions` fragment from
+`stdlib/string.schema-fragment.json` into the host schema and call `stdlib::register_string(&mut registry)`. Implemented so far:
+`str_len(string) -> int` (byte length, NULs included; UTF-8 is not decoded). Signature parity with the compiler is checked by
+`cargo test -p dslvm --test stdlib_string` whenever `lmscript` (or `$LMSCRIPT_BIN`) is on PATH.
