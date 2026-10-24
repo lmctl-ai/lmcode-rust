@@ -45,8 +45,10 @@ cmp -s "$WORK/summary.txt" "$WORK/summary.expect" || { diff "$WORK/summary.expec
 grep -q '^Response:$' "$WORK/summary.txt" && grep -q '^  Response.status(int) -> void$' "$WORK/summary.txt" || fail "summary groups methods by owner"
 ok "--dsl-schema prints the shared summary (context/fn lines, then Owner: and indented Owner.method lines)"
 if "$LMSCRIPT" --dsl-signatures "$SCHEMA" >"$WORK/lmscript-sigs.txt" 2>/dev/null; then
-  cmp -s "$WORK/sigs.txt" "$WORK/lmscript-sigs.txt" || { diff "$WORK/lmscript-sigs.txt" "$WORK/sigs.txt"; fail "--dsl-signatures differs from lmscript --dsl-signatures"; }
-  ok "--dsl-signatures equals lmscript --dsl-signatures SCHEMA"
+  python3 "$ROOT/scripts/merge-std.py" "$SCHEMA" "$WORK/router-std.schema.json" --std "$ROOT/std/lmcode-std.schema.json" || fail "merge canonical std schema"
+  "$LMSCRIPT" --dsl-signatures "$WORK/router-std.schema.json" >"$WORK/lmscript-std-sigs.txt" 2>/dev/null || fail "lmscript canonical std signatures"
+  cmp -s "$WORK/sigs.txt" "$WORK/lmscript-std-sigs.txt" || { diff "$WORK/lmscript-std-sigs.txt" "$WORK/sigs.txt"; fail "--dsl-signatures differs from merged lmscript schema"; }
+  ok "--dsl-signatures equals lmscript --dsl-signatures merged with canonical std"
 fi
 for flags in "--schema $SCHEMA" "--dsl $WORK/x.dslb --schema $SCHEMA" "--schema" "--json" "--dsl-schema --json extra" "--json --dsl-schema" \
              "--dsl-schema $SCHEMA" "--dsl-schema --dsl $WORK/x.dslb" "--dsl $WORK/x.dslb --dsl-schema" "--dsl $WORK/x.dslb --json" \
