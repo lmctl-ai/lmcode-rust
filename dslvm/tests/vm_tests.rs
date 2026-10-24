@@ -210,10 +210,20 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
 #[test] fn int_modulo_by_zero() { assert!(run_err(&Asm::default().push_int(1).push_int(0).u8(0x33).halt().file()).contains("int modulo by zero")); }
 #[test] fn mixed_kind_equality() { assert!(run_err(&Asm::default().push_int(1).push_str("x").u8(0x09).halt().file()).contains("cannot compare int with string")); }
 #[test] fn float_op_on_int() { assert!(run_err(&Asm::default().push_int(1).push_float(1.0).u8(0x17).halt().file()).contains("float operator applied to int and float")); }
+#[test] fn ordinary_vm_type_error_has_run_error_code() {
+    let error = run(&Asm::default().push_int(1).push_float(1.0).u8(0x17).halt().file()).unwrap_err();
+    assert_eq!(error.code, "RUN_ERROR");
+    assert_eq!(error.message, "float operator applied to int and float");
+}
 #[test] fn local_read_before_store() { assert!(run_err(&Asm::default().local("int", 0).u8(0x04).u16(0).halt().file()).contains("read before assignment")); }
 #[test] fn non_bool_condition() { assert!(run_err(&Asm::default().push_int(1).u8(0x0D).i32(0).halt().file()).contains("condition is a int, not a bool")); }
 #[test] fn stack_underflow() { assert!(run_err(&Asm::default().u8(0x10).halt().file()).contains("stack underflow")); }
 #[test] fn host_error_propagates() { assert!(run_err(&Asm::default().func(BOOM, 0).halt().file()).contains("boom from the host")); }
+#[test] fn host_callback_error_has_run_host_code() {
+    let error = run(&Asm::default().func(BOOM, 0).halt().file()).unwrap_err();
+    assert_eq!(error.code, "RUN_HOST");
+    assert_eq!(error.message, "boom from the host");
+}
 #[test] fn context_object_missing_at_run() { let reg = registry(); let p = Program::load(&t().halt().file(), SCHEMA, &reg).unwrap(); let mut empty = Context::new(); assert!(p.run(&mut empty, &reg).unwrap_err().message.contains("context variable 't' was not provided by the host for this run")); }
 #[test] fn method_on_wrong_object_type() { assert!(run_err(&t().method(THING_ID, 0).halt().file()).contains("method Thing.id called on a Trace")); }
 #[test] fn no_stack_cap() { let mut a = Asm::default(); a.max_stack = 1; for _ in 0..5000 { a = a.push_int(1); } for _ in 0..4999 { a = a.u8(0x13); } let a = a.ctx("t", "Trace").u8(0x0F).u8(0x10).halt(); assert!(run(&a.file()).is_ok()); }
