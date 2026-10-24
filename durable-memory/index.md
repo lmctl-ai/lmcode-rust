@@ -1,23 +1,32 @@
-# lmcode-rust public facts
+# lmcode-rust notes
 
-Rust bytecode runtime for the lmscript `_dsl_` framework. The crate provides a dependency-free loader, structural verifier, stack VM, typed host registry, and shared conformance runner.
+Rust runtime and SDK for lmscript `_dsl_` bytecode. The workspace provides a dependency-free loader, structural verifier, stack VM, typed host registry, and shared conformance runner.
+Repository: https://github.com/lmctl-ai/lmcode-rust. Crate: `dslvm`. Toolchain: Rust 1.80+.
 
-Status: experimental public v5 integration. Install `@lmctl-ai/lmctl` 0.2.346 or newer; the target PATH release is 0.2.347. No source checkout override is required for the normal test command.
+## Document map
 
-The runtime format is owned by the public `lmcode-cpp`, `lmcode-rust`, `lmcode-go`, and `lmcode-csharp` projects. Bytecode is schema-bound by SHA-256, big-endian, and intentionally has no backward compatibility promise. Schema 2 uses signature arrays, overloads, declared one-step conversions, enums, operators, and `returns: "self"`.
+| File | Contents |
+| --- | --- |
+| [01-purpose-and-place.md](01-purpose-and-place.md) | Workspace layout, dslvm crate, router host example |
+| [02-decisions.md](02-decisions.md) | Schema 2 arrays, overloads, single-step conversions |
+| [03-build-run-test.md](03-build-run-test.md) | Building, running workspace tests, router end-to-end checks |
+| [04-gotchas.md](04-gotchas.md) | Exact schema hash binding, opaque handles, resource policy |
+| [05-open-items.md](05-open-items.md) | Planned improvements and multi-runtime parity |
+| [06-stdlib-catalog.md](06-stdlib-catalog.md) | Standard library math, string, and collections catalogs |
 
-The DSL has no bytecode collection values. Hosts expose collections as schema objects with `len()` and `at(i)`. The common language includes loops, compiler-inlined functions, `foreach`, `switch`, `while`, `break`, `continue`, and common numeric math. Source line information is carried into runtime errors by the v5 SDK.
+## Adding an example or host function
 
-## Public files
+### Adding an example
+1. Create `examples/<name>/` with a Rust embedding crate (`Cargo.toml`, `src/main.rs`, and `.lms` script).
+2. Compile bytecode with `lmscript <script>.lms <output>.dslb`.
+3. Add verification script `test.sh` in the example directory.
 
-- `README.md`: setup, embedding, and examples.
-- `Cargo.toml`: workspace for `dslvm`, `conformance`, and `examples/router`.
-- `dslvm/src/lib.rs`: registry, loader, verifier, and VM.
-- `dslvm/src/stdlib.rs` and `stdlib/`: optional host functions and schema fragments.
-- `examples/router/test.sh`: end-to-end checks using the released compiler on `PATH`.
-- `conformance/vectors/` and `vectors.lock`: pinned cross-runtime fixtures.
-- `durable-memory/`: public design facts and operational notes.
-- `LICENSE`: MIT License.
-- `THIRD_PARTY_NOTICES.md`: dependency and attribution notes.
+### Adding a host function/method in Rust
+1. Use `reg = Registry::new()`.
+2. Register methods: `reg.register_method(type, name, param_types, return_type, callback)`.
+3. Register functions: `reg.register_function(name, param_types, return_type, callback)`.
+4. Register context objects: `reg.register_context(name, type)`.
 
-Public repository: https://github.com/lmctl-ai/lmcode-rust
+## Releases
+Releases are built and published automatically on every push to `main` when CI workflows succeed.
+Platform binaries: `router-linux-x64`, `router-linux-arm64`, `router-macos-arm64`, `router-macos-x64`, `router-windows-x64.exe`.
