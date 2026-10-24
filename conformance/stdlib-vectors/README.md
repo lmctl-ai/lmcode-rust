@@ -1,4 +1,4 @@
-# String catalog vectors
+# Optional catalog vectors
 
 The 18 string vectors cover all 16 functions in
 `stdlib/string.schema-fragment.json`, plus negative/oversized repeat failures.
@@ -24,4 +24,25 @@ refer to body line plus one. Expectations are never regenerated from VM output.
 The optional catalog is separate from the 51 core runtime vectors so SDKs can
 adopt functions independently without silently skipping the core contract.
 
-The additional 11 `math-*` vectors use `math.schema.json` to cover all 16 integer/float overloads in `stdlib/math.schema-fragment.json`. The complete optional suite has 29 vectors. Expectations check wrapping integer powers, exact floor roots near int64 limits, signed zero, NaN propagation and halfway-away rounding. Domain failures assert `RUN_HOST` with source positions. Non-exact finite libm results use the ordinary approximate trace format. The compiler only accepts integer literals through 2^53, so boundary inputs are constructed using exact wrapping integer expressions rather than oversized literals.
+The additional 11 `math-*` vectors use `math.schema.json` to cover all 16 integer/float overloads in `stdlib/math.schema-fragment.json`. These string and math groups contain 29 vectors. Expectations check wrapping integer powers, exact floor roots near int64 limits, signed zero, NaN propagation and halfway-away rounding. Domain failures assert `RUN_HOST` with source positions. Non-exact finite libm results use the ordinary approximate trace format. The compiler only accepts integer literals through 2^53, so boundary inputs are constructed using exact wrapping integer expressions rather than oversized literals.
+
+## Collections and testing
+
+The 32 additional collection/testing vectors use `collections.schema.json`;
+the complete optional suite contains 61 vectors. They cover every list/map
+method, mutation chaining, insertion order, replacement without reordering,
+removal with index shifting, raw-byte keys/values, NaN lookup, empty iteration,
+split edge cases, and the shared 65536-object arena limit. Each vector starts
+with a fresh collection arena. The core suite's legacy `IntList` fixture must
+not be registered alongside the collection catalog's methods.
+
+`print` writes raw bytes plus LF to a captured sink. The fixture-only
+`printed() -> string` returns that entire sink without decoding; `t.hex`
+checks the result. Assertion vectors cover tolerance boundaries, NaNs,
+negative tolerance and equal infinities.
+
+`runtime_error_exact` has two payload lines: error code, then complete base
+message. The runner requires a successful load and failed run, strips only
+an SDK-generated source prefix using the error's location metadata, and checks
+the remainder for exact equality. This differs from the older substring modes
+and pins the collection bounds, missing-key and assertion error contracts.

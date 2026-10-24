@@ -2,7 +2,9 @@
 //! NAME.dslb against NAME.expect (line 1: trace | runtime_error | load_error; then the expected lines or the error substring).
 //! `cargo test -p dsl-conformance` runs all vectors; `cargo run -p dsl-conformance -- [VECTOR_DIR]` prints a report.
 use dslvm::{format_g15, Context, Error, Program, Registry, Value};
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 pub struct Thing { pub id: i64 }
 pub struct IntList { pub values: Vec<i64> }
@@ -22,7 +24,9 @@ fn fixture_bytes(hex: &[u8]) -> Result<Vec<u8>, Error> {
     hex.chunks_exact(2).map(|pair| Ok(digit(pair[0])? * 16 + digit(pair[1])?)).collect()
 }
 
-pub fn stub_registry() -> Registry {
+pub fn stub_registry() -> Registry { stub_registry_mode(false) }
+
+fn stub_registry_mode(collection_catalog: bool) -> Registry {
     let mut reg = Registry::new();
     dslvm::stdlib::register_string(&mut reg).unwrap();
     dslvm::stdlib::register_math(&mut reg).unwrap();
@@ -37,8 +41,10 @@ pub fn stub_registry() -> Registry {
     reg.method("Trace", "thing", &["Thing"], "void", |ctx, _, a| { let id = ctx.get::<Thing>(a[0].as_obj()?)?.id; trace(ctx, format!("thing {}", id)) }).unwrap();
     reg.method("Thing", "len", &[], "int", |ctx, this, _| { let n=ctx.get::<Thing>(this)?.id; trace(ctx,format!("len {}",n))?; Ok(Value::Int(n)) }).unwrap();
     reg.method("Thing", "at", &["int"], "Thing", |ctx, _, a| { let id=a[0].as_int()?; trace(ctx,format!("at {}",id))?; let r=ctx.insert("Thing",Thing{id}); Ok(Value::object("Thing",r)) }).unwrap();
-    reg.method("IntList", "len", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<IntList>(this)?.values.len() as i64))).unwrap();
-    reg.method("IntList", "at", &["int"], "int", |ctx, this, a| { let i = a[0].as_int()?; let value = ctx.get::<IntList>(this)?.values.get(usize::try_from(i).map_err(|_| Error::host("IntList index out of range"))?).copied().ok_or_else(|| Error::host("IntList index out of range"))?; Ok(Value::Int(value)) }).unwrap();
+    if !collection_catalog {
+        reg.method("IntList", "len", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<IntList>(this)?.values.len() as i64))).unwrap();
+        reg.method("IntList", "at", &["int"], "int", |ctx, this, a| { let i = a[0].as_int()?; let value = ctx.get::<IntList>(this)?.values.get(usize::try_from(i).map_err(|_| Error::host("IntList index out of range"))?).copied().ok_or_else(|| Error::host("IntList index out of range"))?; Ok(Value::Int(value)) }).unwrap();
+    }
     reg.method("Thing", "id", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id))).unwrap();
     reg.method("Thing", "next", &[], "Thing", |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) }).unwrap();
     reg.method("Thing", "name", &[], "string", |ctx, this, _| Ok(Value::string(format!("thing-{}", ctx.get::<Thing>(this)?.id)))).unwrap();
@@ -68,9 +74,21 @@ pub fn stub_registry() -> Registry {
 #[derive(Debug, PartialEq)]
 pub enum Outcome { Trace(Vec<String>), RuntimeError(Error), LoadError(String) }
 
+fn catalog_registry(schema: &[u8]) -> (Registry, Rc<RefCell<Vec<u8>>>) {
+    let collection_catalog = schema.windows(b"\"str_list\"".len()).any(|w| w == b"\"str_list\"");
+    let mut reg = stub_registry_mode(collection_catalog);
+    let printed = Rc::new(RefCell::new(Vec::new()));
+    let sink: dslvm::stdlib::testing::Sink = printed.clone();
+    dslvm::stdlib::register_testing(&mut reg, Some(sink)).unwrap();
+    if collection_catalog { dslvm::stdlib::register_collections(&mut reg).unwrap(); }
+    let captured = Rc::clone(&printed);
+    reg.function("printed", &[], "string", move |_, _| Ok(Value::string(captured.borrow().clone()))).unwrap();
+    (reg, printed)
+}
+
 /// Runs one vector: load (phase 1) then run (phase 2) with a fresh context.
 pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome {
-    let reg = stub_registry();
+    let (reg, _) = catalog_registry(schema);
     let program = match Program::load(bytecode, schema, &reg) { Ok(p) => p, Err(e) => return Outcome::LoadError(e.message) };
     let mut ctx = Context::new();
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
@@ -99,6 +117,11 @@ fn trace_line_matches(expected: &str, actual: &str) -> bool {
 fn trace_matches(expected: &[String], actual: &[String]) -> bool {
     expected.len() == actual.len() && expected.iter().zip(actual).all(|(e, a)| trace_line_matches(e, a))
 }
+fn bare_error(e: &Error) -> String {
+    let Some(line) = e.line else { return e.message.clone() };
+    let prefix = format!("dsl line {}{}: ", line, e.column.map(|c| format!(":{}", c)).unwrap_or_default());
+    e.message.strip_prefix(&prefix).unwrap_or(&e.message).to_string()
+}
 /// The manifest names the schema file per vector (`"schema": "schema-extra.json"` and the like); default schema.json.
 pub fn schema_for(dir: &Path, name: &str) -> PathBuf {
     let manifest = std::fs::read_to_string(dir.join("manifest.json")).unwrap_or_default();
@@ -121,7 +144,8 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
     let outcome = run_vector(&bytecode, &schema);
     let ok = match (expect.kind.as_str(), &outcome) {
         ("trace", Outcome::Trace(lines)) => trace_matches(&expect.lines, lines),
-        ("runtime_error", Outcome::RuntimeError(e)) => e.message.contains(&expect.lines[0]),
+        ("runtime_error", Outcome::RuntimeError(e)) => expect.lines.len() == 1 && e.message.contains(&expect.lines[0]),
+        ("runtime_error_exact", Outcome::RuntimeError(e)) => expect.lines.len() == 2 && e.code == expect.lines[0] && bare_error(e) == expect.lines[1],
         ("runtime_error_at", Outcome::RuntimeError(e)) => {
             let line = expect.lines.get(1).and_then(|s| s.parse::<u32>().ok()).filter(|v| *v != 0);
             let column = expect.lines.get(2).and_then(|s| s.parse::<u16>().ok()).filter(|v| *v != 0);

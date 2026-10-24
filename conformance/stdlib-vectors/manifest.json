@@ -4,7 +4,7 @@
   "generated_by": "lmscript (one wrapper line preceding NAME.dsl)",
   "schema": "schema.json",
   "host": {
-    "description": "Register all functions from stdlib/string.schema-fragment.json. Context t is Trace: int records int N, float records float %.15g, bool records bool true|false, hex records hex SPACE followed by lowercase hexadecimal bytes (two digits per byte, no decoding). bytes(string) decodes an even-length ASCII hexadecimal fixture literal to raw bytes, without recording a trace. This helper intentionally supplies invalid UTF-8 and NUL without depending on source encoding or compiler literal escapes. Strings, offsets and lengths are bytes. Runtime error expectations use exact code/line/column and message substring, matching the core runner."
+    "description": "Register all functions from stdlib/string.schema-fragment.json. Context t is Trace: int records int N, float records float %.15g, bool records bool true|false, hex records hex SPACE followed by lowercase hexadecimal bytes (two digits per byte, no decoding). bytes(string) decodes an even-length ASCII hexadecimal fixture literal to raw bytes, without recording a trace. This helper intentionally supplies invalid UTF-8 and NUL without depending on source encoding or compiler literal escapes. Strings, offsets and lengths are bytes. Runtime error expectations use exact code/line/column and message substring, matching the core runner. Collections/testing fixtures register both catalogs, with an arena per vector. print writes raw bytes plus LF to a captured byte sink; printed() returns the entire sink as a VM string. Legacy core IntList stub and the catalog IntList must not both be registered. runtime_error_exact requires RUN_HOST and equality of the complete message after removing only the SDK source-location prefix; code/phase are checked. It never uses substring matching."
   },
   "vectors": [
     {
@@ -483,6 +483,513 @@
           "column": 7,
           "message": "math_sqrt: integer argument must be nonnegative"
         }
+      }
+    },
+    {
+      "name": "collections-arena-limit",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-arena-limit.dsl",
+      "bytecode": "collections-arena-limit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrMap object limit exceeded (65536)"
+        }
+      }
+    },
+    {
+      "name": "collections-empty-foreach",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-empty-foreach.dsl",
+      "bytecode": "collections-empty-foreach.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 0",
+          "int 0",
+          "hex "
+        ]
+      }
+    },
+    {
+      "name": "collections-float-list",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-float-list.dsl",
+      "bytecode": "collections-float-list.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 3",
+          "float 1.5",
+          "bool false",
+          "int -1",
+          "bool true",
+          "int 2",
+          "float -0",
+          "float 2.5",
+          "bool false",
+          "int 1",
+          "float 3.5"
+        ]
+      }
+    },
+    {
+      "name": "collections-floatlist-at-end",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-floatlist-at-end.dsl",
+      "bytecode": "collections-floatlist-at-end.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "FloatList.at: index out of range: 0"
+        }
+      }
+    },
+    {
+      "name": "collections-floatlist-at-negative",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-floatlist-at-negative.dsl",
+      "bytecode": "collections-floatlist-at-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "FloatList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "collections-floatlist-set-end",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-floatlist-set-end.dsl",
+      "bytecode": "collections-floatlist-set-end.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "FloatList.set: index out of range: 0"
+        }
+      }
+    },
+    {
+      "name": "collections-floatlist-set-negative",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-floatlist-set-negative.dsl",
+      "bytecode": "collections-floatlist-set-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "FloatList.set: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "collections-int-list",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-int-list.dsl",
+      "bytecode": "collections-int-list.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 3",
+          "int -2",
+          "bool true",
+          "int 0",
+          "bool false",
+          "int -1",
+          "int 11",
+          "int -2",
+          "int 7",
+          "int 0",
+          "int 1",
+          "int 42"
+        ]
+      }
+    },
+    {
+      "name": "collections-intlist-at-end",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-intlist-at-end.dsl",
+      "bytecode": "collections-intlist-at-end.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.at: index out of range: 0"
+        }
+      }
+    },
+    {
+      "name": "collections-intlist-at-negative",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-intlist-at-negative.dsl",
+      "bytecode": "collections-intlist-at-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "collections-intlist-set-end",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-intlist-set-end.dsl",
+      "bytecode": "collections-intlist-set-end.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.set: index out of range: 0"
+        }
+      }
+    },
+    {
+      "name": "collections-intlist-set-negative",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-intlist-set-negative.dsl",
+      "bytecode": "collections-intlist-set-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.set: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "collections-map",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-map.dsl",
+      "bytecode": "collections-map.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 3",
+          "bool true",
+          "bool false",
+          "hex 00ff",
+          "hex fe00",
+          "hex 6f6e65",
+          "hex 61",
+          "hex 75706461746564",
+          "int 3",
+          "bool false",
+          "bool true",
+          "hex ff00",
+          "hex 63",
+          "hex 61",
+          "int 1",
+          "hex 7a"
+        ]
+      }
+    },
+    {
+      "name": "collections-map-index-end",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-map-index-end.dsl",
+      "bytecode": "collections-map-index-end.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrMap.key_at: index out of range: 0"
+        }
+      }
+    },
+    {
+      "name": "collections-map-index-negative",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-map-index-negative.dsl",
+      "bytecode": "collections-map-index-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrMap.key_at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "collections-map-missing",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-map-missing.dsl",
+      "bytecode": "collections-map-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrMap.get: missing key"
+        }
+      }
+    },
+    {
+      "name": "collections-map-removed",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-map-removed.dsl",
+      "bytecode": "collections-map-removed.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrMap.get: missing key"
+        }
+      }
+    },
+    {
+      "name": "collections-split",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-split.dsl",
+      "bytecode": "collections-split.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 4",
+          "hex 61",
+          "hex ",
+          "hex 62",
+          "hex ",
+          "int 1",
+          "hex ",
+          "int 3",
+          "hex ",
+          "hex ",
+          "hex 61",
+          "int 3",
+          "hex ",
+          "hex 61",
+          "hex ",
+          "hex 21a9",
+          "hex 616263"
+        ]
+      }
+    },
+    {
+      "name": "collections-split-empty",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-split-empty.dsl",
+      "bytecode": "collections-split-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "str_split: separator must not be empty"
+        }
+      }
+    },
+    {
+      "name": "collections-str-list",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-str-list.dsl",
+      "bytecode": "collections-str-list.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 3",
+          "bool true",
+          "int 0",
+          "bool false",
+          "int -1",
+          "hex c3a9",
+          "hex ff0000c3a900ff00",
+          "hex 78",
+          "int 4",
+          "int 1",
+          "hex 616761696e"
+        ]
+      }
+    },
+    {
+      "name": "collections-strlist-at-end",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-strlist-at-end.dsl",
+      "bytecode": "collections-strlist-at-end.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: 0"
+        }
+      }
+    },
+    {
+      "name": "collections-strlist-at-negative",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-strlist-at-negative.dsl",
+      "bytecode": "collections-strlist-at-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "collections-strlist-set-end",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-strlist-set-end.dsl",
+      "bytecode": "collections-strlist-set-end.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.set: index out of range: 0"
+        }
+      }
+    },
+    {
+      "name": "collections-strlist-set-negative",
+      "covers": "collection byte semantics and methods",
+      "schema": "collections.schema.json",
+      "source": "collections-strlist-set-negative.dsl",
+      "bytecode": "collections-strlist-set-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.set: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "testing-close",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close.dsl",
+      "bytecode": "testing-close.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "testing-close-expected-nan",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-expected-nan.dsl",
+      "bytecode": "testing-close-expected-nan.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: 1 vs nan (tol 0.1)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-fail",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-fail.dsl",
+      "bytecode": "testing-close-fail.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: 1 vs 2 (tol 0.5)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-infinity",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-infinity.dsl",
+      "bytecode": "testing-close-infinity.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: inf vs inf (tol 0)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-nan",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-nan.dsl",
+      "bytecode": "testing-close-nan.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: nan vs 1 (tol 0.1)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-negative-tolerance",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-negative-tolerance.dsl",
+      "bytecode": "testing-close-negative-tolerance.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: 1 vs 1 (tol -1)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-tolerance-nan",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-tolerance-nan.dsl",
+      "bytecode": "testing-close-tolerance-nan.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: 1 vs 1 (tol nan)"
+        }
+      }
+    },
+    {
+      "name": "testing-print",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-print.dsl",
+      "bytecode": "testing-print.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex ff00610a0ac3a90a"
+        ]
       }
     }
   ]
