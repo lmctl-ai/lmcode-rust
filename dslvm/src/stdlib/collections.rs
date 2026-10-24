@@ -172,6 +172,17 @@ mod tests {
     }
 
     #[test]
+    fn cleared_collection_slots_are_reused_without_touching_host_objects() {
+        let mut context = Context::new();
+        let helper = context.insert("Helper", 7u8);
+        for _ in 0..8 { context.insert_collection("IntList", IntList::default()).unwrap(); context.clear_collections(); }
+        assert_eq!(context.len(), 2);
+        assert_eq!(*context.get::<u8>(helper).unwrap(), 7);
+        context.insert_collection("StrMap", StrMap::default()).unwrap();
+        assert_eq!(context.len(), 2);
+    }
+
+    #[test]
     fn split_preserves_empty_fields_and_bytes() {
         let mut context = Context::new();
         let args = [Value::string(b",a,,".as_slice()), Value::string(b",".as_slice())];

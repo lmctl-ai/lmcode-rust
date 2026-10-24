@@ -44,10 +44,12 @@ fn testing_fragment_matches_registry_and_compiler() {
 fn registry_defaults_to_std_and_supports_opt_out() {
     let mut default = Registry::new();
     assert_eq!(default.signatures().len(), 69);
+    assert_eq!(default.std_signatures().len(), 69);
     assert!(default.host_signatures().is_empty());
     assert!(default.function("str_len", &["string"], "int", |_, _| Ok(Value::Int(0))).is_err());
     let empty = Registry::without_std();
     assert!(empty.signatures().is_empty());
+    assert!(empty.std_signatures().is_empty());
     assert!(empty.host_signatures().is_empty());
 }
 
@@ -60,6 +62,8 @@ fn explicit_std_registration_is_idempotent_and_schema_normalized() {
     assert_eq!(registry.signatures(), signatures);
     registry.check_schema_signatures(&[]).unwrap();
     registry.check_schema_signatures(&signatures).unwrap();
+    assert!(registry.matches_schema_signatures(&[]));
+    assert!(!registry.matches_schema_signatures(&["fn wrong() -> void".into()]));
     let mut host = Registry::without_std();
     host.function("host_only", &[], "void", |_, _| Ok(Value::None)).unwrap();
     assert!(host.check_schema_signatures(&["fn host_only() -> void".into()]).is_ok());
@@ -77,9 +81,14 @@ fn canonical_std_schema_is_pinned_and_matches_default_registry() {
     let compiler_source = String::from_utf8(schema.clone()).unwrap().replace("  \"lmcode.std\": 1,\n", "");
     let compiler_text = format!("{{\n  \"name\": \"lmcode_std_v1\",{}", compiler_source.strip_prefix('{').unwrap());
     fs::write(&compiler_schema, compiler_text).unwrap();
+    let configured = std::env::var_os("LMSCRIPT_BIN").is_some();
     let output = Command::new(bin).arg("--dsl-signatures").arg(&compiler_schema).output();
     let _ = fs::remove_file(&compiler_schema);
-    let Ok(output) = output else { eprintln!("lmscript not found; canonical std parity skipped"); return; };
+    let output = match output {
+        Ok(output) => output,
+        Err(_error) if !configured => { eprintln!("lmscript not found; canonical std parity skipped"); return; }
+        Err(error) => panic!("configured LMSCRIPT_BIN failed to launch: {}", error),
+    };
     assert!(output.status.success(), "lmscript canonical std signatures failed: {}", String::from_utf8_lossy(&output.stderr));
     let compiler: Vec<String> = String::from_utf8(output.stdout).unwrap().lines().map(str::to_owned).collect();
     assert_eq!(compiler.len(), 69);

@@ -141,6 +141,7 @@ pub struct Context {
     names: HashMap<String, ObjRef>,
     collection_objects: usize,
     collection_indices: Vec<usize>,
+    free_collection_slots: Vec<usize>,
 }
 impl Context {
     pub fn new() -> Context { Context::default() }
@@ -156,12 +157,16 @@ impl Context {
             return Err(Error::host(format!("{} object limit exceeded (65536)", type_name)));
         }
         self.collection_objects += 1;
-        let handle = self.insert(type_name, object);
+        let handle = if let Some(index) = self.free_collection_slots.pop() {
+            self.objects[index] = Some(Box::new(object));
+            self.types[index] = type_name.to_string();
+            ObjRef(index)
+        } else { self.insert(type_name, object) };
         self.collection_indices.push(handle.0);
         Ok(handle)
     }
     pub(crate) fn clear_collections(&mut self) {
-        for index in self.collection_indices.drain(..) { self.objects[index] = None; }
+        for index in self.collection_indices.drain(..) { self.objects[index] = None; self.free_collection_slots.push(index); }
         self.collection_objects = 0;
     }
     /// Binds a context variable (declared in the registry) to an object for this run.
@@ -239,6 +244,11 @@ impl Registry {
     pub fn host_signatures(&self) -> Vec<String> {
         self.signatures().into_iter().filter(|s| !self.std_signatures.contains(s)).collect()
     }
+    /// Sorted canonical signatures installed by the built-in standard catalog.
+    pub fn std_signatures(&self) -> Vec<String> {
+        let mut out: Vec<String> = self.std_signatures.iter().cloned().collect();
+        out.sort(); out
+    }
     /// Checks the complete registered surface against a host schema's signatures plus enabled std.
     pub fn check_schema_signatures(&self, schema: &[String]) -> Result<(), Error> {
         let mut expected: HashSet<String> = schema.iter().cloned().collect();
@@ -249,6 +259,7 @@ impl Registry {
         let extra: Vec<_> = actual.difference(&expected).cloned().collect();
         Err(Error::new("LOAD_UNBOUND", format!("schema signatures differ: missing [{}], extra [{}]", missing.join(", "), extra.join(", "))))
     }
+    pub fn matches_schema_signatures(&self, schema: &[String]) -> bool { self.check_schema_signatures(schema).is_ok() }
     pub fn function(&mut self, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, &Args) -> Result<Value, Error> + 'static) -> Result<&mut Self, Error> {
         let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
         let canonical = format!("fn {}{}", name, sig.text());
@@ -330,9 +341,12 @@ pub(crate) struct RunGuard<'a> { registry: Option<&'a Registry> }
 impl Drop for RunGuard<'_> {
     fn drop(&mut self) { if let Some(registry) = self.registry.take() { registry.running.set(false); } }
 }
-struct ContextCleanup(*mut Context);
-impl Drop for ContextCleanup {
-    fn drop(&mut self) { unsafe { (*self.0).clear_collections(); } }
+struct ContextCleanup<'a> { context: &'a mut Context, enabled: bool }
+impl ContextCleanup<'_> {
+    fn context(&mut self) -> &mut Context { self.context }
+}
+impl Drop for ContextCleanup<'_> {
+    fn drop(&mut self) { if self.enabled { self.context.clear_collections(); } }
 }
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
@@ -696,7 +710,12 @@ impl Program {
     /// Executes the chunk once against the host's objects.
     pub fn run(&self, ctx: &mut Context, reg: &Registry) -> Result<(), Error> {
         let _run_guard = reg.begin_std_run()?;
-        let _context_cleanup = reg.std_enabled.then(|| ContextCleanup(ctx as *mut Context));
+        if reg.std_enabled { ctx.clear_collections(); }
+        let mut context_cleanup = ContextCleanup { context: ctx, enabled: reg.std_enabled };
+        self.run_inner(context_cleanup.context(), reg)
+    }
+
+    fn run_inner(&self, ctx: &mut Context, reg: &Registry) -> Result<(), Error> {
         let mut stack: Vec<Value> = Vec::with_capacity(self.max_stack as usize);
         let mut locals: Vec<Value> = vec![Value::None; self.locals.len()];
         let mut r = Reader::new(&self.code);
