@@ -816,7 +816,7 @@ pub fn format_g15(x: f64) -> String {
     let (mant, exp) = sci.split_once('e').unwrap();
     let exp: i32 = exp.parse().unwrap();
     let trim = |s: &str| -> String { let s = if s.contains('.') { s.trim_end_matches('0').trim_end_matches('.') } else { s }; s.to_string() };
-    if exp < -4 || exp >= 15 {
+    if !(-4..15).contains(&exp) {
         format!("{}e{}{:02}", trim(mant), if exp < 0 { '-' } else { '+' }, exp.abs())
     } else {
         let decimals = (14 - exp).max(0) as usize;

@@ -26,7 +26,7 @@ fn today() -> String {
     // civil date from the Unix epoch (UTC, like lmweb's localtime on a UTC box is close enough for the proof; the test compares with `date +%F`)
     let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     let tz = tz_offset_seconds();
-    let days = ((secs as i64 + tz) / 86_400) as i64;
+    let days = (secs as i64 + tz) / 86_400;
     let (y, m, d) = civil_from_days(days);
     format!("{:04}-{:02}-{:02}", y, m, d)
 }

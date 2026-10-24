@@ -72,8 +72,8 @@ fn run(bytes: &[u8]) -> Result<Vec<String>, Error> {
     let mut ctx = Context::new(); let t = ctx.set_object("t", "Trace", Trace(Vec::new())); ctx.set_object("root", "Thing", Thing { id: 0 });
     p.run(&mut ctx, &reg)?; Ok(ctx.take::<Trace>(t)?.0)
 }
-fn load_err(bytes: &[u8]) -> String { Program::load(bytes, SCHEMA, &registry()).err().expect("load must fail").message }
-fn run_err(bytes: &[u8]) -> String { run(bytes).err().expect("run must fail").message }
+fn load_err(bytes: &[u8]) -> String { Program::load(bytes, SCHEMA, &registry()).expect_err("load must fail").message }
+fn run_err(bytes: &[u8]) -> String { run(bytes).expect_err("run must fail").message }
 fn t() -> Asm { Asm::default().ctx("t", "Trace") }
 
 fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
@@ -265,7 +265,7 @@ fn host_byte_string_helpers_validate_or_convert_lossily() {
 }
 #[test] fn context_object_missing_at_run() { let reg = registry(); let p = Program::load(&t().halt().file(), SCHEMA, &reg).unwrap(); let mut empty = Context::new(); assert!(p.run(&mut empty, &reg).unwrap_err().message.contains("context variable 't' was not provided by the host for this run")); }
 #[test] fn method_on_wrong_object_type() { assert!(run_err(&t().method(THING_ID, 0).halt().file()).contains("method Thing.id called on a Trace")); }
-#[test] fn no_stack_cap() { let mut a = Asm::default(); a.max_stack = 1; for _ in 0..5000 { a = a.push_int(1); } for _ in 0..4999 { a = a.u8(0x13); } let a = a.ctx("t", "Trace").u8(0x0F).u8(0x10).halt(); assert!(run(&a.file()).is_ok()); }
+#[test] fn no_stack_cap() { let mut a = Asm { max_stack: 1, ..Asm::default() }; for _ in 0..5000 { a = a.push_int(1); } for _ in 0..4999 { a = a.u8(0x13); } let a = a.ctx("t", "Trace").u8(0x0F).u8(0x10).halt(); assert!(run(&a.file()).is_ok()); }
 #[test] fn no_string_cap() { let mut a = t().push_str(&"x".repeat(65536)); for _ in 0..9 { a = a.u8(0x0F).u8(0x26); } let got = run(&a.method(T_STR, 1).halt().file()).unwrap(); assert_eq!(got[0].len(), 4 + 65536 * 512); }
 #[test] fn range_loop_executes_snapshot_and_empty() {
     // PUSH start/end, FOR_RANGE(counter=0,end=1,exit=44), body prints i, FOR_NEXT(end=1,back=-17), HALT.
