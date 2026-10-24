@@ -68,3 +68,9 @@ The same bytecode v5 and the same conformance vectors are implemented by [lmcode
 `stdlib/string.schema-fragment.json` into the host schema and call `stdlib::register_string(&mut registry)`. Implemented so far:
 `str_len(string) -> int` (byte length, NULs included; UTF-8 is not decoded). Signature parity with the compiler is checked by
 `cargo test -p dslvm --test stdlib_string` whenever `lmscript` (or `$LMSCRIPT_BIN`) is on PATH.
+
+## VM strings and host text
+
+VM strings are arbitrary bytes: invalid UTF-8 and embedded NUL are legal. Constants, concatenation, equality, and host calls preserve every byte. Lengths and offsets refer to bytes; slices can split UTF-8 codepoints. `Value::Str` stores a `ByteString`; `Value::string(bytes_or_text)` accepts byte vectors, byte slices, and Rust text. Existing direct `Value::Str(String)` constructors should use `Value::string(text)` or `Value::Str(text.into())`.
+
+Host callbacks use `value.as_bytes()?` for unchanged bytes, `value.as_str()?` for validated UTF-8 (a conversion failure is `RUN_HOST`), or `value.to_string_lossy()?` for replacement-character text. `ByteString` also offers `as_bytes()`, `as_str()`, `to_string_lossy()`, and byte indexing. Registry identifiers remain UTF-8 host text. Host adapters such as the router choose their own text validation at their API boundary.

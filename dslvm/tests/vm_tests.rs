@@ -12,9 +12,10 @@ const TWICE: &str = "fn twice(int) -> int";
 const BOOM: &str = "fn boom() -> void";
 
 #[derive(Default)]
-struct Asm { consts: Vec<String>, imports: Vec<u32>, contexts: Vec<(u32, u32)>, locals: Vec<(u32, u8)>, max_stack: u16, code: Vec<u8>, lines: Vec<(u32, u32, u16)> }
+struct Asm { consts: Vec<Vec<u8>>, imports: Vec<u32>, contexts: Vec<(u32, u32)>, locals: Vec<(u32, u8)>, max_stack: u16, code: Vec<u8>, lines: Vec<(u32, u32, u16)> }
 impl Asm {
-    fn k(&mut self, s: &str) -> u32 { if let Some(i) = self.consts.iter().position(|c| c == s) { return i as u32; } self.consts.push(s.to_string()); (self.consts.len() - 1) as u32 }
+    fn k(&mut self, s: &str) -> u32 { self.k_bytes(s.as_bytes()) }
+    fn k_bytes(&mut self, s: &[u8]) -> u32 { if let Some(i) = self.consts.iter().position(|c| c == s) { return i as u32; } self.consts.push(s.to_vec()); (self.consts.len() - 1) as u32 }
     fn imp(&mut self, canonical: &str) -> u16 { let c = self.k(canonical); if let Some(i) = self.imports.iter().position(|x| *x == c) { return i as u16; } self.imports.push(c); (self.imports.len() - 1) as u16 }
     fn ctx_index(&mut self, name: &str, type_name: &str) -> u16 { let e = (self.k(name), self.k(type_name)); if let Some(i) = self.contexts.iter().position(|x| *x == e) { return i as u16; } self.contexts.push(e); (self.contexts.len() - 1) as u16 }
     fn local(mut self, type_name: &str, hidden: u8) -> Self { let k = self.k(type_name); self.locals.push((k, hidden)); self }
@@ -27,7 +28,8 @@ impl Asm {
     fn f64(mut self, v: f64) -> Self { self.code.extend_from_slice(&v.to_be_bytes()); self }
     fn push_int(self, v: i64) -> Self { self.u8(0x01).i64(v) }
     fn push_float(self, v: f64) -> Self { self.u8(0x12).f64(v) }
-    fn push_str(mut self, s: &str) -> Self { let k = self.k(s); self.u8(0x02).u32(k) }
+    fn push_str(self, s: &str) -> Self { self.push_bytes(s.as_bytes()) }
+    fn push_bytes(mut self, s: &[u8]) -> Self { let k = self.k_bytes(s); self.u8(0x02).u32(k) }
     fn push_bool(self, b: bool) -> Self { self.u8(0x03).u8(b as u8) }
     fn ctx(mut self, n: &str, t: &str) -> Self { let i = self.ctx_index(n, t); self.u8(0x06).u16(i) }
     fn func(mut self, canonical: &str, argc: u8) -> Self { let i = self.imp(canonical); self.u8(0x07).u16(i).u8(argc) }
@@ -40,7 +42,7 @@ impl Asm {
     fn file_v(&self, schema: &[u8], version: u16, magic: &[u8]) -> Vec<u8> {
         let mut out = magic.to_vec(); out.extend_from_slice(&version.to_be_bytes()); out.extend_from_slice(&sha256(schema));
         out.extend_from_slice(&(self.consts.len() as u32).to_be_bytes());
-        for c in &self.consts { out.push(1); out.extend_from_slice(&(c.len() as u32).to_be_bytes()); out.extend_from_slice(c.as_bytes()); }
+        for c in &self.consts { out.push(1); out.extend_from_slice(&(c.len() as u32).to_be_bytes()); out.extend_from_slice(c); }
         out.extend_from_slice(&(self.imports.len() as u16).to_be_bytes()); for i in &self.imports { out.extend_from_slice(&i.to_be_bytes()); }
         out.extend_from_slice(&(self.contexts.len() as u16).to_be_bytes()); for (n, t) in &self.contexts { out.extend_from_slice(&n.to_be_bytes()); out.extend_from_slice(&t.to_be_bytes()); }
         out.extend_from_slice(&(self.locals.len() as u16).to_be_bytes()); for (t, h) in &self.locals { out.extend_from_slice(&t.to_be_bytes()); out.push(*h); }
@@ -205,7 +207,44 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
 #[test] fn bad_hidden_flag() { assert!(load_err(&Asm::default().local("int", 2).halt().file()).contains("hidden flag must be 0 or 1")); }
 #[test] fn unsorted_line_table() { assert!(load_err(&Asm::default().line(5, 1, 1).line(2, 2, 1).push_int(1).u8(0x10).halt().file()).contains("line table is not sorted")); }
 #[test] fn line_entry_beyond_code() { assert!(load_err(&Asm::default().line(99, 1, 1).halt().file()).contains("beyond the code")); }
-#[test] fn invalid_utf8_constant() { let mut f = Asm::default().push_str("ab").halt().file(); let p = f.windows(2).position(|w| w == b"ab").unwrap(); f[p] = 0xff; assert!(load_err(&f).contains("not valid UTF-8")); }
+#[test]
+fn byte_strings_load_concat_compare_and_reach_hosts_unchanged() {
+    let mut reg = registry();
+    reg.function("echo", &["string"], "string", |_, args| {
+        assert_eq!(args[0].as_bytes()?, b"\xff\0\xc3\xa9");
+        Ok(Value::string(args[0].as_bytes()?))
+    }).unwrap();
+    reg.function("capture", &["string"], "void", |ctx, args| {
+        ctx.get_mut::<Vec<Vec<u8>>>(ctx.lookup("bytes").unwrap())?.push(args[0].as_bytes()?.to_vec());
+        Ok(Value::None)
+    }).unwrap();
+    let a = Asm::default().push_bytes(b"\xff\0").push_str("é").u8(0x26)
+        .func("fn echo(string) -> string", 1).func("fn capture(string) -> void", 1)
+        .ctx("t", "Trace").push_bytes(b"\xff\0").push_bytes(b"\xff\0").u8(0x09).u8(0x29).method(T_STR, 1)
+        .ctx("t", "Trace").push_bytes(b"\xff\0").push_bytes(b"\xfe\0").u8(0x0a).u8(0x29).method(T_STR, 1).halt();
+    let program = Program::load(&a.file(), SCHEMA, &reg).unwrap();
+    let mut ctx = Context::new();
+    let bytes = ctx.set_object("bytes", "Bytes", Vec::<Vec<u8>>::new());
+    let trace = ctx.set_object("t", "Trace", Trace(Vec::new()));
+    program.run(&mut ctx, &reg).unwrap();
+    assert_eq!(ctx.take::<Vec<Vec<u8>>>(bytes).unwrap(), vec![b"\xff\0\xc3\xa9".to_vec()]);
+    assert_eq!(ctx.take::<Trace>(trace).unwrap().0, ["str true", "str true"]);
+}
+
+#[test]
+fn host_byte_string_helpers_validate_or_convert_lossily() {
+    let value = Value::string(b"a\xff\0b");
+    assert_eq!(value.as_bytes().unwrap(), b"a\xff\0b");
+    assert_eq!(value.as_str().unwrap_err().code, "RUN_HOST");
+    assert_eq!(value.to_string_lossy().unwrap(), "a\u{fffd}\0b");
+    let text = Value::string("é\0");
+    assert_eq!(text.as_str().unwrap(), "é\0");
+    // Byte offsets can split a UTF-8 codepoint; no decoding or replacement occurs.
+    assert_eq!(&text.as_string().unwrap()[1..], b"\xa9\0");
+    assert_eq!(Value::string(&text.as_bytes().unwrap()[1..]).as_bytes().unwrap(), b"\xa9\0");
+    assert!(Value::Int(1).as_bytes().is_err());
+}
+
 #[test] fn int_division_by_zero() { assert!(run_err(&Asm::default().push_int(1).push_int(0).u8(0x16).halt().file()).contains("int division by zero")); }
 #[test] fn int_modulo_by_zero() { assert!(run_err(&Asm::default().push_int(1).push_int(0).u8(0x33).halt().file()).contains("int modulo by zero")); }
 #[test] fn mixed_kind_equality() { assert!(run_err(&Asm::default().push_int(1).push_str("x").u8(0x09).halt().file()).contains("cannot compare int with string")); }
