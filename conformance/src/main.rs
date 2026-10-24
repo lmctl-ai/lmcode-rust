@@ -26,10 +26,8 @@ fn fixture_bytes(hex: &[u8]) -> Result<Vec<u8>, Error> {
 
 pub fn stub_registry() -> Registry { stub_registry_mode(false) }
 
-fn stub_registry_mode(collection_catalog: bool) -> Registry {
-    let mut reg = if collection_catalog { Registry::new() } else { Registry::without_std() };
-    dslvm::stdlib::register_string(&mut reg).unwrap();
-    dslvm::stdlib::register_math(&mut reg).unwrap();
+fn stub_registry_mode(std_catalog: bool) -> Registry {
+    let mut reg = if std_catalog { Registry::new() } else { Registry::without_std() };
     reg.function("bytes", &["string"], "string", |_, a| Ok(Value::string(fixture_bytes(a[0].as_bytes()?)?))).unwrap();
     reg.method("Trace", "hex", &["string"], "void", |ctx, _, a| trace(ctx, format!("hex {}", dslvm::hex(a[0].as_bytes()?)))).unwrap();
     reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap().context("v", "Var").unwrap().context("xs", "IntList").unwrap();
@@ -41,7 +39,7 @@ fn stub_registry_mode(collection_catalog: bool) -> Registry {
     reg.method("Trace", "thing", &["Thing"], "void", |ctx, _, a| { let id = ctx.get::<Thing>(a[0].as_obj()?)?.id; trace(ctx, format!("thing {}", id)) }).unwrap();
     reg.method("Thing", "len", &[], "int", |ctx, this, _| { let n=ctx.get::<Thing>(this)?.id; trace(ctx,format!("len {}",n))?; Ok(Value::Int(n)) }).unwrap();
     reg.method("Thing", "at", &["int"], "Thing", |ctx, _, a| { let id=a[0].as_int()?; trace(ctx,format!("at {}",id))?; let r=ctx.insert("Thing",Thing{id}); Ok(Value::object("Thing",r)) }).unwrap();
-    if !collection_catalog {
+    if !std_catalog {
         reg.method("IntList", "len", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<IntList>(this)?.values.len() as i64))).unwrap();
         reg.method("IntList", "at", &["int"], "int", |ctx, this, a| { let i = a[0].as_int()?; let value = ctx.get::<IntList>(this)?.values.get(usize::try_from(i).map_err(|_| Error::host("IntList index out of range"))?).copied().ok_or_else(|| Error::host("IntList index out of range"))?; Ok(Value::Int(value)) }).unwrap();
     }
@@ -75,14 +73,17 @@ fn stub_registry_mode(collection_catalog: bool) -> Registry {
 pub enum Outcome { Trace(Vec<String>), RuntimeError(Error), LoadError(String) }
 
 fn catalog_registry(schema: &[u8]) -> (Registry, Rc<RefCell<Vec<u8>>>) {
-    let collection_catalog = schema.windows(b"\"str_list\"".len()).any(|w| w == b"\"str_list\"");
-    let mut reg = stub_registry_mode(collection_catalog);
+    let std_catalog = [b"\"str_len\"".as_slice(), b"\"math_abs\"", b"\"str_list\"", b"\"print\""].iter().any(|needle| schema.windows(needle.len()).any(|w| w == *needle));
+    let mut reg = stub_registry_mode(std_catalog);
     let printed = Rc::new(RefCell::new(Vec::new()));
-    let sink: dslvm::stdlib::testing::Sink = printed.clone();
-    dslvm::stdlib::register_testing(&mut reg, Some(sink)).unwrap();
-    if collection_catalog { dslvm::stdlib::register_collections(&mut reg).unwrap(); }
-    let captured = Rc::clone(&printed);
-    reg.function("printed", &[], "string", move |_, _| Ok(Value::string(captured.borrow().clone()))).unwrap();
+    if std_catalog {
+        let sink: dslvm::stdlib::testing::Sink = printed.clone();
+        dslvm::stdlib::register_testing(&mut reg, Some(sink)).unwrap();
+    }
+    if std_catalog {
+        let captured = Rc::clone(&printed);
+        reg.function("printed", &[], "string", move |_, _| Ok(Value::string(captured.borrow().clone()))).unwrap();
+    }
     (reg, printed)
 }
 
@@ -215,6 +216,15 @@ mod tests {
         assert!(!names.is_empty(), "stdlib vectors are empty");
         let failures: Vec<String> = names.iter().filter_map(|n| check_vector(&dir, n).err()).collect();
         assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+    #[test]
+    fn every_stdlib_schema_uses_the_default_catalog_surface() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("stdlib-vectors");
+        for name in ["schema.json", "math.schema.json", "collections.schema.json"] {
+            let schema = std::fs::read(dir.join(name)).unwrap();
+            let (registry, _) = catalog_registry(&schema);
+            assert_eq!(registry.std_signatures().len(), 69, "{}", name);
+        }
     }
     #[test]
     fn a_wrong_expectation_is_detected() {
