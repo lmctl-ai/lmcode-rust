@@ -132,6 +132,7 @@ pub fn math_sqrt_float(x: f64) -> f64 {
 
 /// Register the numeric catalog. Each name has an int and float overload where applicable.
 pub fn register_math(reg: &mut Registry) -> Result<&mut Registry, Error> {
+    reg.begin_compatibility_registration();
     reg.function("math_abs", &["int"], "int", |_, a| {
         Ok(Value::Int(math_abs(a[0].as_int()?)))
     })?;
@@ -189,5 +190,6 @@ pub fn register_math(reg: &mut Registry) -> Result<&mut Registry, Error> {
     reg.function("math_sqrt", &["float"], "float", |_, a| {
         Ok(Value::Float(math_sqrt_float(a[0].as_float()?)))
     })?;
+    reg.end_compatibility_registration();
     Ok(reg)
 }

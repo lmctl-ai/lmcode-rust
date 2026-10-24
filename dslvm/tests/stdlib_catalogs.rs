@@ -42,9 +42,10 @@ fn testing_fragment_matches_registry_and_compiler() {
 
 #[test]
 fn registry_defaults_to_std_and_supports_opt_out() {
-    let default = Registry::new();
+    let mut default = Registry::new();
     assert_eq!(default.signatures().len(), 69);
     assert!(default.host_signatures().is_empty());
+    assert!(default.function("str_len", &["string"], "int", |_, _| Ok(Value::Int(0))).is_err());
     let empty = Registry::without_std();
     assert!(empty.signatures().is_empty());
     assert!(empty.host_signatures().is_empty());

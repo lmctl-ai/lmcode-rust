@@ -14,10 +14,12 @@
 //! or return a handle after the host context ends.
 
 pub mod stdlib;
+pub use stdlib::register_std;
 pub mod sha256;
 pub use sha256::{hex, sha256};
 
 use std::any::Any;
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
@@ -138,6 +140,7 @@ pub struct Context {
     types: Vec<String>,
     names: HashMap<String, ObjRef>,
     collection_objects: usize,
+    collection_indices: Vec<usize>,
 }
 impl Context {
     pub fn new() -> Context { Context::default() }
@@ -153,7 +156,13 @@ impl Context {
             return Err(Error::host(format!("{} object limit exceeded (65536)", type_name)));
         }
         self.collection_objects += 1;
-        Ok(self.insert(type_name, object))
+        let handle = self.insert(type_name, object);
+        self.collection_indices.push(handle.0);
+        Ok(handle)
+    }
+    pub(crate) fn clear_collections(&mut self) {
+        for index in self.collection_indices.drain(..) { self.objects[index] = None; }
+        self.collection_objects = 0;
     }
     /// Binds a context variable (declared in the registry) to an object for this run.
     pub fn set(&mut self, name: impl Into<String>, obj: ObjRef) { self.names.insert(name.into(), obj); }
@@ -201,6 +210,8 @@ pub struct Registry {
     contexts: HashMap<String, String>,
     std_signatures: HashSet<String>,
     std_enabled: bool,
+    compatibility_registration: bool,
+    running: Cell<bool>,
 }
 impl Registry {
     /// Creates a registry with the built-in lmcode standard catalog enabled.
@@ -211,13 +222,19 @@ impl Registry {
     }
     /// Creates a registry containing only declarations explicitly added by the host.
     pub fn without_std() -> Registry {
-        Registry { functions: HashMap::new(), methods: HashMap::new(), contexts: HashMap::new(), std_signatures: HashSet::new(), std_enabled: false }
+        Registry { functions: HashMap::new(), methods: HashMap::new(), contexts: HashMap::new(), std_signatures: HashSet::new(), std_enabled: false, compatibility_registration: false, running: Cell::new(false) }
     }
+    /// Alias retained for hosts that want the opt-out spelling to mirror other SDKs.
+    pub fn new_without_std() -> Registry { Self::without_std() }
     pub(crate) fn std_enabled(&self) -> bool { self.std_enabled }
     pub(crate) fn mark_std_since(&mut self, before: &HashSet<String>) {
         self.std_signatures.extend(self.functions.keys().filter(|s| !before.contains(*s)).cloned());
         self.std_signatures.extend(self.methods.keys().filter(|s| !before.contains(*s)).cloned());
         self.std_enabled = true;
+    }
+    pub(crate) fn begin_std_run(&self) -> Result<RunGuard<'_>, Error> {
+        if !self.std_enabled || self.running.replace(true) { return if self.std_enabled { Err(Error::host("standard runtime does not support nested or overlapping runs")) } else { Ok(RunGuard { registry: None }) }; }
+        Ok(RunGuard { registry: Some(self) })
     }
     pub fn host_signatures(&self) -> Vec<String> {
         self.signatures().into_iter().filter(|s| !self.std_signatures.contains(s)).collect()
@@ -236,7 +253,7 @@ impl Registry {
         let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
         let canonical = format!("fn {}{}", name, sig.text());
         if self.functions.values().any(|(n, old, _f)| n == name && old.params == sig.params) {
-            if self.std_signatures.contains(&canonical) { self.functions.insert(canonical, (name.to_string(), sig, Box::new(f))); return Ok(self); }
+            if self.compatibility_registration && self.std_signatures.contains(&canonical) { return Ok(self); }
             return load_err("LOAD_UNBOUND", format!("registry: function '{}{}' is registered twice", name, sig.text()));
         }
         self.functions.insert(canonical, (name.to_string(), sig, Box::new(f)));
@@ -246,7 +263,7 @@ impl Registry {
         let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
         let canonical = format!("method {}.{}{}", type_name, name, sig.text());
         if self.methods.values().any(|(t, n, old, _f)| t == type_name && n == name && old.params == sig.params) {
-            if self.std_signatures.contains(&canonical) { self.methods.insert(canonical, (type_name.to_string(), name.to_string(), sig, Box::new(f))); return Ok(self); }
+            if self.compatibility_registration && self.std_signatures.contains(&canonical) { return Ok(self); }
             return load_err("LOAD_UNBOUND", format!("registry: method '{}.{}{}' is registered twice", type_name, name, sig.text()));
         }
         self.methods.insert(canonical, (type_name.to_string(), name.to_string(), sig, Box::new(f)));
@@ -258,6 +275,15 @@ impl Registry {
         Ok(self)
     }
     pub fn context_type(&self, name: &str) -> Option<&str> { self.contexts.get(name).map(String::as_str) }
+    pub(crate) fn begin_compatibility_registration(&mut self) { self.compatibility_registration = true; }
+    pub(crate) fn end_compatibility_registration(&mut self) { self.compatibility_registration = false; }
+    pub(crate) fn replace_standard_function(&mut self, name: &str, params: &[&str], returns: &str, f: Function) -> Result<(), Error> {
+        let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
+        let canonical = format!("fn {}{}", name, sig.text());
+        if !self.std_signatures.contains(&canonical) { return load_err("LOAD_UNBOUND", format!("standard function '{}' is not installed", canonical)); }
+        self.functions.insert(canonical, (name.to_string(), sig, f));
+        Ok(())
+    }
     fn function_by_signature(&self, canonical: &str) -> Option<&(String, Signature, Function)> { self.functions.get(canonical) }
     fn method_by_signature(&self, canonical: &str) -> Option<&(String, String, Signature, Method)> { self.methods.get(canonical) }
     /// "fn x(float) -> int" as the host declares the name an import asks for, or "" when the name is unknown.
@@ -299,6 +325,14 @@ impl Registry {
 }
 impl Default for Registry {
     fn default() -> Self { Self::new() }
+}
+pub(crate) struct RunGuard<'a> { registry: Option<&'a Registry> }
+impl Drop for RunGuard<'_> {
+    fn drop(&mut self) { if let Some(registry) = self.registry.take() { registry.running.set(false); } }
+}
+struct ContextCleanup(*mut Context);
+impl Drop for ContextCleanup {
+    fn drop(&mut self) { unsafe { (*self.0).clear_collections(); } }
 }
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
@@ -661,6 +695,8 @@ impl Program {
 
     /// Executes the chunk once against the host's objects.
     pub fn run(&self, ctx: &mut Context, reg: &Registry) -> Result<(), Error> {
+        let _run_guard = reg.begin_std_run()?;
+        let _context_cleanup = reg.std_enabled.then(|| ContextCleanup(ctx as *mut Context));
         let mut stack: Vec<Value> = Vec::with_capacity(self.max_stack as usize);
         let mut locals: Vec<Value> = vec![Value::None; self.locals.len()];
         let mut r = Reader::new(&self.code);

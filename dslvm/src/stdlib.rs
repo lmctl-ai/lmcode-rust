@@ -318,6 +318,7 @@ pub fn str_match<S: AsRef<[u8]>, P: AsRef<[u8]>>(text: S, pattern: P) -> Result<
 }
 /// Register all 16 optional string functions once, using their canonical schema signatures.
 pub fn register_string(reg: &mut Registry) -> Result<&mut Registry, Error> {
+    reg.begin_compatibility_registration();
     reg.function("str_starts_with", &["string", "string"], "bool", |_, a| {
         Ok(Value::Bool(str_starts_with(
             a[0].as_bytes()?,
@@ -388,5 +389,6 @@ pub fn register_string(reg: &mut Registry) -> Result<&mut Registry, Error> {
     reg.function("str_match", &["string", "string"], "bool", |_, a| {
         Ok(Value::Bool(str_match(a[0].as_bytes()?, a[1].as_bytes()?)?))
     })?;
+    reg.end_compatibility_registration();
     Ok(reg)
 }

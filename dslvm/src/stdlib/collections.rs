@@ -79,6 +79,7 @@ fn make_collection<T: 'static>(ctx: &mut Context, type_name: &'static str, value
 
 /// Register the list and ordered string-map catalog in a registry.
 pub fn register_collections(registry: &mut Registry) -> Result<&mut Registry, Error> {
+    registry.begin_compatibility_registration();
     register_list::<crate::ByteString>(registry, "StrList")?;
     register_list::<i64>(registry, "IntList")?;
     register_list::<f64>(registry, "FloatList")?;
@@ -142,6 +143,7 @@ pub fn register_collections(registry: &mut Registry) -> Result<&mut Registry, Er
         if let Some(i) = map.items.iter().position(|(k, _)| k == key) { map.items.remove(i); Ok(Value::Bool(true)) } else { Ok(Value::Bool(false)) }
     })?;
     registry.method("StrMap", "clear", &[], "StrMap", |ctx, this, _| { ctx.get_mut::<StrMap>(this)?.items.clear(); Ok(Value::object("StrMap", this)) })?;
+    registry.end_compatibility_registration();
     Ok(registry)
 }
 
