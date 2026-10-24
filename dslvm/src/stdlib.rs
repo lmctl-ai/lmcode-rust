@@ -5,8 +5,10 @@
 //! independent of the VM, which imposes no string or execution limits.
 pub mod collections;
 pub mod testing;
+pub mod file;
 pub use collections::register_collections;
 pub use testing::register_testing;
+pub use file::register_file;
 
 use crate::{Error, Registry, Value};
 use std::collections::HashSet;
@@ -21,7 +23,7 @@ pub fn register_std(registry: &mut Registry) -> Result<&mut Registry, Error> {
     register_string(registry)?;
     register_math(registry)?;
     register_collections(registry)?;
-    register_testing(registry, None)?;
+    register_file(registry)?;
     registry.mark_std_since(&before);
     Ok(registry)
 }

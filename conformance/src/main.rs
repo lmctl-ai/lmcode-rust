@@ -223,7 +223,7 @@ mod tests {
         for name in ["schema.json", "math.schema.json", "collections.schema.json"] {
             let schema = std::fs::read(dir.join(name)).unwrap();
             let (registry, _) = catalog_registry(&schema);
-            assert_eq!(registry.std_signatures().len(), 69, "{}", name);
+            assert_eq!(registry.std_signatures().len(), 72, "{}", name);
         }
     }
     #[test]

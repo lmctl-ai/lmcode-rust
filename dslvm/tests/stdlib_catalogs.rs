@@ -43,8 +43,8 @@ fn testing_fragment_matches_registry_and_compiler() {
 #[test]
 fn registry_defaults_to_std_and_supports_opt_out() {
     let mut default = Registry::new();
-    assert_eq!(default.signatures().len(), 69);
-    assert_eq!(default.std_signatures().len(), 69);
+    assert_eq!(default.signatures().len(), 72);
+    assert_eq!(default.std_signatures().len(), 72);
     assert!(default.host_signatures().is_empty());
     assert!(default.function("str_len", &["string"], "int", |_, _| Ok(Value::Int(0))).is_err());
     let empty = Registry::without_std();
@@ -86,6 +86,6 @@ fn canonical_std_schema_is_pinned_and_matches_default_registry() {
     };
     assert!(output.status.success(), "lmscript canonical std signatures failed: {}", String::from_utf8_lossy(&output.stderr));
     let compiler: Vec<String> = String::from_utf8(output.stdout).unwrap().lines().map(str::to_owned).collect();
-    assert_eq!(compiler.len(), 69);
+    assert_eq!(compiler.len(), 72);
     assert_eq!(compiler, Registry::new().signatures());
 }
