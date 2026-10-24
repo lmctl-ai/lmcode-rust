@@ -57,6 +57,8 @@ the program. Handles remain owned by the host. Schema 2 supports overloads, decl
 conversions, operators, enums, and `returns: "self"`; compiler-inlined functions do
 not add a runtime function table.
 
+`Registry::new()` enables the pinned built-in lmcode standard catalog (`std/lmcode-std.schema.json`, 69 signatures). Use `Registry::without_std()` for a legacy host surface, or call `stdlib::register_std(&mut registry)` explicitly; registration is idempotent. Verify the canonical schema copy with `scripts/sync-std.sh --verify` and `std.lock`.
+
 The common language includes typed locals, branching, range and collection loops,
 `foreach`, `switch`, `while`, `break`, `continue`, and source-located runtime errors.
 Collections remain schema objects with methods such as `len()` and `at(i)`. The Rust

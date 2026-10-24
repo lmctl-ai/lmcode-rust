@@ -27,7 +27,7 @@ fn fixture_bytes(hex: &[u8]) -> Result<Vec<u8>, Error> {
 pub fn stub_registry() -> Registry { stub_registry_mode(false) }
 
 fn stub_registry_mode(collection_catalog: bool) -> Registry {
-    let mut reg = Registry::new();
+    let mut reg = if collection_catalog { Registry::new() } else { Registry::without_std() };
     dslvm::stdlib::register_string(&mut reg).unwrap();
     dslvm::stdlib::register_math(&mut reg).unwrap();
     reg.function("bytes", &["string"], "string", |_, a| Ok(Value::string(fixture_bytes(a[0].as_bytes()?)?))).unwrap();

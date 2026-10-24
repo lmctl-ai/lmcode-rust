@@ -7,7 +7,7 @@ fn root() -> PathBuf {
 }
 
 fn registry() -> Registry {
-    let mut r = Registry::new();
+    let mut r = Registry::without_std();
     stdlib::register_math(&mut r).unwrap();
     r
 }

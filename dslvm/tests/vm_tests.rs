@@ -56,7 +56,7 @@ impl Asm {
 struct Thing { id: i64 }
 struct Trace(Vec<String>);
 fn registry() -> Registry {
-    let mut reg = Registry::new();
+    let mut reg = Registry::without_std();
     reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap();
     reg.method("Trace", "int", &["int"], "void", |ctx, this, a| { let v = a[0].as_int()?; ctx.get_mut::<Trace>(this)?.0.push(format!("int {}", v)); Ok(Value::None) }).unwrap();
     reg.method("Trace", "float", &["float"], "void", |ctx, this, a| { let v = a[0].as_float()?; ctx.get_mut::<Trace>(this)?.0.push(format!("float {}", format_g15(v))); Ok(Value::None) }).unwrap();
@@ -328,12 +328,12 @@ fn host_byte_string_helpers_validate_or_convert_lossily() {
 }
 #[test] fn schema_summary_groups_methods_by_owner() {
     assert_eq!(registry().schema_summary(), "context root: Thing\ncontext t: Trace\nfn boom() -> void\nfn twice(int) -> int\nThing:\n  Thing.id() -> int\nTrace:\n  Trace.float(float) -> void\n  Trace.float_bits(float) -> void\n  Trace.int(int) -> void\n  Trace.str(string) -> void\n");
-    assert_eq!(Registry::new().schema_summary(), "");
+    assert_eq!(Registry::without_std().schema_summary(), "");
 }
 #[test] fn signatures_are_sorted_canonical_strings() { assert_eq!(registry().signatures(), ["context root: Thing", "context t: Trace", "fn boom() -> void", "fn twice(int) -> int", "method Thing.id() -> int", "method Trace.float(float) -> void", "method Trace.float_bits(float) -> void", "method Trace.int(int) -> void", "method Trace.str(string) -> void"]); }
-#[test] fn duplicate_registration_is_refused() { let mut reg = Registry::new(); reg.function("f", &[], "void", |_, _| Ok(Value::None)).unwrap(); let e = reg.function("f", &[], "void", |_, _| Ok(Value::None)).err().unwrap(); assert_eq!(e.code, "LOAD_UNBOUND"); assert!(e.message.contains("registered twice")); }
+#[test] fn duplicate_registration_is_refused() { let mut reg = Registry::without_std(); reg.function("f", &[], "void", |_, _| Ok(Value::None)).unwrap(); let e = reg.function("f", &[], "void", |_, _| Ok(Value::None)).err().unwrap(); assert_eq!(e.code, "LOAD_UNBOUND"); assert!(e.message.contains("registered twice")); }
 #[test] fn overloads_are_keyed_by_parameter_types() {
-    let mut reg = Registry::new();
+    let mut reg = Registry::without_std();
     reg.function("f", &["int"], "int", |_, _| Ok(Value::Int(1))).unwrap();
     reg.function("f", &["float"], "float", |_, _| Ok(Value::Float(1.0))).unwrap();
     reg.function("f", &["int", "int"], "int", |_, _| Ok(Value::Int(2))).unwrap();
@@ -346,7 +346,7 @@ fn host_byte_string_helpers_validate_or_convert_lossily() {
     use std::cell::Cell;
     use std::rc::Rc;
     let picked = Rc::new(Cell::new(0));
-    let mut reg = Registry::new();
+    let mut reg = Registry::without_std();
     for (params, value) in [(&["int"][..], 1), (&["float"][..], 2), (&["int", "int"][..], 3)] {
         let p = Rc::clone(&picked);
         reg.function("pick", params, "void", move |_, _| { p.set(value); Ok(Value::None) }).unwrap();

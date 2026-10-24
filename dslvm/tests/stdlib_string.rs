@@ -10,7 +10,7 @@ fn root() -> PathBuf {
 }
 
 fn registry() -> Registry {
-    let mut r = Registry::new();
+    let mut r = Registry::without_std();
     stdlib::register_string(&mut r).unwrap();
     r
 }
@@ -270,7 +270,7 @@ fn upper_chunk(schema: &[u8], input: &[u8]) -> Vec<u8> {
 fn vm_dispatch_preserves_nul_bytes_through_upper_and_capture() {
     let schema = br#"{"dsl.schema":2,"name":"string_callbacks","types":{},"context":{},"functions":{"str_upper":[{"params":["string"],"returns":"string"}],"capture":[{"params":["string"],"returns":"void"}]}}"#;
     let captured = Rc::new(RefCell::new(Vec::<Vec<u8>>::new()));
-    let mut registry = Registry::new();
+    let mut registry = Registry::without_std();
     stdlib::register_string(&mut registry).unwrap();
     let sink = Rc::clone(&captured);
     registry

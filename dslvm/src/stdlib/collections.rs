@@ -152,7 +152,7 @@ mod tests {
 
     #[test]
     fn registration_has_the_complete_catalog() {
-        let mut registry = Registry::new();
+        let mut registry = Registry::without_std();
         register_collections(&mut registry).unwrap();
         assert_eq!(registry.signatures().len(), 35);
     }
@@ -174,7 +174,7 @@ mod tests {
         let mut context = Context::new();
         let args = [Value::string(b",a,,".as_slice()), Value::string(b",".as_slice())];
         let result = {
-            let mut registry = Registry::new();
+            let mut registry = Registry::without_std();
             register_collections(&mut registry).unwrap();
             let (_, _, function) = registry.functions.get("fn str_split(string, string) -> StrList").unwrap();
             function(&mut context, &args).unwrap()

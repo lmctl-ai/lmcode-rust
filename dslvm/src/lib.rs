@@ -18,7 +18,7 @@ pub mod sha256;
 pub use sha256::{hex, sha256};
 
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 /// The bytecode format version this runtime reads. Every other version (v4 included) is refused: no backward compatibility.
@@ -193,27 +193,62 @@ impl Signature { fn text(&self) -> String { format!("({}) -> {}", self.params.jo
 /// by its complete canonical signature; distinct parameter tuples under one name are overloads. `signatures()` lists the canonical
 /// strings `lmscript --dsl-signatures SCHEMA` prints so a host test can diff the two sources of truth (runtime result protocol).. Per
 /// / the VM performs no call-time checks. Registering a parameter tuple twice is an error (`LOAD_UNBOUND`).
-#[derive(Default)]
 pub struct Registry {
     // Keys include the complete canonical signature. This permits overloads while keeping
     // import binding exact and deterministic; a duplicate parameter tuple is rejected below.
     functions: HashMap<String, (String, Signature, Function)>,
     methods: HashMap<String, (String, String, Signature, Method)>,
     contexts: HashMap<String, String>,
+    std_signatures: HashSet<String>,
+    std_enabled: bool,
 }
 impl Registry {
-    pub fn new() -> Registry { Registry::default() }
+    /// Creates a registry with the built-in lmcode standard catalog enabled.
+    pub fn new() -> Registry {
+        let mut registry = Registry::without_std();
+        crate::stdlib::register_std(&mut registry).expect("built-in standard catalog registration");
+        registry
+    }
+    /// Creates a registry containing only declarations explicitly added by the host.
+    pub fn without_std() -> Registry {
+        Registry { functions: HashMap::new(), methods: HashMap::new(), contexts: HashMap::new(), std_signatures: HashSet::new(), std_enabled: false }
+    }
+    pub(crate) fn std_enabled(&self) -> bool { self.std_enabled }
+    pub(crate) fn mark_std_since(&mut self, before: &HashSet<String>) {
+        self.std_signatures.extend(self.functions.keys().filter(|s| !before.contains(*s)).cloned());
+        self.std_signatures.extend(self.methods.keys().filter(|s| !before.contains(*s)).cloned());
+        self.std_enabled = true;
+    }
+    pub fn host_signatures(&self) -> Vec<String> {
+        self.signatures().into_iter().filter(|s| !self.std_signatures.contains(s)).collect()
+    }
+    /// Checks the complete registered surface against a host schema's signatures plus enabled std.
+    pub fn check_schema_signatures(&self, schema: &[String]) -> Result<(), Error> {
+        let mut expected: HashSet<String> = schema.iter().cloned().collect();
+        expected.extend(self.std_signatures.iter().cloned());
+        let actual: HashSet<String> = self.signatures().into_iter().collect();
+        if actual == expected { return Ok(()); }
+        let missing: Vec<_> = expected.difference(&actual).cloned().collect();
+        let extra: Vec<_> = actual.difference(&expected).cloned().collect();
+        Err(Error::new("LOAD_UNBOUND", format!("schema signatures differ: missing [{}], extra [{}]", missing.join(", "), extra.join(", "))))
+    }
     pub fn function(&mut self, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, &Args) -> Result<Value, Error> + 'static) -> Result<&mut Self, Error> {
         let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
-        if self.functions.values().any(|(n, old, _f)| n == name && old.params == sig.params) { return load_err("LOAD_UNBOUND", format!("registry: function '{}{}' is registered twice", name, sig.text())); }
         let canonical = format!("fn {}{}", name, sig.text());
+        if self.functions.values().any(|(n, old, _f)| n == name && old.params == sig.params) {
+            if self.std_signatures.contains(&canonical) { self.functions.insert(canonical, (name.to_string(), sig, Box::new(f))); return Ok(self); }
+            return load_err("LOAD_UNBOUND", format!("registry: function '{}{}' is registered twice", name, sig.text()));
+        }
         self.functions.insert(canonical, (name.to_string(), sig, Box::new(f)));
         Ok(self)
     }
     pub fn method(&mut self, type_name: &str, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, ObjRef, &Args) -> Result<Value, Error> + 'static) -> Result<&mut Self, Error> {
         let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
-        if self.methods.values().any(|(t, n, old, _f)| t == type_name && n == name && old.params == sig.params) { return load_err("LOAD_UNBOUND", format!("registry: method '{}.{}{}' is registered twice", type_name, name, sig.text())); }
         let canonical = format!("method {}.{}{}", type_name, name, sig.text());
+        if self.methods.values().any(|(t, n, old, _f)| t == type_name && n == name && old.params == sig.params) {
+            if self.std_signatures.contains(&canonical) { self.methods.insert(canonical, (type_name.to_string(), name.to_string(), sig, Box::new(f))); return Ok(self); }
+            return load_err("LOAD_UNBOUND", format!("registry: method '{}.{}{}' is registered twice", type_name, name, sig.text()));
+        }
         self.methods.insert(canonical, (type_name.to_string(), name.to_string(), sig, Box::new(f)));
         Ok(self)
     }
@@ -261,6 +296,9 @@ impl Registry {
         for (owner, methods) in owners { out.push_str(&owner); out.push_str(":\n"); for m in methods { out.push_str("  "); out.push_str(&m); out.push('\n'); } }
         out
     }
+}
+impl Default for Registry {
+    fn default() -> Self { Self::new() }
 }
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]

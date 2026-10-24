@@ -9,8 +9,22 @@ pub use collections::register_collections;
 pub use testing::register_testing;
 
 use crate::{Error, Registry, Value};
+use std::collections::HashSet;
 pub mod math;
 pub use math::*;
+
+/// Install the complete built-in lmcode standard catalog once. Explicit subset
+/// binders remain compatible: built-in entries may be replaced by a host binder.
+pub fn register_std(registry: &mut Registry) -> Result<&mut Registry, Error> {
+    if registry.std_enabled() { return Ok(registry); }
+    let before: HashSet<String> = registry.signatures().into_iter().collect();
+    register_string(registry)?;
+    register_math(registry)?;
+    register_collections(registry)?;
+    register_testing(registry, None)?;
+    registry.mark_std_since(&before);
+    Ok(registry)
+}
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 /// Byte length, including embedded NULs.
 pub fn str_len<S: AsRef<[u8]>>(s: S) -> i64 {
