@@ -2,7 +2,7 @@
 name = "router"
 version = "4.0.0"
 edition = "2021"
-repository = "https://github.com/lmctl-ai/rust-dsl-sdk"
+repository = "https://github.com/lmctl-ai/lmcode-rust"
 description = "Example host: lmweb's router schema and bytecode served by a std::net HTTP server on the Rust runtime"
 license = "MIT"
 

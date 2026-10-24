@@ -2,8 +2,8 @@
 name = "dsl-conformance"
 version = "4.0.0"
 edition = "2021"
-repository = "https://github.com/lmctl-ai/rust-dsl-sdk"
-description = "Runs the cpp-dsl-sdk conformance vectors (pinned copy in vectors/) against the Rust dslvm"
+repository = "https://github.com/lmctl-ai/lmcode-rust"
+description = "Runs the lmcode-cpp conformance vectors (pinned copy in vectors/) against the Rust dslvm"
 license = "MIT"
 
 [dependencies]

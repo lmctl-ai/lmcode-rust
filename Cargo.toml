@@ -3,7 +3,7 @@ resolver = "2"
 members = ["dslvm", "conformance", "examples/router"]
 
 [workspace.package]
-repository = "https://github.com/lmctl-ai/rust-dsl-sdk"
+repository = "https://github.com/lmctl-ai/lmcode-rust"
 license = "MIT"
 version = "4.0.0"
 edition = "2021"

@@ -1,4 +1,4 @@
-//! Mirrors cpp-dsl-sdk tests/dslvm_test.cpp (bytecode v4) plus robustness: every truncation length and bit flips of a valid
+//! Mirrors lmcode-cpp tests/dslvm_test.cpp (bytecode v4) plus robustness: every truncation length and bit flips of a valid
 //! file must produce an `Err`, never a panic.
 use dslvm::*;
 

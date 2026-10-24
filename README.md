@@ -1,8 +1,8 @@
-# rust-dsl-sdk
+# lmcode-rust
 
 Status: experimental; bytecode compatibility is not promised. Requires a Rust toolchain; the router checks also use curl and lmscript.
 
-`rust-dsl-sdk` is the Rust runtime for lmscript bytecode v5. It provides the `dslvm`
+`lmcode-rust` is the Rust runtime for lmscript bytecode v5. It provides the `dslvm`
 crate, a loader, structural verifier, stack VM, typed host registry, and a conformance
 runner over the shared SDK vectors. The workspace has no external Rust crate
 dependencies.
@@ -52,6 +52,12 @@ runtime and the C++ reference runtime consume the same portable schema-bound for
 
 The workspace metadata identifies the public repository and MIT license. See
 [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Related
-projects are [cpp-dsl-sdk](https://github.com/lmctl-ai/cpp-dsl-sdk),
+projects are [lmcode-cpp](https://github.com/lmctl-ai/lmcode-cpp),
 [lmapi](https://github.com/lmctl-ai/lmapi), [lmrust](https://github.com/lmctl-ai/lmrust),
 and [lmcpp](https://github.com/lmctl-ai/lmcpp).
+
+## Sibling runtimes
+
+The same bytecode v5 and the same conformance vectors are implemented by [lmcode-cpp](https://github.com/lmctl-ai/lmcode-cpp),
+[lmcode-rust](https://github.com/lmctl-ai/lmcode-rust), [lmcode-go](https://github.com/lmctl-ai/lmcode-go) and
+[lmcode-csharp](https://github.com/lmctl-ai/lmcode-csharp). Each is a library that turns an AOT executable into an lmscript host.
