@@ -1,5 +1,6 @@
 //! Context-owned byte-oriented collection helpers matching the C++ catalog.
 use crate::{Context, Error, Registry, Value};
+use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct CollectionList<T> { pub items: Vec<T> }
@@ -7,7 +8,15 @@ pub type StrList = CollectionList<crate::ByteString>;
 pub type IntList = CollectionList<i64>;
 pub type FloatList = CollectionList<f64>;
 #[derive(Debug, Default)]
-pub struct StrMap { pub items: Vec<(crate::ByteString, crate::ByteString)> }
+pub struct StrMap {
+    pub items: Vec<(crate::ByteString, crate::ByteString)>,
+    index: HashMap<crate::ByteString, usize>,
+    removed: std::collections::HashSet<crate::ByteString>,
+    active: usize,
+}
+impl StrMap {
+    fn find(&self, key: &crate::ByteString) -> Option<usize> { self.index.get(key).copied() }
+}
 
 trait Element: Clone + PartialEq + 'static {
     const TYPE: &'static str;
@@ -111,38 +120,40 @@ pub fn register_collections(registry: &mut Registry) -> Result<&mut Registry, Er
         items.push(crate::ByteString::from(&source[at..]));
         make_collection(ctx, "StrList", CollectionList { items })
     })?;
-    registry.method("StrMap", "len", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<StrMap>(this)?.items.len() as i64)))?;
+    registry.method("StrMap", "len", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<StrMap>(this)?.active as i64)))?;
     registry.method("StrMap", "has", &["string"], "bool", |ctx, this, args| {
         let key = args[0].as_string()?;
-        Ok(Value::Bool(ctx.get::<StrMap>(this)?.items.iter().any(|(k, _)| k == key)))
+        Ok(Value::Bool(ctx.get::<StrMap>(this)?.find(key).is_some()))
     })?;
     registry.method("StrMap", "get", &["string"], "string", |ctx, this, args| {
         let key = args[0].as_string()?;
-        ctx.get::<StrMap>(this)?.items.iter().find(|(k, _)| k == key).map(|(_, v)| Value::string(v.clone())).ok_or_else(|| Error::host("StrMap.get: missing key"))
+        ctx.get::<StrMap>(this)?.find(key).map(|i| Value::string(ctx.get::<StrMap>(this).unwrap().items[i].1.clone())).ok_or_else(|| Error::host("StrMap.get: missing key"))
     })?;
     registry.method("StrMap", "get_or", &["string", "string"], "string", |ctx, this, args| {
         let key = args[0].as_string()?;
         let fallback = args[1].as_string()?.clone();
-        Ok(ctx.get::<StrMap>(this)?.items.iter().find(|(k, _)| k == key).map(|(_, v)| Value::string(v.clone())).unwrap_or_else(|| Value::string(fallback)))
+        Ok(ctx.get::<StrMap>(this)?.find(key).map(|i| Value::string(ctx.get::<StrMap>(this).unwrap().items[i].1.clone())).unwrap_or_else(|| Value::string(fallback)))
     })?;
     registry.method("StrMap", "set", &["string", "string"], "StrMap", |ctx, this, args| {
         let key = args[0].as_string()?.clone();
         let value = args[1].as_string()?.clone();
         let map = ctx.get_mut::<StrMap>(this)?;
-        if let Some((_, v)) = map.items.iter_mut().find(|(k, _)| k == &key) { *v = value; } else { map.items.push((key, value)); }
+        if let Some(i) = map.find(&key) { map.items[i].1 = value; } else { let i = map.items.len(); map.items.push((key.clone(), value)); map.index.insert(key.clone(), i); map.removed.remove(&key); map.active += 1; }
         Ok(Value::object("StrMap", this))
     })?;
     registry.method("StrMap", "key_at", &["int"], "string", |ctx, this, args| {
         let map = ctx.get::<StrMap>(this)?;
-        let i = index(args[0].as_int()?, map.items.len(), "StrMap.key_at")?;
-        Ok(Value::string(map.items[i].0.clone()))
+        let wanted = args[0].as_int()?;
+        if wanted < 0 || wanted as usize >= map.active { return Err(Error::host(format!("StrMap.key_at: index out of range: {}", wanted))); }
+        let mut seen = 0; for (pos, (key, _)) in map.items.iter().enumerate() { if map.removed.contains(key) || map.index.get(key) != Some(&pos) { continue; } else if seen == wanted as usize { return Ok(Value::string(key.clone())); } seen += 1; }
+        Err(Error::host(format!("StrMap.key_at: index out of range: {}", wanted)))
     })?;
     registry.method("StrMap", "remove", &["string"], "bool", |ctx, this, args| {
         let key = args[0].as_string()?;
         let map = ctx.get_mut::<StrMap>(this)?;
-        if let Some(i) = map.items.iter().position(|(k, _)| k == key) { map.items.remove(i); Ok(Value::Bool(true)) } else { Ok(Value::Bool(false)) }
+        if map.find(key).is_some() { map.index.remove(key); map.removed.insert(key.clone()); map.active -= 1; Ok(Value::Bool(true)) } else { Ok(Value::Bool(false)) }
     })?;
-    registry.method("StrMap", "clear", &[], "StrMap", |ctx, this, _| { ctx.get_mut::<StrMap>(this)?.items.clear(); Ok(Value::object("StrMap", this)) })?;
+    registry.method("StrMap", "clear", &[], "StrMap", |ctx, this, _| { let map = ctx.get_mut::<StrMap>(this)?; map.items.clear(); map.index.clear(); map.removed.clear(); map.active = 0; Ok(Value::object("StrMap", this)) })?;
     registry.end_compatibility_registration();
     Ok(registry)
 }
@@ -180,6 +191,14 @@ mod tests {
         assert_eq!(*context.get::<u8>(helper).unwrap(), 7);
         context.insert_collection("StrMap", StrMap::default()).unwrap();
         assert_eq!(context.len(), 2);
+    }
+
+    #[test]
+    fn bulk_removal_keeps_order_indexed_without_quadratic_rebuilds() {
+        let mut map = StrMap::default();
+        for i in 0..20_000u32 { let key = ByteString::from(i.to_string()); map.index.insert(key.clone(), map.items.len()); map.items.push((key, ByteString::default())); map.active += 1; }
+        for i in 0..20_000u32 { let key = ByteString::from(i.to_string()); assert!(map.index.remove(&key).is_some()); map.removed.insert(key); map.active -= 1; }
+        assert_eq!(map.active, 0);
     }
 
     #[test]
