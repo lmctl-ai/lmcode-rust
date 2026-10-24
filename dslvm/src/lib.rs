@@ -137,6 +137,7 @@ pub struct Context {
     objects: Vec<Option<Box<dyn Any>>>,
     types: Vec<String>,
     names: HashMap<String, ObjRef>,
+    collection_objects: usize,
 }
 impl Context {
     pub fn new() -> Context { Context::default() }
@@ -145,6 +146,14 @@ impl Context {
         self.objects.push(Some(Box::new(object)));
         self.types.push(type_name.into());
         ObjRef(self.objects.len() - 1)
+    }
+    /// Inserts a standard-library collection and enforces the per-context collection quota.
+    pub(crate) fn insert_collection<T: Any>(&mut self, type_name: &str, object: T) -> Result<ObjRef, Error> {
+        if self.collection_objects >= 65_536 {
+            return Err(Error::host(format!("{} object limit exceeded (65536)", type_name)));
+        }
+        self.collection_objects += 1;
+        Ok(self.insert(type_name, object))
     }
     /// Binds a context variable (declared in the registry) to an object for this run.
     pub fn set(&mut self, name: impl Into<String>, obj: ObjRef) { self.names.insert(name.into(), obj); }

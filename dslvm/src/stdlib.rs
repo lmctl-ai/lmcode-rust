@@ -3,6 +3,11 @@
 //! once per registry. Every operation uses bytes; UTF-8 is never decoded. Repeat and replace
 //! cap results at 64 MiB, and glob matching caps work at 2^27 units. These are host policies,
 //! independent of the VM, which imposes no string or execution limits.
+pub mod collections;
+pub mod testing;
+pub use collections::register_collections;
+pub use testing::register_testing;
+
 use crate::{Error, Registry, Value};
 pub mod math;
 pub use math::*;
