@@ -10,3 +10,4 @@ conformance/stdlib-vectors/*.expect text eol=lf
 conformance/stdlib-vectors/*.dsl text eol=lf
 stdlib/*.json text eol=lf
 dslvm/tests/fixtures/*.json text eol=lf
+conformance/stdlib-vectors/*.md text eol=lf
