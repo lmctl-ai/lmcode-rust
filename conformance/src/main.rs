@@ -24,7 +24,7 @@ pub fn stub_registry() -> Registry {
     reg.method("IntList", "at", &["int"], "int", |ctx, this, a| { let i = a[0].as_int()?; let value = ctx.get::<IntList>(this)?.values.get(usize::try_from(i).map_err(|_| Error::host("IntList index out of range"))?).copied().ok_or_else(|| Error::host("IntList index out of range"))?; Ok(Value::Int(value)) }).unwrap();
     reg.method("Thing", "id", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id))).unwrap();
     reg.method("Thing", "next", &[], "Thing", |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) }).unwrap();
-    reg.method("Thing", "name", &[], "string", |ctx, this, _| Ok(Value::Str(format!("thing-{}", ctx.get::<Thing>(this)?.id)))).unwrap();
+    reg.method("Thing", "name", &[], "string", |ctx, this, _| Ok(Value::string(format!("thing-{}", ctx.get::<Thing>(this)?.id)))).unwrap();
     reg.method("Thing", "scaled", &["float"], "float", |ctx, this, a| Ok(Value::Float(ctx.get::<Thing>(this)?.id as f64 * a[0].as_float()?))).unwrap();
     reg.method("Trace", "int", &["float"], "void", |ctx, _, a| trace(ctx, format!("float {}", format_g15(a[0].as_float()?)))).unwrap();
     reg.method("Trace", "status", &[], "Status", |_, _, _| Ok(Value::Str("OPTIMAL".into()))).unwrap();
@@ -131,9 +131,16 @@ mod tests {
     use super::*;
     #[test]
     fn pinned_vectors_match_the_lock() {
+        // Same digest as scripts/sync-vectors.sh: sha256 over the `sha256sum` lines of every vector file in byte-sorted order.
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-        let out = std::process::Command::new("bash").arg(root.join("scripts/sync-vectors.sh")).arg("--verify").output().expect("bash");
-        assert!(out.status.success(), "{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+        let lock = std::fs::read_to_string(root.join("vectors.lock")).expect("vectors.lock");
+        let want = lock.lines().find_map(|l| l.strip_prefix("sha256=")).expect("sha256= line in vectors.lock");
+        let dir = root.join("conformance/vectors");
+        let mut names: Vec<String> = std::fs::read_dir(&dir).expect("vectors dir").map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        let mut listing = String::new();
+        for n in &names { listing.push_str(&format!("{}  ./{}\n", dslvm::hex(&dslvm::sha256(&std::fs::read(dir.join(n)).unwrap())), n)); }
+        assert_eq!(dslvm::hex(&dslvm::sha256(listing.as_bytes())), want, "conformance/vectors differs from vectors.lock: run scripts/sync-vectors.sh");
     }
     #[test]
     fn every_vector_gives_the_expected_result_class() {

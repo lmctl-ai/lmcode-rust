@@ -24,7 +24,7 @@ use std::fmt;
 /// The bytecode format version this runtime reads. Every other version (v4 included) is refused: no backward compatibility.
 ///
 /// Format v5 (big-endian, fixed widths): `DSLB`, u16 version, sha256(schema bytes); constants (u32 count, each
-/// u8 tag 1 + u32 length + UTF-8); imports (u16 count, each u32 constant index of a canonical signature `fn NAME(T) -> R` or
+/// u8 tag 1 + u32 length + raw bytes); imports (u16 count, each u32 constant index of a canonical signature `fn NAME(T) -> R` or
 /// `method Type.name(T) -> R`, resolved against the registry at load); context (u16 count, each u32 name + u32 type constant,
 /// checked against the registry); locals (u16 count, each u32 type-name constant + u8 hidden flag); u16 max_stack (the
 /// compiler's measured depth, a reservation hint); code (u32 length, ends with HALT); lines (u32 count, each u32 pc + u32
@@ -76,13 +76,39 @@ pub fn report_app_failure(message: &str) -> i32 { report_error("app", &Error::ne
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ObjRef(usize);
 
+/// A VM string: arbitrary bytes, including NUL and invalid UTF-8. Indexes and lengths are byte-based.
+/// Text conversion is explicit at host boundaries; display uses replacement characters for invalid UTF-8.
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ByteString(Vec<u8>);
+impl ByteString {
+    pub fn as_bytes(&self) -> &[u8] { &self.0 }
+    pub fn into_bytes(self) -> Vec<u8> { self.0 }
+    /// Validates UTF-8 without changing the original bytes.
+    pub fn as_str(&self) -> Result<&str, std::str::Utf8Error> { std::str::from_utf8(&self.0) }
+    /// Converts to host text, replacing invalid UTF-8 sequences with U+FFFD.
+    pub fn to_string_lossy(&self) -> String { String::from_utf8_lossy(&self.0).into_owned() }
+}
+impl std::ops::Deref for ByteString {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] { self.as_bytes() }
+}
+impl AsRef<[u8]> for ByteString { fn as_ref(&self) -> &[u8] { self.as_bytes() } }
+impl From<Vec<u8>> for ByteString { fn from(bytes: Vec<u8>) -> Self { Self(bytes) } }
+impl From<&[u8]> for ByteString { fn from(bytes: &[u8]) -> Self { Self(bytes.to_vec()) } }
+impl<const N: usize> From<&[u8; N]> for ByteString { fn from(bytes: &[u8; N]) -> Self { Self(bytes.to_vec()) } }
+impl From<String> for ByteString { fn from(text: String) -> Self { Self(text.into_bytes()) } }
+impl From<&str> for ByteString { fn from(text: &str) -> Self { Self(text.as_bytes().to_vec()) } }
+impl fmt::Display for ByteString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str(&String::from_utf8_lossy(&self.0)) }
+}
+
 /// A DSL value. `Obj` carries the schema type name the compiler saw; the VM checks it on every method call.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     None,
     Int(i64),
     Float(f64),
-    Str(String),
+    Str(ByteString),
     Bool(bool),
     Obj { type_name: String, obj: ObjRef },
 }
@@ -94,7 +120,13 @@ impl Value {
     /// Accessors for host callbacks: the VM guarantees the kinds the schema declares, so a mismatch is a host or compiler bug.
     pub fn as_int(&self) -> Result<i64, Error> { if let Value::Int(i) = self { Ok(*i) } else { err(format!("expected int, got {}", self.kind_name())) } }
     pub fn as_float(&self) -> Result<f64, Error> { if let Value::Float(f) = self { Ok(*f) } else { err(format!("expected float, got {}", self.kind_name())) } }
-    pub fn as_str(&self) -> Result<&str, Error> { if let Value::Str(s) = self { Ok(s) } else { err(format!("expected string, got {}", self.kind_name())) } }
+    pub fn string(bytes: impl Into<ByteString>) -> Value { Value::Str(bytes.into()) }
+    pub fn as_string(&self) -> Result<&ByteString, Error> { if let Value::Str(s) = self { Ok(s) } else { err(format!("expected string, got {}", self.kind_name())) } }
+    /// Returns the original bytes unchanged, without UTF-8 validation.
+    pub fn as_bytes(&self) -> Result<&[u8], Error> { Ok(self.as_string()?.as_bytes()) }
+    /// Validated host text; invalid UTF-8 is a host conversion error, never a load error for string values.
+    pub fn as_str(&self) -> Result<&str, Error> { self.as_string()?.as_str().map_err(|e| Error::host(format!("string is not valid UTF-8: {}", e))) }
+    pub fn to_string_lossy(&self) -> Result<String, Error> { Ok(self.as_string()?.to_string_lossy()) }
     pub fn as_bool(&self) -> Result<bool, Error> { if let Value::Bool(b) = self { Ok(*b) } else { err(format!("expected bool, got {}", self.kind_name())) } }
     pub fn as_obj(&self) -> Result<ObjRef, Error> { if let Value::Obj { obj, .. } = self { Ok(*obj) } else { err(format!("expected object, got {}", self.kind_name())) } }
 }
@@ -270,7 +302,7 @@ pub struct Line { pub pc: u32, pub line: u32, pub column: u16 }
 
 /// A loaded, verified program. Immutable; run it as often as the host likes.
 #[derive(Debug, Clone)]
-pub struct Program { consts: Vec<String>, imports: Vec<Import>, contexts: Vec<String>, locals: Vec<Local>, max_stack: u16, code: Vec<u8>, lines: Vec<Line>, loop_pairs: HashMap<usize, (usize, usize)> }
+pub struct Program { consts: Vec<ByteString>, imports: Vec<Import>, contexts: Vec<String>, locals: Vec<Local>, max_stack: u16, code: Vec<u8>, lines: Vec<Line>, loop_pairs: HashMap<usize, (usize, usize)> }
 
 impl Program {
     /// Parses, binds against the registry and verifies. Nothing executes here; every problem is an `Err`.
@@ -284,15 +316,19 @@ impl Program {
         let expected = sha256(schema_bytes);
         if hash != expected { return load_err("LOAD_SCHEMA_MISMATCH", format!("schema mismatch: bytecode was compiled against schema sha256 {}, the given schema has sha256 {}", hex(hash), hex(&expected))); }
         let nconst = r.u32()?;
-        let mut consts: Vec<String> = Vec::with_capacity(nconst as usize);
+        let mut consts: Vec<ByteString> = Vec::with_capacity(nconst as usize);
         for i in 0..nconst {
             let tag = r.u8()?;
             if tag != 1 { return load_err("LOAD_BAD_BYTECODE", format!("constant {} has unknown tag {} (1 = string)", i, tag)); }
             let len = r.u32()? as usize;
             let raw = r.bytes(len)?;
-            consts.push(String::from_utf8(raw.to_vec()).map_err(|_| Error::new("LOAD_BAD_BYTECODE", format!("constant {} is not valid UTF-8", i)))?);
+            consts.push(ByteString::from(raw));
         }
-        let cidx = |i: u32, what: &str| -> Result<&str, Error> { consts.get(i as usize).map(String::as_str).ok_or_else(|| Error::new("LOAD_BAD_BYTECODE", format!("{}: constant index {} out of range ({} constants)", what, i, consts.len()))) };
+        // Registry identifiers are host text; ordinary string constants are never decoded.
+        let cidx = |i: u32, what: &str| -> Result<&str, Error> {
+            let value = consts.get(i as usize).ok_or_else(|| Error::new("LOAD_BAD_BYTECODE", format!("{}: constant index {} out of range ({} constants)", what, i, consts.len())))?;
+            value.as_str().map_err(|_| Error::new("LOAD_BAD_BYTECODE", format!("{}: constant {} is not valid UTF-8", what, i)))
+        };
         let nimports = r.u16()?;
         let mut imports = Vec::with_capacity(nimports as usize);
         for _ in 0..nimports {
@@ -745,12 +781,12 @@ impl Program {
                 CONCAT => {
                     let b = pop(&mut stack)?; let a = pop(&mut stack)?;
                     match (a, b) {
-                        (Value::Str(mut x), Value::Str(y)) => { x.push_str(&y); push(&mut stack, Value::Str(x)) }
+                        (Value::Str(mut x), Value::Str(y)) => { x.0.extend_from_slice(y.as_bytes()); push(&mut stack, Value::Str(x)) }
                         (a, b) => return err(format!("string + applied to {} and {}", a.kind_name(), b.kind_name())),
                     }
                 }
-                I2S => { let a = pop(&mut stack)?; match a { Value::Int(i) => push(&mut stack, Value::Str(i.to_string())), o => return err(format!("str(int) applied to {}", o.kind_name())) } }
-                F2S => { let a = pop(&mut stack)?; match a { Value::Float(f) => push(&mut stack, Value::Str(format_g15(f))), o => return err(format!("str(float) applied to {}", o.kind_name())) } }
+                I2S => { let a = pop(&mut stack)?; match a { Value::Int(i) => push(&mut stack, Value::string(i.to_string())), o => return err(format!("str(int) applied to {}", o.kind_name())) } }
+                F2S => { let a = pop(&mut stack)?; match a { Value::Float(f) => push(&mut stack, Value::string(format_g15(f))), o => return err(format!("str(float) applied to {}", o.kind_name())) } }
                 B2S => { let a = pop(&mut stack)?; match a { Value::Bool(b) => push(&mut stack, Value::Str(if b { "true".into() } else { "false".into() })), o => return err(format!("str(bool) applied to {}", o.kind_name())) } }
             }
             Ok(())

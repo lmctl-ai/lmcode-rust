@@ -46,12 +46,12 @@ fn reason(status: i64) -> &'static str {
 fn registry() -> Registry {
     let mut reg = Registry::new();
     reg.context("req", "Request").unwrap().context("res", "Response").unwrap();
-    reg.method("Request", "method", &[], "string", |ctx, this, _| Ok(Value::Str(ctx.get::<Request>(this)?.method.clone()))).unwrap();
-    reg.method("Request", "path", &[], "string", |ctx, this, _| Ok(Value::Str(ctx.get::<Request>(this)?.path.clone()))).unwrap();
+    reg.method("Request", "method", &[], "string", |ctx, this, _| Ok(Value::string(ctx.get::<Request>(this)?.method.clone()))).unwrap();
+    reg.method("Request", "path", &[], "string", |ctx, this, _| Ok(Value::string(ctx.get::<Request>(this)?.path.clone()))).unwrap();
     reg.method("Response", "status", &["int"], "void", |ctx, this, a| { ctx.get_mut::<Response>(this)?.status = a[0].as_int()?; Ok(Value::None) }).unwrap();
     reg.method("Response", "body", &["string"], "void", |ctx, this, a| { ctx.get_mut::<Response>(this)?.body = a[0].as_str()?.to_string(); Ok(Value::None) }).unwrap();
     reg.method("Response", "header", &["string", "string"], "void", |ctx, this, a| { let (k, v) = (a[0].as_str()?.to_string(), a[1].as_str()?.to_string()); ctx.get_mut::<Response>(this)?.headers.push((k, v)); Ok(Value::None) }).unwrap();
-    reg.function("now_date", &[], "string", |_, _| Ok(Value::Str(today()))).unwrap();
+    reg.function("now_date", &[], "string", |_, _| Ok(Value::string(today()))).unwrap();
     reg
 }
 

@@ -4,9 +4,9 @@
 use crate::{Error, Registry, Value};
 
 /// Byte length of `s`, including NUL bytes.
-pub fn str_len(s: &str) -> i64 { s.len() as i64 }
+pub fn str_len(s: impl AsRef<[u8]>) -> i64 { s.as_ref().len() as i64 }
 
 /// Registers the string catalog implemented so far: `str_len(string) -> int`.
 pub fn register_string(reg: &mut Registry) -> Result<&mut Registry, Error> {
-    reg.function("str_len", &["string"], "int", |_, a| Ok(Value::Int(str_len(a[0].as_str()?))))
+    reg.function("str_len", &["string"], "int", |_, a| Ok(Value::Int(str_len(a[0].as_bytes()?))))
 }

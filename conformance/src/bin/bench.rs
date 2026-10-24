@@ -14,7 +14,7 @@ fn main() {
     for (m, t) in [("int", "int"), ("float", "float"), ("str", "string"), ("bool", "bool"), ("thing", "Thing")] { reg.method("Trace", m, &[t], "void", |_, _, _| Ok(Value::None)).unwrap(); }
     reg.method("Thing", "id", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id))).unwrap();
     reg.method("Thing", "next", &[], "Thing", |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) }).unwrap();
-    reg.method("Thing", "name", &[], "string", |ctx, this, _| Ok(Value::Str(format!("thing-{}", ctx.get::<Thing>(this)?.id)))).unwrap();
+    reg.method("Thing", "name", &[], "string", |ctx, this, _| Ok(Value::string(format!("thing-{}", ctx.get::<Thing>(this)?.id)))).unwrap();
     reg.method("Thing", "scaled", &["float"], "float", |ctx, this, a| Ok(Value::Float(ctx.get::<Thing>(this)?.id as f64 * a[0].as_float()?))).unwrap();
     reg.function("thing", &["int"], "Thing", |ctx, a| { let r = ctx.insert("Thing", Thing { id: a[0].as_int()? }); Ok(Value::object("Thing", r)) }).unwrap();
     reg.function("twice", &["int"], "int", |_, a| Ok(Value::Int(a[0].as_int()? * 2))).unwrap();
