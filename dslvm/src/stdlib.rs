@@ -4,6 +4,8 @@
 //! cap results at 64 MiB, and glob matching caps work at 2^27 units. These are host policies,
 //! independent of the VM, which imposes no string or execution limits.
 use crate::{Error, Registry, Value};
+pub mod math;
+pub use math::*;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 /// Byte length, including embedded NULs.
 pub fn str_len<S: AsRef<[u8]>>(s: S) -> i64 {

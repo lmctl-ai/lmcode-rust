@@ -1,0 +1,489 @@
+{
+  "format": "dsl-conformance/2",
+  "bytecode_version": 5,
+  "generated_by": "lmscript (one wrapper line preceding NAME.dsl)",
+  "schema": "schema.json",
+  "host": {
+    "description": "Register all functions from stdlib/string.schema-fragment.json. Context t is Trace: int records int N, float records float %.15g, bool records bool true|false, hex records hex SPACE followed by lowercase hexadecimal bytes (two digits per byte, no decoding). bytes(string) decodes an even-length ASCII hexadecimal fixture literal to raw bytes, without recording a trace. This helper intentionally supplies invalid UTF-8 and NUL without depending on source encoding or compiler literal escapes. Strings, offsets and lengths are bytes. Runtime error expectations use exact code/line/column and message substring, matching the core runner."
+  },
+  "vectors": [
+    {
+      "name": "starts-with",
+      "covers": "str_starts_with byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "starts-with.dsl",
+      "bytecode": "starts-with.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool true",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "ends-with",
+      "covers": "str_ends_with byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "ends-with.dsl",
+      "bytecode": "ends-with.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool true",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "contains",
+      "covers": "str_contains byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "contains.dsl",
+      "bytecode": "contains.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool true",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "lower",
+      "covers": "str_lower byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "lower.dsl",
+      "bytecode": "lower.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 617a2dc3a9",
+          "hex 61ff007a"
+        ]
+      }
+    },
+    {
+      "name": "upper",
+      "covers": "str_upper byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "upper.dsl",
+      "bytecode": "upper.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 415a2dc3a9",
+          "hex 41ff005a"
+        ]
+      }
+    },
+    {
+      "name": "substr",
+      "covers": "str_substr byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "substr.dsl",
+      "bytecode": "substr.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex a9",
+          "hex 616263",
+          "int 0",
+          "int 0",
+          "hex ff00"
+        ]
+      }
+    },
+    {
+      "name": "len",
+      "covers": "str_len byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "len.dsl",
+      "bytecode": "len.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 6",
+          "int 4"
+        ]
+      }
+    },
+    {
+      "name": "match",
+      "covers": "str_match byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "match.dsl",
+      "bytecode": "match.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool false",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool false",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "find",
+      "covers": "str_find byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "find.dsl",
+      "bytecode": "find.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "int 0",
+          "int -1",
+          "int 1"
+        ]
+      }
+    },
+    {
+      "name": "replace",
+      "covers": "str_replace byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "replace.dsl",
+      "bytecode": "replace.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 626261",
+          "hex 6162",
+          "hex c3a900c3a9"
+        ]
+      }
+    },
+    {
+      "name": "trim",
+      "covers": "str_trim byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "trim.dsl",
+      "bytecode": "trim.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 61",
+          "hex 6100",
+          "hex c3a9"
+        ]
+      }
+    },
+    {
+      "name": "repeat",
+      "covers": "str_repeat byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "repeat.dsl",
+      "bytecode": "repeat.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex ff00ff00",
+          "int 0",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "to-int",
+      "covers": "str_to_int byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "to-int.dsl",
+      "bytecode": "to-int.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 42",
+          "int -9223372036854775808",
+          "int 0",
+          "int 0",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "is-int",
+      "covers": "str_is_int byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "is-int.dsl",
+      "bytecode": "is-int.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool false",
+          "bool false",
+          "bool false",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "to-float",
+      "covers": "str_to_float byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "to-float.dsl",
+      "bytecode": "to-float.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "float 125",
+          "float -0",
+          "float 0",
+          "float 0",
+          "float 0"
+        ]
+      }
+    },
+    {
+      "name": "is-float",
+      "covers": "str_is_float byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "is-float.dsl",
+      "bytecode": "is-float.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool false",
+          "bool false",
+          "bool false",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "repeat-negative",
+      "covers": "catalog resource policy reports host failure",
+      "schema": "schema.json",
+      "source": "repeat-negative.dsl",
+      "bytecode": "repeat-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 7,
+          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+        }
+      }
+    },
+    {
+      "name": "repeat-limit",
+      "covers": "catalog resource policy reports host failure",
+      "schema": "schema.json",
+      "source": "repeat-limit.dsl",
+      "bytecode": "repeat-limit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 7,
+          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+        }
+      }
+    },
+    {
+      "name": "math-abs",
+      "schema": "math.schema.json",
+      "source": "math-abs.dsl",
+      "bytecode": "math-abs.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 7",
+          "int -9223372036854775808",
+          "float 2.5",
+          "float 0"
+        ]
+      }
+    },
+    {
+      "name": "math-min",
+      "schema": "math.schema.json",
+      "source": "math-min.dsl",
+      "bytecode": "math-min.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int -7",
+          "float -3.5",
+          "float -0",
+          "float 0"
+        ]
+      }
+    },
+    {
+      "name": "math-max",
+      "schema": "math.schema.json",
+      "source": "math-max.dsl",
+      "bytecode": "math-max.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 3",
+          "float 2.5",
+          "float -0",
+          "float 0"
+        ]
+      }
+    },
+    {
+      "name": "math-floor",
+      "schema": "math.schema.json",
+      "source": "math-floor.dsl",
+      "bytecode": "math-floor.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int -9223372036854775808",
+          "float -2",
+          "float 1",
+          "float -0"
+        ]
+      }
+    },
+    {
+      "name": "math-ceil",
+      "schema": "math.schema.json",
+      "source": "math-ceil.dsl",
+      "bytecode": "math-ceil.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 9223372036854775807",
+          "float -1",
+          "float 2",
+          "float -0"
+        ]
+      }
+    },
+    {
+      "name": "math-round",
+      "schema": "math.schema.json",
+      "source": "math-round.dsl",
+      "bytecode": "math-round.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 9223372036854775807",
+          "float -1",
+          "float 1",
+          "float -0",
+          "float 4.5035996273705e+15"
+        ]
+      }
+    },
+    {
+      "name": "math-pow",
+      "schema": "math.schema.json",
+      "source": "math-pow.dsl",
+      "bytecode": "math-pow.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 1",
+          "int -9223372036854775808",
+          "int 0",
+          "int -8",
+          "float 8",
+          "float -0",
+          "float -inf"
+        ]
+      }
+    },
+    {
+      "name": "math-sqrt",
+      "schema": "math.schema.json",
+      "source": "math-sqrt.dsl",
+      "bytecode": "math-sqrt.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 4",
+          "int 3037000499",
+          "int 3037000498",
+          "float 2",
+          "~ float 1.4142135623730951",
+          "float -0"
+        ]
+      }
+    },
+    {
+      "name": "math-nan",
+      "schema": "math.schema.json",
+      "source": "math-nan.dsl",
+      "bytecode": "math-nan.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "float 1",
+          "float 1",
+          "float 1",
+          "float inf"
+        ]
+      }
+    },
+    {
+      "name": "math-pow-negative",
+      "schema": "math.schema.json",
+      "source": "math-pow-negative.dsl",
+      "bytecode": "math-pow-negative.dslb",
+      "mutated": false,
+      "covers": "invalid integer math domain reports located host error",
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 7,
+          "message": "math_pow: integer exponent must be nonnegative"
+        }
+      }
+    },
+    {
+      "name": "math-sqrt-negative",
+      "schema": "math.schema.json",
+      "source": "math-sqrt-negative.dsl",
+      "bytecode": "math-sqrt-negative.dslb",
+      "mutated": false,
+      "covers": "invalid integer math domain reports located host error",
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 7,
+          "message": "math_sqrt: integer argument must be nonnegative"
+        }
+      }
+    }
+  ]
+}
