@@ -12,7 +12,9 @@ if [ "${1:-}" = "--verify" ]; then
   echo "std schema matches $(sed -n 's/^commit=//p' "$LOCK")"
   exit 0
 fi
-[ -f "$SRC" ] || { echo "canonical std schema not found at $SRC (set LMCODE_CPP)" >&2; exit 1; }
-cp "$SRC" "$DST"
-printf 'repo=https://github.com/lmctl-ai/lmcode-cpp\ncommit=%s\nsha256=%s\n' "$(git -C "$SDK" rev-parse HEAD)" "$(sha256sum "$DST" | cut -d' ' -f1)" > "$LOCK"
-echo "synced canonical std schema from lmcode-cpp $(git -C "$SDK" rev-parse --short HEAD)"
+commit="$(git -C "$SDK" log -1 --format=%H -- std/lmcode-std.schema.json)"
+[ -n "$commit" ] || { echo "canonical std schema has no committed revision" >&2; exit 1; }
+mkdir -p "$HERE/std"
+git -C "$SDK" show "$commit:std/lmcode-std.schema.json" > "$DST"
+printf 'repo=https://github.com/lmctl-ai/lmcode-cpp\ncommit=%s\nsha256=%s\n' "$commit" "$(sha256sum "$DST" | cut -d' ' -f1)" > "$LOCK"
+echo "synced canonical std schema from lmcode-cpp $commit"

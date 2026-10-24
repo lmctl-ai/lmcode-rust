@@ -939,7 +939,7 @@
     },
     {
       "name": "testing-close-nan",
-      "covers": "testing sink and numeric assertion",
+      "covers": "negative NaN assertion diagnostics use canonical nan text",
       "schema": "collections.schema.json",
       "source": "testing-close-nan.dsl",
       "bytecode": "testing-close-nan.dslb",
