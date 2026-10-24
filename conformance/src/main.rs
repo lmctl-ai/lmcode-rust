@@ -44,6 +44,7 @@ pub fn stub_registry() -> Registry {
     reg.function("half", &["float"], "float", |_, a| Ok(Value::Float(a[0].as_float()? / 2.0))).unwrap();
     reg.function("yes", &[], "bool", |ctx, _| { trace(ctx, "yes".into())?; Ok(Value::Bool(true)) }).unwrap();
     reg.function("fail", &["string"], "void", |_, a| Err(Error::host(a[0].as_str()?.to_string()))).unwrap();
+    reg.function("bad_int", &[], "int", |_, _| Ok(Value::Str("x".into()))).unwrap();
     reg
 }
 

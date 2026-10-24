@@ -4,7 +4,7 @@
   "generated_by": "lmscript dsl.ts (scripts/generate-dsl-conformance.ts)",
   "schema": "schema.json",
   "host": {
-    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. Context xs is IntList [0, 1, 2, 3] with len() and at(int), neither recording a trace. bound(i) records bound N and returns i; thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C). S2: Trace.int(float) records float using the same formatting. Trace.status() returns string OPTIMAL typed Status, without a trace. twice(float) doubles its float with no trace. Context v is Var id 0. var(int) records var N and creates Var N; Var.id returns its id, Var.expr records expr N and returns a new Thing N. thing(int) does not record a trace. Thing.plus(Thing), minus(Thing), times(int), neg(), rminus(int) return new Things with sum, difference, product, negation, or argument minus receiver id, respectively (wrapping i64). Thing.len() records len N and returns its id N as a collection length. Thing.at(int) records at I and returns a new Thing I. Thing.set(int) changes its id and returns the receiver, with concrete canonical return type Thing for schema self.",
+    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. Context xs is IntList [0, 1, 2, 3] with len() and at(int), neither recording a trace. bound(i) records bound N and returns i; thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C). S2: Trace.int(float) records float using the same formatting. Trace.status() returns string OPTIMAL typed Status, without a trace. twice(float) doubles its float with no trace. Context v is Var id 0. var(int) records var N and creates Var N; Var.id returns its id, Var.expr records expr N and returns a new Thing N. thing(int) does not record a trace. Thing.plus(Thing), minus(Thing), times(int), neg(), rminus(int) return new Things with sum, difference, product, negation, or argument minus receiver id, respectively (wrapping i64). Thing.len() records len N and returns its id N as a collection length. Thing.at(int) records at I and returns a new Thing I. Thing.set(int) changes its id and returns the receiver, with concrete canonical return type Thing for schema self. bad_int() is declared int but deliberately returns string x to test defensive VM type errors.",
     "expect": "trace: the recorded lines in order, after a successful run. A line prefixed ~ compares the last numeric token with relative tolerance 1e-12 (floor scale 1e-300), exact prefix; both values must be finite. This applies only to sin/cos/pow, assuming the platform binary64 libm meets that tolerance (no universal correct-rounding guarantee). Other traces compare exactly; native unit tests also compare exact binary64 results and signed zero. runtime_error: run() throws and the message contains the substring. runtime_error_at: run() throws with exact code, line and column plus a message substring; .expect payload lines are CODE, LINE, COLUMN, MESSAGE. Zero line/column means unavailable; a positive line with zero column is line-only. load_error: load() throws (nothing runs) and the message contains the substring."
   },
   "vectors": [
@@ -46,7 +46,7 @@
     },
     {
       "name": "overloads-enum",
-      "covers": "S2 exact overload selection and enum constants",
+      "covers": "Exact overload selection and enum constants",
       "schema": "schema.json",
       "bytecode": "overloads-enum.dslb",
       "source": "overloads-enum.dsl",
@@ -64,7 +64,7 @@
     },
     {
       "name": "operators-conversions",
-      "covers": "S2 object operators, reversed forms, receiver and argument conversions",
+      "covers": "Object operators, reversed forms, receiver and argument conversions",
       "schema": "schema.json",
       "bytecode": "operators-conversions.dslb",
       "source": "operators-conversions.dsl",
@@ -143,7 +143,7 @@
     },
     {
       "name": "math-value-edges",
-      "covers": "R34 no new errors: saturating int, wrapping abs, reversed clamp, NaN propagation, signed zero",
+      "covers": "Numeric edge cases: saturating int, wrapping abs, reversed clamp, NaN propagation, signed zero",
       "schema": "schema.json",
       "bytecode": "math-value-edges.dslb",
       "source": "math-value-edges.dsl",
@@ -392,7 +392,7 @@
     },
     {
       "name": "runtime-host-error-at",
-      "covers": "S5 located host error inside a nested while loop",
+      "covers": "Host error location inside a nested while loop",
       "schema": "schema.json",
       "bytecode": "runtime-host-error-at.dslb",
       "source": "runtime-host-error-at.dsl",
@@ -408,7 +408,7 @@
     },
     {
       "name": "runtime-div-zero-at",
-      "covers": "S5 located integer division error after argument evaluation",
+      "covers": "Integer division error location after argument evaluation",
       "schema": "schema.json",
       "bytecode": "runtime-div-zero-at.dslb",
       "source": "runtime-div-zero-at.dsl",
@@ -424,7 +424,7 @@
     },
     {
       "name": "runtime-mod-zero-at",
-      "covers": "S5 located integer remainder error",
+      "covers": "Integer remainder error location",
       "schema": "schema.json",
       "bytecode": "runtime-mod-zero-at.dslb",
       "source": "runtime-mod-zero-at.dsl",
@@ -440,7 +440,7 @@
     },
     {
       "name": "runtime-inline-error-at",
-      "covers": "S5 located error in an inlined callee",
+      "covers": "Error location in an inlined callee",
       "schema": "schema.json",
       "bytecode": "runtime-inline-error-at.dslb",
       "source": "runtime-inline-error-at.dsl",
@@ -456,7 +456,7 @@
     },
     {
       "name": "runtime-after-inline-error-at",
-      "covers": "S5 caller location after a multiline host call with an inlined argument",
+      "covers": "Caller location after a multiline host call with an inlined argument",
       "schema": "schema.json",
       "bytecode": "runtime-after-inline-error-at.dslb",
       "source": "runtime-after-inline-error-at.dsl",
@@ -472,7 +472,7 @@
     },
     {
       "name": "runtime-empty-lines-fallback",
-      "covers": "S5 empty line table leaves runtime location unavailable",
+      "covers": "Empty line table leaves runtime location unavailable",
       "schema": "schema.json",
       "bytecode": "runtime-empty-lines-fallback.dslb",
       "source": "runtime-empty-lines-fallback.dsl",
@@ -488,7 +488,7 @@
     },
     {
       "name": "runtime-long-column-fallback",
-      "covers": "S5 columns beyond u16 encode as zero while preserving line",
+      "covers": "Columns beyond u16 encode as zero while preserving line",
       "schema": "schema.json",
       "bytecode": "runtime-long-column-fallback.dslb",
       "source": "runtime-long-column-fallback.dsl",
@@ -504,7 +504,7 @@
     },
     {
       "name": "int64-wraparound",
-      "covers": "PUSH_INT i64, two's complement wraparound of ADD_I SUB_I MUL_I DIV_I MOD_I NEG_I (R34: no overflow trap), I2S of 64-bit values",
+      "covers": "PUSH_INT i64, two's complement wraparound of ADD_I SUB_I MUL_I DIV_I MOD_I NEG_I (no overflow trap), I2S of 64-bit values",
       "schema": "schema.json",
       "bytecode": "int64-wraparound.dslb",
       "source": "int64-wraparound.dsl",
@@ -825,6 +825,22 @@
       "mutated": true,
       "expect": {
         "load_error": "does not target its paired WHILE_BEGIN"
+      }
+    },
+    {
+      "name": "runtime-type-error",
+      "covers": "VM arithmetic type error code differs from host callback errors",
+      "schema": "type-error.schema.json",
+      "bytecode": "runtime-type-error.dslb",
+      "source": "runtime-type-error.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_ERROR",
+          "line": 2,
+          "column": 17,
+          "message": "int operator applied to string and int"
+        }
       }
     }
   ]
