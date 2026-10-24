@@ -18,7 +18,7 @@ fn fixture_bytes(hex: &[u8]) -> Result<Vec<u8>, Error> {
             _ => Err(Error::host("bytes: expected lowercase hexadecimal pairs")),
         }
     }
-    if hex.len() % 2 != 0 { return Err(Error::host("bytes: expected lowercase hexadecimal pairs")); }
+    if !hex.len().is_multiple_of(2) { return Err(Error::host("bytes: expected lowercase hexadecimal pairs")); }
     hex.chunks_exact(2).map(|pair| Ok(digit(pair[0])? * 16 + digit(pair[1])?)).collect()
 }
 
