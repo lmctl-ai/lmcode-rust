@@ -77,13 +77,8 @@ fn canonical_std_schema_is_pinned_and_matches_default_registry() {
     let want = lock.lines().find_map(|line| line.strip_prefix("sha256=")).unwrap();
     assert_eq!(dslvm::hex(&dslvm::sha256(&schema)), want);
     let bin = std::env::var("LMSCRIPT_BIN").unwrap_or_else(|_| "lmscript".into());
-    let compiler_schema = std::env::temp_dir().join(format!("lmcode-rust-std-{}.schema.json", std::process::id()));
-    let compiler_source = String::from_utf8(schema.clone()).unwrap().replace("  \"lmcode.std\": 1,\n", "");
-    let compiler_text = format!("{{\n  \"name\": \"lmcode_std_v1\",{}", compiler_source.strip_prefix('{').unwrap());
-    fs::write(&compiler_schema, compiler_text).unwrap();
     let configured = std::env::var_os("LMSCRIPT_BIN").is_some();
-    let output = Command::new(bin).arg("--dsl-signatures").arg(&compiler_schema).output();
-    let _ = fs::remove_file(&compiler_schema);
+    let output = Command::new(bin).arg("--dsl-signatures").arg(root.join("std/lmcode-std.schema.json")).output();
     let output = match output {
         Ok(output) => output,
         Err(_error) if !configured => { eprintln!("lmscript not found; canonical std parity skipped"); return; }
