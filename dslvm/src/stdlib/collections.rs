@@ -13,9 +13,11 @@ pub struct StrMap {
     index: HashMap<crate::ByteString, usize>,
     removed: std::collections::HashSet<crate::ByteString>,
     active: usize,
+    dirty: bool,
 }
 impl StrMap {
     fn find(&self, key: &crate::ByteString) -> Option<usize> { self.index.get(key).copied() }
+    fn rebuild(&mut self) { self.index.clear(); for (i, (key, _)) in self.items.iter().enumerate() { self.index.insert(key.clone(), i); } }
 }
 
 trait Element: Clone + PartialEq + 'static {
@@ -142,18 +144,22 @@ pub fn register_collections(registry: &mut Registry) -> Result<&mut Registry, Er
         Ok(Value::object("StrMap", this))
     })?;
     registry.method("StrMap", "key_at", &["int"], "string", |ctx, this, args| {
-        let map = ctx.get::<StrMap>(this)?;
+        let map = ctx.get_mut::<StrMap>(this)?;
+        if map.dirty {
+            let old = std::mem::take(&mut map.items);
+            map.items = old.into_iter().enumerate().filter(|(pos, (key, _))| map.index.get(key) == Some(pos)).map(|(_, item)| item).collect();
+            map.removed.clear(); map.rebuild(); map.dirty = false;
+        }
         let wanted = args[0].as_int()?;
         if wanted < 0 || wanted as usize >= map.active { return Err(Error::host(format!("StrMap.key_at: index out of range: {}", wanted))); }
-        let mut seen = 0; for (pos, (key, _)) in map.items.iter().enumerate() { if map.removed.contains(key) || map.index.get(key) != Some(&pos) { continue; } else if seen == wanted as usize { return Ok(Value::string(key.clone())); } seen += 1; }
-        Err(Error::host(format!("StrMap.key_at: index out of range: {}", wanted)))
+        Ok(Value::string(map.items[wanted as usize].0.clone()))
     })?;
     registry.method("StrMap", "remove", &["string"], "bool", |ctx, this, args| {
         let key = args[0].as_string()?;
         let map = ctx.get_mut::<StrMap>(this)?;
-        if map.find(key).is_some() { map.index.remove(key); map.removed.insert(key.clone()); map.active -= 1; Ok(Value::Bool(true)) } else { Ok(Value::Bool(false)) }
+        if map.find(key).is_some() { map.index.remove(key); map.removed.insert(key.clone()); map.active -= 1; map.dirty = true; Ok(Value::Bool(true)) } else { Ok(Value::Bool(false)) }
     })?;
-    registry.method("StrMap", "clear", &[], "StrMap", |ctx, this, _| { let map = ctx.get_mut::<StrMap>(this)?; map.items.clear(); map.index.clear(); map.removed.clear(); map.active = 0; Ok(Value::object("StrMap", this)) })?;
+    registry.method("StrMap", "clear", &[], "StrMap", |ctx, this, _| { let map = ctx.get_mut::<StrMap>(this)?; map.items.clear(); map.index.clear(); map.removed.clear(); map.active = 0; map.dirty = false; Ok(Value::object("StrMap", this)) })?;
     registry.end_compatibility_registration();
     Ok(registry)
 }
@@ -199,6 +205,20 @@ mod tests {
         for i in 0..20_000u32 { let key = ByteString::from(i.to_string()); map.index.insert(key.clone(), map.items.len()); map.items.push((key, ByteString::default())); map.active += 1; }
         for i in 0..20_000u32 { let key = ByteString::from(i.to_string()); assert!(map.index.remove(&key).is_some()); map.removed.insert(key); map.active -= 1; }
         assert_eq!(map.active, 0);
+    }
+
+    #[test]
+    fn bulk_registered_key_at_compacts_once_then_reads_indexed_order() {
+        let mut registry = Registry::without_std(); register_collections(&mut registry).unwrap();
+        let mut context = Context::new(); let object = context.insert_collection("StrMap", StrMap::default()).unwrap();
+        let set = &registry.methods["method StrMap.set(string, string) -> StrMap"].3;
+        let remove = &registry.methods["method StrMap.remove(string) -> bool"].3;
+        let key_at = &registry.methods["method StrMap.key_at(int) -> string"].3;
+        for i in 0..20_000 { let key = Value::string(i.to_string()); set(&mut context, object, &[key.clone(), key]).unwrap(); }
+        for i in 0..20_000 { remove(&mut context, object, &[Value::string(i.to_string())]).unwrap(); }
+        assert_eq!(context.get::<StrMap>(object).unwrap().active, 0);
+        let replacement = Value::string("final"); set(&mut context, object, &[replacement.clone(), replacement]).unwrap();
+        assert_eq!(key_at(&mut context, object, &[Value::Int(0)]).unwrap().as_bytes().unwrap(), b"final");
     }
 
     #[test]
