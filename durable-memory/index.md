@@ -11,9 +11,13 @@ The DSL has no bytecode collection values. Hosts expose collections as schema ob
 ## Public files
 
 - `README.md`: setup, embedding, and examples.
-- `test.sh`: end-to-end checks using the released compiler on `PATH`.
+- `Cargo.toml`: workspace for `dslvm`, `conformance`, and `examples/router`.
+- `dslvm/src/lib.rs`: registry, loader, verifier, and VM.
+- `dslvm/src/stdlib.rs` and `stdlib/`: optional host functions and schema fragments.
+- `examples/router/test.sh`: end-to-end checks using the released compiler on `PATH`.
+- `conformance/vectors/` and `vectors.lock`: pinned cross-runtime fixtures.
 - `durable-memory/`: public design facts and operational notes.
 - `LICENSE`: MIT License.
-- `THIRD_PARTY_NOTICES`: dependency and attribution notes.
+- `THIRD_PARTY_NOTICES.md`: dependency and attribution notes.
 
 Public repository: https://github.com/lmctl-ai/lmcode-rust

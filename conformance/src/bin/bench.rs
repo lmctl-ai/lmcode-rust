@@ -31,7 +31,7 @@ fn main() {
     let secs = t0.elapsed().as_secs_f64();
     println!("rust {}: {} runs x {} static ops in {:.3} s = {:.0} runs/s", name, runs, static_ops, secs, runs as f64 / secs);
 }
-fn count_ops(file: &[u8]) -> usize {  // v4 header: constants, imports, contexts, locals, max_stack, then code
+fn count_ops(file: &[u8]) -> usize {  // v5 header: constants, imports, contexts, locals, max_stack, then code
     let mut p = 38;
     let n = u32::from_be_bytes(file[p..p + 4].try_into().unwrap()) as usize; p += 4;
     for _ in 0..n { assert_eq!(file[p], 1, "bench only understands string constant tags"); let l = u32::from_be_bytes(file[p + 1..p + 5].try_into().unwrap()) as usize; p += 5 + l; }

@@ -1,4 +1,4 @@
-//! Mirrors lmcode-cpp tests/dslvm_test.cpp (bytecode v4) plus robustness: every truncation length and bit flips of a valid
+//! Mirrors lmcode-cpp tests/dslvm_test.cpp (bytecode v5) plus robustness: every truncation length and bit flips of a valid
 //! file must produce an `Err`, never a panic.
 use dslvm::*;
 
@@ -244,7 +244,7 @@ fn range_file(start: i64, end: i64, locals: usize, body: &[u8]) -> Vec<u8> {
     assert!(load_err(&bad).contains("closes the wrong range loop"));
 
     // The exit is required to be the instruction immediately following the paired FOR_NEXT.
-    let mut wrong_exit = t().local("int", 1).local("int", 1)
+    let wrong_exit = t().local("int", 1).local("int", 1)
         .push_int(0).push_int(1).u8(0x2f).u16(0).u16(1).i32(10)
         .ctx("t", "Trace").u8(0x04).u16(0).method(T_INT, 1)
         .u8(0x31).u16(1).i32(-17).halt();
