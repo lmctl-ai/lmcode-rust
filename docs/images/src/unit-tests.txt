@@ -1,0 +1,20 @@
+$ cargo test
+     Running unittests src/bin/bench.rs (target/debug/deps/bench-b67ab4a65b339e9e)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/debug/deps/dsl_conformance-cbb52f122a87bf69)
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
+     Running tests/cli.rs (target/debug/deps/cli-0ae5082d24262963)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/dslvm-dafcfb84ce8ede4d)
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+     Running tests/stdlib_catalogs.rs (target/debug/deps/stdlib_catalogs-e228923f802af009)
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+     Running tests/stdlib_math.rs (target/debug/deps/stdlib_math-6ee2f9180a25e111)
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+     Running tests/stdlib_string.rs (target/debug/deps/stdlib_string-fc06de5256b3815e)
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.61s
+     Running tests/vm_tests.rs (target/debug/deps/vm_tests-d3e5dc71c06415a7)
+test result: ok. 74 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+     Running unittests src/main.rs (target/debug/deps/router-2e8b6732f51b8f71)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

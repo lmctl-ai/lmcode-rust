@@ -1,0 +1,23 @@
+$ # 1. C++ runtime (lmcode-cpp)
+$ build/conformance conformance/vectors | tail -n 3
+ok - while-break-continue (trace)
+ok - while-inline-mixed (trace)
+PASS 51/51 vectors
+
+$ # 2. Rust runtime (lmcode-rust)
+$ cargo run -q --bin dsl-conformance -- conformance/vectors | tail -n 3
+ok - while-break-continue (trace)
+ok - while-inline-mixed (trace)
+PASS 51/51 vectors
+
+$ # 3. Go runtime (lmcode-go)
+$ go run ./cmd/conformance conformance/vectors | tail -n 3
+ok - while-break-continue (trace)
+ok - while-inline-mixed (trace)
+PASS 51/51 vectors
+
+$ # 4. C# / .NET runtime (lmcode-csharp)
+$ dotnet run -v q --project conformance/LmCode.Conformance -- conformance/vectors | tail -n 3
+ok - while-break-continue (trace)
+ok - while-inline-mixed (trace)
+PASS 51/51 vectors

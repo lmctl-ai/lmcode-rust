@@ -1,0 +1,16 @@
+$ cd examples/router && ./test.sh
+ok 7 - lmscript 0.2.411 compiles the router to 498 bytes (bytecode v5)
+    HTTP/1.1 200 OK
+    Content-Length: 10
+    Connection: close
+    
+    2026-10-24
+ok 8 - Rust runtime: GET / -> 200 with body 2026-10-24
+ok 9 - Rust runtime: POST / -> 405 method not allowed
+ok 10 - Rust router stops cleanly on SIGTERM
+ok 11 - _dsl_ cli="router" compiles against the binary's own schema and serves
+skip - lmweb/build/server not built next to this repo
+ok 12 - refuses a schema-hash mismatch before serving
+ok 13 - refuses a truncated file
+ok 14 - refuses a wrong magic
+PASS 14 checks
