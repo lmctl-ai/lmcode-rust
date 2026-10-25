@@ -5,12 +5,15 @@ use std::process::Command;
 
 fn root() -> PathBuf { PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..") }
 
-fn compiler_signatures(fragment: &str, name: &str) -> Option<Vec<String>> {
+fn compiler_signatures(fragment: &str, name: &str, without_std: bool) -> Option<Vec<String>> {
     let bin = std::env::var("LMSCRIPT_BIN").unwrap_or_else(|_| "lmscript".into());
     let path = std::env::temp_dir().join(format!("lmcode-rust-{}-{}.schema.json", name, std::process::id()));
     let schema = format!(r#"{{"dsl.schema":2,"name":"{}","context":{}, {}}}"#, name, "{}", fragment.trim().trim_start_matches('{').trim_end_matches('}'));
     fs::write(&path, schema).unwrap();
-    let result = Command::new(bin).arg("--dsl-signatures").arg(&path).output();
+    let mut cmd = Command::new(bin);
+    cmd.arg("--dsl-signatures");
+    if without_std { cmd.arg("--without-std"); }
+    let result = cmd.arg(&path).output();
     let _ = fs::remove_file(&path);
     let output = result.ok()?;
     if !output.status.success() { panic!("lmscript --dsl-signatures failed: {}", String::from_utf8_lossy(&output.stderr)); }
@@ -19,7 +22,7 @@ fn compiler_signatures(fragment: &str, name: &str) -> Option<Vec<String>> {
 
 fn assert_catalog(path: &str, name: &str, registry: Registry) {
     let fragment = fs::read_to_string(root().join(path)).unwrap();
-    let Some(compiler) = compiler_signatures(&fragment, name) else {
+    let Some(compiler) = compiler_signatures(&fragment, name, true) else {
         eprintln!("lmscript not found; compiler parity skipped for {}", name);
         return;
     };
@@ -28,9 +31,21 @@ fn assert_catalog(path: &str, name: &str, registry: Registry) {
 
 #[test]
 fn collections_fragment_matches_registry_and_compiler() {
+    // lmscript 0.2.420 builds the std catalog in, and register_std installs
+    // collections as part of it. Parity therefore means the fragment declares
+    // nothing beyond std and the compiler's merged catalog matches the registry.
     let mut registry = Registry::without_std();
     stdlib::register_collections(&mut registry).unwrap();
-    assert_catalog("stdlib/collections.schema-fragment.json", "rust_collections_catalog", registry);
+    let std_sigs = Registry::new().signatures();
+    for sig in registry.signatures() {
+        assert!(std_sigs.contains(&sig), "collections fragment declares {} outside the std catalog", sig);
+    }
+    let fragment = fs::read_to_string(root().join("stdlib/collections.schema-fragment.json")).unwrap();
+    let Some(compiler) = compiler_signatures(&fragment, "rust_collections_catalog", false) else {
+        eprintln!("lmscript not found; compiler parity skipped for rust_collections_catalog");
+        return;
+    };
+    assert_eq!(compiler, std_sigs, "compiler/registry parity for rust_collections_catalog");
 }
 
 #[test]
