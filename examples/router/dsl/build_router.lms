@@ -2,7 +2,7 @@
 # Copied from lmctl-ai/lmweb (examples/build_router.lms); compiles the SAME chunk the C++ server runs. Run from examples/router: lmscript dsl/build_router.lms [OUT]
 # The DSL is checked at lmscript check time: a type error below is error:FILE:LINE:COL: _dsl_: ... with exit 2, before any effect.
 out = ARGV.len() > 0 ? ARGV[0] : "build/router.dslb";
-router = _dsl_ schema="../schema/router.dsl.json";
+router = _lmcode_ schema="../schema/router.dsl.json";
 # Version 1 of the router: only GET is served and it returns the current date.
 if (req.method() == "GET") {
   res.status(200);
@@ -11,7 +11,7 @@ if (req.method() == "GET") {
   res.status(405);
   res.body("method not allowed");
 }
-end _dsl_
+end _lmcode_
 mkdir(dirname(out));
 savedsl(router, out);
 println(f"wrote {out} ({type(router)} compiled against schema/router.dsl.json)");
