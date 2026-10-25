@@ -24,12 +24,12 @@ bash examples/router/test.sh
 
 | **Bytecode Conformance Suite** | **Unit Tests & Invariants** |
 | --- | --- |
-| <img src="docs/images/conformance.png" width="440"> | <img src="docs/images/unit-tests.png" width="440"> |
+| <img src="docs/images/conformance.png" width="440" alt="Bytecode Conformance Suite"> | <img src="docs/images/unit-tests.png" width="440" alt="Unit Tests & Invariants"> |
 | All 51 core bytecode vectors pass across opcodes, types, error paths, and control flow.<br>`cargo run --bin dsl-conformance -- conformance/vectors` | 74 VM tests, string catalog tests, and type invariants passing.<br>`cargo test` |
 
 | **Router Example Host** | **Same Bytecode, Four Runtimes** |
 | --- | --- |
-| <img src="docs/images/router-example.png" width="440"> | <img src="docs/images/same-bytecode-four-runtimes.png" width="440"> |
+| <img src="docs/images/router-example.png" width="440" alt="Router Example Host"> | <img src="docs/images/same-bytecode-four-runtimes.png" width="440" alt="Same Bytecode, Four Runtimes"> |
 | Real HTTP router running compiled DSL routing logic in pure Rust.<br>`bash examples/router/test.sh` | Cross-language parity: C++, Rust, Go, and C# run the exact same bytecode.<br>`PASS 51/51 vectors across 4 runtimes` |
 
 The test requires `lmscript` (or `lmctl`) 0.2.346 or newer from `PATH`. It compiles the public
