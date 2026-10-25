@@ -10,7 +10,7 @@ dependencies.
 Install the released compiler for the router example:
 
 ```sh
-npm install -g @lmctl-ai/lmctl@0.2.419
+npm install -g @lmctl-ai/lmctl@0.2.420
 ```
 
 Build and run the checks:

@@ -1,6 +1,6 @@
 # Build, run, and test
 
-Install the released CLI with `npm install -g @lmctl-ai/lmctl@0.2.419`, then run `cargo test --workspace` for library, string catalog, and conformance checks. Run `bash examples/router/test.sh` for the router end-to-end checks: building the host, compiling DSL, and exercising success and error paths.
+Install the released CLI with `npm install -g @lmctl-ai/lmctl@0.2.420`, then run `cargo test --workspace` for library, string catalog, and conformance checks. Run `bash examples/router/test.sh` for the router end-to-end checks: building the host, compiling DSL, and exercising success and error paths.
 
 For embedding, add the `dslvm` crate from the public SDK repository, embed the schema bytes in the host binary (`include_bytes!`), and use the matching SDK major version.
 
