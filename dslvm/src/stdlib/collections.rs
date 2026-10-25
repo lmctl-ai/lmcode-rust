@@ -11,13 +11,15 @@ pub type FloatList = CollectionList<f64>;
 pub struct StrMap {
     pub items: Vec<(crate::ByteString, crate::ByteString)>,
     index: HashMap<crate::ByteString, usize>,
-    removed: std::collections::HashSet<crate::ByteString>,
     active: usize,
-    dirty: bool,
+    fenwick: Vec<i32>,
 }
 impl StrMap {
     fn find(&self, key: &crate::ByteString) -> Option<usize> { self.index.get(key).copied() }
-    fn rebuild(&mut self) { self.index.clear(); for (i, (key, _)) in self.items.iter().enumerate() { self.index.insert(key.clone(), i); } }
+    fn prefix(&self, mut end: usize) -> i32 { let mut sum = 0; while end > 0 { sum += self.fenwick[end]; end &= end - 1; } sum }
+    fn add_rank(&mut self, pos: usize, delta: i32) { let mut i = pos + 1; while i < self.fenwick.len() { self.fenwick[i] += delta; i += i & (!i + 1); } }
+    fn select_rank(&self, rank: usize) -> usize { let mut idx = 0; let mut bit = self.fenwick.len().next_power_of_two() >> 1; let mut sum = 0; while bit != 0 { let next = idx + bit; if next < self.fenwick.len() && sum + self.fenwick[next] <= rank as i32 { idx = next; sum += self.fenwick[next]; } bit >>= 1; } idx }
+    fn append(&mut self, key: crate::ByteString, value: crate::ByteString) { let pos = self.items.len(); self.items.push((key.clone(), value)); self.index.insert(key, pos); if self.fenwick.is_empty() { self.fenwick.push(0); } let i = pos + 1; let low = i & (!i + 1); self.fenwick.push(1 + self.prefix(pos) - self.prefix(i - low)); let mut parent = i + low; while parent < self.fenwick.len() { self.fenwick[parent] += 1; parent += parent & (!parent + 1); } self.active += 1; }
 }
 
 trait Element: Clone + PartialEq + 'static {
@@ -140,26 +142,21 @@ pub fn register_collections(registry: &mut Registry) -> Result<&mut Registry, Er
         let key = args[0].as_string()?.clone();
         let value = args[1].as_string()?.clone();
         let map = ctx.get_mut::<StrMap>(this)?;
-        if let Some(i) = map.find(&key) { map.items[i].1 = value; } else { let i = map.items.len(); map.items.push((key.clone(), value)); map.index.insert(key.clone(), i); map.removed.remove(&key); map.active += 1; }
+        if let Some(i) = map.find(&key) { map.items[i].1 = value; } else { map.append(key, value); }
         Ok(Value::object("StrMap", this))
     })?;
     registry.method("StrMap", "key_at", &["int"], "string", |ctx, this, args| {
         let map = ctx.get_mut::<StrMap>(this)?;
-        if map.dirty {
-            let old = std::mem::take(&mut map.items);
-            map.items = old.into_iter().enumerate().filter(|(pos, (key, _))| map.index.get(key) == Some(pos)).map(|(_, item)| item).collect();
-            map.removed.clear(); map.rebuild(); map.dirty = false;
-        }
         let wanted = args[0].as_int()?;
         if wanted < 0 || wanted as usize >= map.active { return Err(Error::host(format!("StrMap.key_at: index out of range: {}", wanted))); }
-        Ok(Value::string(map.items[wanted as usize].0.clone()))
+        Ok(Value::string(map.items[map.select_rank(wanted as usize)].0.clone()))
     })?;
     registry.method("StrMap", "remove", &["string"], "bool", |ctx, this, args| {
         let key = args[0].as_string()?;
         let map = ctx.get_mut::<StrMap>(this)?;
-        if map.find(key).is_some() { map.index.remove(key); map.removed.insert(key.clone()); map.active -= 1; map.dirty = true; Ok(Value::Bool(true)) } else { Ok(Value::Bool(false)) }
+        if let Some(pos) = map.find(key) { map.index.remove(key); map.add_rank(pos, -1); map.active -= 1; Ok(Value::Bool(true)) } else { Ok(Value::Bool(false)) }
     })?;
-    registry.method("StrMap", "clear", &[], "StrMap", |ctx, this, _| { let map = ctx.get_mut::<StrMap>(this)?; map.items.clear(); map.index.clear(); map.removed.clear(); map.active = 0; map.dirty = false; Ok(Value::object("StrMap", this)) })?;
+    registry.method("StrMap", "clear", &[], "StrMap", |ctx, this, _| { let map = ctx.get_mut::<StrMap>(this)?; map.items.clear(); map.index.clear(); map.active = 0; map.fenwick.clear(); Ok(Value::object("StrMap", this)) })?;
     registry.end_compatibility_registration();
     Ok(registry)
 }
@@ -203,7 +200,7 @@ mod tests {
     fn bulk_removal_keeps_order_indexed_without_quadratic_rebuilds() {
         let mut map = StrMap::default();
         for i in 0..20_000u32 { let key = ByteString::from(i.to_string()); map.index.insert(key.clone(), map.items.len()); map.items.push((key, ByteString::default())); map.active += 1; }
-        for i in 0..20_000u32 { let key = ByteString::from(i.to_string()); assert!(map.index.remove(&key).is_some()); map.removed.insert(key); map.active -= 1; }
+        for i in 0..20_000u32 { let key = ByteString::from(i.to_string()); let pos = map.index.remove(&key).unwrap(); map.add_rank(pos, -1); map.active -= 1; }
         assert_eq!(map.active, 0);
     }
 
