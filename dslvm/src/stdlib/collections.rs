@@ -23,6 +23,9 @@ impl StrMap {
     fn compact(&mut self) { let old = std::mem::take(&mut self.items); self.items = old.into_iter().enumerate().filter(|(pos, (key, _))| self.index.get(key) == Some(pos)).map(|(_, item)| item).collect(); self.index.clear(); for (i, (key, _)) in self.items.iter().enumerate() { self.index.insert(key.clone(), i); } self.fenwick = vec![0; self.items.len() + 1]; for i in 1..self.fenwick.len() { self.fenwick[i] = i & (!i + 1); } }
     fn append(&mut self, key: crate::ByteString, value: crate::ByteString) { if self.items.len() > self.active.saturating_mul(2) + 1024 { self.compact(); } let pos = self.items.len(); self.items.push((key.clone(), value)); self.index.insert(key, pos); if self.fenwick.is_empty() { self.fenwick.push(0); } let i = pos + 1; let low = i & (!i + 1); self.fenwick.push(1 + self.prefix(pos) - self.prefix(i - low)); let mut parent = i + low; while parent < self.fenwick.len() { self.fenwick[parent] += 1; parent += parent & (!parent + 1); } self.active += 1; }
     pub fn entries(&self) -> Vec<(crate::ByteString, crate::ByteString)> { self.items.iter().enumerate().filter(|(pos, (key, _))| self.index.get(key) == Some(pos)).map(|(_, item)| item.clone()).collect() }
+    pub fn len(&self) -> usize { self.active }
+    pub fn is_empty(&self) -> bool { self.active == 0 }
+    pub fn set(&mut self, key: crate::ByteString, value: crate::ByteString) { if let Some(pos) = self.find(&key) { self.items[pos].1 = value; } else { self.append(key, value); } }
 }
 
 trait Element: Clone + PartialEq + 'static {
@@ -144,8 +147,7 @@ pub fn register_collections(registry: &mut Registry) -> Result<&mut Registry, Er
     registry.method("StrMap", "set", &["string", "string"], "StrMap", |ctx, this, args| {
         let key = args[0].as_string()?.clone();
         let value = args[1].as_string()?.clone();
-        let map = ctx.get_mut::<StrMap>(this)?;
-        if let Some(i) = map.find(&key) { map.items[i].1 = value; } else { map.append(key, value); }
+        ctx.get_mut::<StrMap>(this)?.set(key, value);
         Ok(Value::object("StrMap", this))
     })?;
     registry.method("StrMap", "key_at", &["int"], "string", |ctx, this, args| {
