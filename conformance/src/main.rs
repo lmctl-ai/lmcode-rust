@@ -162,6 +162,13 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
     let bytecode = std::fs::read(dir.join(format!("{}.dslb", name))).map_err(|e| e.to_string())?;
     let schema = std::fs::read(schema_for(dir, name)).map_err(|e| e.to_string())?;
     let outcome = run_vector(&bytecode, &schema);
+    if std::env::var_os("LMCODE_TRACE").is_some() {
+        match &outcome {
+            Outcome::Trace(lines) => for line in lines { println!("TRACE\t{}\t{}", name, line); },
+            Outcome::RuntimeError(error) => println!("ERROR\t{}\t{}\t{}", name, error.code, bare_error(error)),
+            _ => {}
+        }
+    }
     let ok = match (expect.kind.as_str(), &outcome) {
         ("trace", Outcome::Trace(lines)) => trace_matches(&expect.lines, lines),
         ("runtime_error", Outcome::RuntimeError(e)) => expect.lines.len() == 1 && e.message.contains(&expect.lines[0]),
@@ -238,7 +245,10 @@ mod tests {
     #[test]
     fn every_stdlib_vector_gives_the_expected_result_class() {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("stdlib-vectors"); let names = vector_names(&dir);
-        assert!(!names.is_empty(), "stdlib vectors are empty");
+        assert!(names.len() >= 118, "standard property vectors are missing");
+        for seed in ["fuzz-0000000007", "fuzz-0000000042", "fuzz-0020261024", "fuzz-large-file", "fuzz-map-churn"] {
+            assert!(names.iter().any(|name| name == seed), "missing corpus seed {}", seed);
+        }
         let failures: Vec<String> = names.iter().filter_map(|n| check_vector(&dir, n).err()).collect();
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }

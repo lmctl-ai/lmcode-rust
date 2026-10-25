@@ -46,8 +46,8 @@ The additional 11 `math-*` vectors use `math.schema.json` to cover all 16 intege
 ## Collections and testing
 
 The 32 additional collection/testing vectors use `collections.schema.json`;
-the complete catalog suite contains 77 vectors (61 string/math/collection/testing
-and 16 file cases). They cover every list/map
+the complete catalog suite contains 118 vectors (61 string/math/collection/testing,
+16 file cases, and 41 seeded corpus cases). They cover every list/map
 method, mutation chaining, insertion order, replacement without reordering,
 removal with index shifting, raw-byte keys/values, NaN lookup, empty iteration,
 split edge cases, and the shared 65536-object arena limit. Each vector starts
@@ -65,3 +65,18 @@ message. The runner requires a successful load and failed run, strips only
 an SDK-generated source prefix using the error's location metadata, and checks
 the remainder for exact equality. This differs from the older substring modes
 and pins the collection bounds, missing-key and assertion error contracts.
+
+## Seeded property corpus
+
+The 41 `fuzz-*` cases use seeds 7, 42 and 20261024, with 16 rounds per seed,
+plus independent trap cases and a 1,200,005-byte file round-trip.
+`scripts/gen-std-corpus.py` derives exact expectations from Python byte operations,
+ordered dictionaries, and independent numeric/glob rules, never from SDK output.
+The compiler produces the checked-in bytecode. The C++ conformance target checks
+that source, expectations, schema and manifest match the deterministic generator;
+every SDK runs the same committed corpus through its normal vector suite.
+
+Setting `LMCODE_TRACE=1` exposes actual runtime observations for differential
+comparison. `scripts/diff-stdlib.py` builds all four runners, verifies the oracle,
+and byte-compares their trace/error records; `--large` uses 16 seeds and 64 rounds
+per seed. Compiler/build output is kept outside the comparison.
