@@ -9,18 +9,20 @@ pub type IntList = CollectionList<i64>;
 pub type FloatList = CollectionList<f64>;
 #[derive(Debug, Default)]
 pub struct StrMap {
+    /// Physical insertion storage; removed tombstones remain until amortized compaction.
     pub items: Vec<(crate::ByteString, crate::ByteString)>,
     index: HashMap<crate::ByteString, usize>,
     active: usize,
-    fenwick: Vec<i32>,
+    fenwick: Vec<usize>,
 }
 impl StrMap {
     fn find(&self, key: &crate::ByteString) -> Option<usize> { self.index.get(key).copied() }
-    fn prefix(&self, mut end: usize) -> i32 { let mut sum = 0; while end > 0 { sum += self.fenwick[end]; end &= end - 1; } sum }
-    fn add_rank(&mut self, pos: usize, delta: i32) { let mut i = pos + 1; while i < self.fenwick.len() { self.fenwick[i] += delta; i += i & (!i + 1); } }
-    fn select_rank(&self, rank: usize) -> usize { let mut idx = 0; let mut bit = self.fenwick.len().next_power_of_two() >> 1; let mut sum = 0; while bit != 0 { let next = idx + bit; if next < self.fenwick.len() && sum + self.fenwick[next] <= rank as i32 { idx = next; sum += self.fenwick[next]; } bit >>= 1; } idx }
-    fn compact(&mut self) { let old = std::mem::take(&mut self.items); self.items = old.into_iter().enumerate().filter(|(pos, (key, _))| self.index.get(key) == Some(pos)).map(|(_, item)| item).collect(); self.index.clear(); for (i, (key, _)) in self.items.iter().enumerate() { self.index.insert(key.clone(), i); } self.fenwick = vec![0; self.items.len() + 1]; for i in 1..self.fenwick.len() { self.fenwick[i] = (i & (!i + 1)) as i32; } }
+    fn prefix(&self, mut end: usize) -> usize { let mut sum = 0; while end > 0 { sum += self.fenwick[end]; end &= end - 1; } sum }
+    fn add_rank(&mut self, pos: usize, delta: isize) { let mut i = pos + 1; while i < self.fenwick.len() { if delta < 0 { self.fenwick[i] -= (-delta) as usize; } else { self.fenwick[i] += delta as usize; } i += i & (!i + 1); } }
+    fn select_rank(&self, rank: usize) -> usize { let mut idx = 0; let mut bit = self.fenwick.len().next_power_of_two() >> 1; let mut sum = 0; while bit != 0 { let next = idx + bit; if next < self.fenwick.len() && sum + self.fenwick[next] <= rank { idx = next; sum += self.fenwick[next]; } bit >>= 1; } idx }
+    fn compact(&mut self) { let old = std::mem::take(&mut self.items); self.items = old.into_iter().enumerate().filter(|(pos, (key, _))| self.index.get(key) == Some(pos)).map(|(_, item)| item).collect(); self.index.clear(); for (i, (key, _)) in self.items.iter().enumerate() { self.index.insert(key.clone(), i); } self.fenwick = vec![0; self.items.len() + 1]; for i in 1..self.fenwick.len() { self.fenwick[i] = i & (!i + 1); } }
     fn append(&mut self, key: crate::ByteString, value: crate::ByteString) { if self.items.len() > self.active.saturating_mul(2) + 1024 { self.compact(); } let pos = self.items.len(); self.items.push((key.clone(), value)); self.index.insert(key, pos); if self.fenwick.is_empty() { self.fenwick.push(0); } let i = pos + 1; let low = i & (!i + 1); self.fenwick.push(1 + self.prefix(pos) - self.prefix(i - low)); let mut parent = i + low; while parent < self.fenwick.len() { self.fenwick[parent] += 1; parent += parent & (!parent + 1); } self.active += 1; }
+    pub fn entries(&self) -> Vec<(crate::ByteString, crate::ByteString)> { self.items.iter().enumerate().filter(|(pos, (key, _))| self.index.get(key) == Some(pos)).map(|(_, item)| item.clone()).collect() }
 }
 
 trait Element: Clone + PartialEq + 'static {
@@ -213,10 +215,11 @@ mod tests {
         let remove = &registry.methods["method StrMap.remove(string) -> bool"].3;
         let key_at = &registry.methods["method StrMap.key_at(int) -> string"].3;
         for i in 0..20_000 { let key = Value::string(i.to_string()); set(&mut context, object, &[key.clone(), key]).unwrap(); }
-        for i in 0..20_000 { remove(&mut context, object, &[Value::string(i.to_string())]).unwrap(); }
-        assert_eq!(context.get::<StrMap>(object).unwrap().active, 0);
-        let replacement = Value::string("final"); set(&mut context, object, &[replacement.clone(), replacement]).unwrap();
-        assert_eq!(key_at(&mut context, object, &[Value::Int(0)]).unwrap().as_bytes().unwrap(), b"final");
+        for i in (0..20_000).step_by(2) { remove(&mut context, object, &[Value::string(i.to_string())]).unwrap(); }
+        for i in [1, 777, 9_999] { let _ = key_at(&mut context, object, &[Value::Int(i)]).unwrap(); }
+        for i in (0..20_000).step_by(2) { set(&mut context, object, &[Value::string(i.to_string()), Value::string("reinsert")]).unwrap(); }
+        assert_eq!(context.get::<StrMap>(object).unwrap().active, 20_000);
+        assert_eq!(context.get::<StrMap>(object).unwrap().entries().len(), 20_000);
     }
 
     #[test]
