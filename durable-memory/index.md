@@ -30,3 +30,4 @@ Repository: https://github.com/lmctl-ai/lmcode-rust. Crate: `dslvm`. Toolchain: 
 ## Releases
 Releases are built and published automatically on every push to `main` when CI workflows succeed.
 Platform binaries: `router-linux-x64`, `router-linux-arm64`, `router-macos-arm64`, `router-macos-x64`, `router-windows-x64.exe`.
+- [update-sample-suite.md](update-sample-suite.md): canonical sample-suite update and all-port verification rule.
