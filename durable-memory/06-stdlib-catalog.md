@@ -55,3 +55,24 @@ still injects 72 defaults, so public CI uses the complete explicit canonical
 schema for v2 parity and consumes the committed compiler-emitted vectors.
 Native adapters allocate through `Context::insert_collection`; immutable JSON
 navigation shares `Rc` nodes and cleanup-tracked handles without quota charges.
+
+## Catalog v3
+
+The current canonical fragment is v3: 181 signatures, synced byte-identically
+from C++ with `std.lock`. `encoding.rs` implements four codecs without dependencies
+or text conversion; output arithmetic is checked before allocation. Invalid
+Base64/hex traps with `str_base64_decode: invalid encoding` or
+`str_hex_decode: invalid encoding`; Base64 rejects whitespace, URL-safe symbols,
+misplaced padding and nonzero unused pad bits. Hex accepts only complete ASCII
+hex pairs and emits lowercase. There is no catalog-specific allocation cap.
+
+`StrMap`, `IntMap` and `FloatMap` now provide `keys()`/`values()`: fresh mutable
+lists in live insertion order, independently copied and quota-charged as the
+returned list type. Float NaN payloads and signed zero remain unchanged.
+The 267 shared stdlib vectors and 51 core vectors run in normal workspace tests;
+unit checks also pin overflow boundaries, float bits and all six quota errors.
+Published npm 0.2.426 still injects 72 defaults, but checks the explicit canonical
+181-signature schema on CI. Local default-injection parity uses a scratch build
+of lmctl-mono main `fa04890cbf6379abfd70803c6283a974efea5554`, with both
+`LMSCRIPT_BIN` and `LMSCRIPT_STD_BIN` set to its `lmscript/bin/lmscript`.
+`LMSCRIPT_STD_BIN` supersedes the v2-specific optional parity variable above.

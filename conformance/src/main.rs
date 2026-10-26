@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn every_stdlib_vector_gives_the_expected_result_class() {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("stdlib-vectors"); let names = vector_names(&dir);
-        assert!(names.len() >= 229, "standard property vectors are missing");
+        assert!(names.len() >= 267, "standard property vectors are missing");
         for seed in ["fuzz-0000000007", "fuzz-0000000042", "fuzz-0020261024", "fuzz-large-file", "fuzz-map-churn"] {
             assert!(names.iter().any(|name| name == seed), "missing corpus seed {}", seed);
         }
@@ -258,7 +258,7 @@ mod tests {
         for name in ["schema.json", "math.schema.json", "collections.schema.json"] {
             let schema = std::fs::read(dir.join(name)).unwrap();
             let (registry, _) = catalog_registry(&schema, None);
-            assert_eq!(registry.std_signatures().len(), 171, "{}", name);
+            assert_eq!(registry.std_signatures().len(), 181, "{}", name);
         }
     }
     #[test]

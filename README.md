@@ -57,7 +57,7 @@ the program. Handles remain owned by the host. Schema 2 supports overloads, decl
 conversions, operators, enums, and `returns: "self"`; compiler-inlined functions do
 not add a runtime function table.
 
-`Registry::new()` enables the pinned built-in lmcode standard catalog (`std/lmcode-std.schema.json`, 171 signatures). Use `Registry::without_std()` for a legacy host surface, or call `stdlib::register_std(&mut registry)` explicitly; registration is idempotent. Verify the canonical schema copy with `scripts/sync-std.sh --verify` and `std.lock`.
+`Registry::new()` enables the pinned built-in lmcode standard catalog (`std/lmcode-std.schema.json`, 181 signatures). Use `Registry::without_std()` for a legacy host surface, or call `stdlib::register_std(&mut registry)` explicitly; registration is idempotent. Verify the canonical schema copy with `scripts/sync-std.sh --verify` and `std.lock`.
 
 The common language includes typed locals, branching, range and collection loops,
 `foreach`, `switch`, `while`, `break`, `continue`, and source-located runtime errors.
@@ -78,7 +78,7 @@ The same bytecode v5 and the same conformance vectors are implemented by [lmcode
 
 ## Standard library catalog
 
-`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The v2 catalog has 171 signatures: the original string, math, collection and file surface plus typed Int/Float maps, Int/Float/Str stacks, queues and stable min-first priority queues, and immutable Json. Published `lmscript` 0.2.426 still defaults to v1; set `LMSCRIPT_V2_BIN` to a scratch lmctl-mono-main compiler for merged-schema v2 parity.
+`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The v3 catalog has 181 signatures: the original string, math, collection and file surface plus typed Int/Float maps, Int/Float/Str stacks, queues and stable min-first priority queues, immutable Json, strict byte Base64/hex codecs, and map key/value snapshots. Published `lmscript` 0.2.426 still defaults to v1; set `LMSCRIPT_STD_BIN` to a scratch lmctl-mono-main compiler for default-injection v3 parity.
 Run `cargo test -p dslvm --test stdlib_catalogs` for exact parity between the explicit canonical schema and the registry; it uses `lmscript` (or `$LMSCRIPT_BIN`) on PATH.
 
 The built-in numeric catalog is also described by `stdlib/math.schema-fragment.json`; it provides int/float overloads of `math_abs`, `math_min`, `math_max`, `math_floor`, `math_ceil`, `math_round`, `math_pow`, and `math_sqrt`. Integer operations wrap at 64 bits, integer roots are exact floor roots, and float operations preserve IEEE NaN, infinity, and signed-zero behavior described by the shared catalog.
@@ -112,3 +112,12 @@ path bytes unchanged, while Windows requires UTF-8 paths and supports long names
 Failures trap with `RUN_HOST` and `FUNCTION: PATH: OS_REASON`.
 Testing is outside std: hosts declare its separate fragment and explicitly call
 `stdlib::register_testing(&mut registry, sink)` for `print`/`assert_close`.
+
+Version 3 adds `str_base64_encode/decode` and `str_hex_encode/decode` over raw
+bytes, with no artificial size cap. Base64 uses the RFC 4648 standard alphabet
+and canonical padding; decoders reject whitespace, invalid symbols, misplaced
+padding and nonzero pad bits. Hex output is lowercase and input accepts either
+case. `keys()`/`values()` on StrMap, IntMap and FloatMap allocate independent
+mutable list snapshots in insertion order, preserving bytes and float bits.
+All snapshots share the 65,536-object run arena. The shared suite now contains
+267 catalog vectors plus 51 core vectors.
