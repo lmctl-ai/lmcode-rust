@@ -5331,6 +5331,590 @@
           "hex 41ff005a"
         ]
       }
+    },
+    {
+      "name": "v3-base64-alphabet",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-alphabet.dsl",
+      "bytecode": "v3-base64-alphabet.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-extra-padding",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-extra-padding.dsl",
+      "bytecode": "v3-base64-extra-padding.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-interior-padding",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-interior-padding.dsl",
+      "bytecode": "v3-base64-interior-padding.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-mid-quartet",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-mid-quartet.dsl",
+      "bytecode": "v3-base64-mid-quartet.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-missing-padding",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-missing-padding.dsl",
+      "bytecode": "v3-base64-missing-padding.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-nonascii",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-nonascii.dsl",
+      "bytecode": "v3-base64-nonascii.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-pad-bits",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-pad-bits.dsl",
+      "bytecode": "v3-base64-pad-bits.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-raw-high",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-raw-high.dsl",
+      "bytecode": "v3-base64-raw-high.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-raw-nul",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-raw-nul.dsl",
+      "bytecode": "v3-base64-raw-nul.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-two-pad-bits",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-two-pad-bits.dsl",
+      "bytecode": "v3-base64-two-pad-bits.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-url",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-url.dsl",
+      "bytecode": "v3-base64-url.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-base64-whitespace",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-base64-whitespace.dsl",
+      "bytecode": "v3-base64-whitespace.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_base64_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-codecs-all256",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-codecs-all256.dsl",
+      "bytecode": "v3-codecs-all256.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 344",
+          "int 512",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "v3-codecs-all256-oracle",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-codecs-all256-oracle.dsl",
+      "bytecode": "v3-codecs-all256-oracle.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 41414543417751464267634943516f4c4441304f4478415245684d554652595847426b6147787764486838674953496a4a43556d4a7967704b6973734c5334764d4445794d7a51314e6a63344f546f375044302b50304242516b4e4552555a4853456c4b5330784e546b395155564a54564656575631685a576c746358563566594746695932526c5a6d646f615770726247317562334278636e4e3064585a3365486c3665337839666e2b4167594b44684957476834694a696f754d6a5936506b4a47536b3553566c7065596d5a71626e4a32656e3643686f714f6b7061616e714b6d717136797472712b7773624b7a744c573274376935757275387662362f774d484377385446787366497963724c7a4d334f7a3944523074505531646258324e6e6132397a6433742f6734654c6a354f586d352b6a70367576733765377638504879382f5431397666342b6672372f50332b2f773d3d",
+          "hex 3030303130323033303430353036303730383039306130623063306430653066313031313132313331343135313631373138313931613162316331643165316632303231323232333234323532363237323832393261326232633264326532663330333133323333333433353336333733383339336133623363336433653366343034313432343334343435343634373438343934613462346334643465346635303531353235333534353535363537353835393561356235633564356535663630363136323633363436353636363736383639366136623663366436653666373037313732373337343735373637373738373937613762376337643765376638303831383238333834383538363837383838393861386238633864386538663930393139323933393439353936393739383939396139623963396439653966613061316132613361346135613661376138613961616162616361646165616662306231623262336234623562366237623862396261626262636264626562666330633163326333633463356336633763386339636163626363636463656366643064316432643364346435643664376438643964616462646364646465646665306531653265336534653565366537653865396561656265636564656565666630663166326633663466356636663766386639666166626663666466656666",
+          "hex 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+          "hex 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+        ]
+      }
+    },
+    {
+      "name": "v3-codecs-basic",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-codecs-basic.dsl",
+      "bytecode": "v3-codecs-basic.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 414145432f773d3d",
+          "hex 3030303130326666",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "v3-codecs-empty",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-codecs-empty.dsl",
+      "bytecode": "v3-codecs-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 0",
+          "int 0",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "v3-codecs-large",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-codecs-large.dsl",
+      "bytecode": "v3-codecs-large.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 1398124",
+          "int 2097186",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "v3-codecs-rfc",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-codecs-rfc.dsl",
+      "bytecode": "v3-codecs-rfc.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 5a673d3d",
+          "hex 5a6d383d",
+          "hex 5a6d3976",
+          "hex 5a6d397659673d3d",
+          "hex 5a6d3976596d453d",
+          "hex 5a6d3976596d4679",
+          "hex 66",
+          "hex 666f",
+          "hex 666f6f",
+          "hex 666f6f62",
+          "hex 666f6f6261",
+          "hex 666f6f626172"
+        ]
+      }
+    },
+    {
+      "name": "v3-hex-digit",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-hex-digit.dsl",
+      "bytecode": "v3-hex-digit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_hex_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-hex-odd",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-hex-odd.dsl",
+      "bytecode": "v3-hex-odd.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_hex_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-hex-prefix",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-hex-prefix.dsl",
+      "bytecode": "v3-hex-prefix.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_hex_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-hex-raw-high",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-hex-raw-high.dsl",
+      "bytecode": "v3-hex-raw-high.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_hex_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-hex-whitespace",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-hex-whitespace.dsl",
+      "bytecode": "v3-hex-whitespace.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "str_hex_decode: invalid encoding"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-float",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-float.dsl",
+      "bytecode": "v3-snapshots-float.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6e616e",
+          "hex 7a",
+          "bool true",
+          "float -0"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-float-empty",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-float-empty.dsl",
+      "bytecode": "v3-snapshots-float-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-float-independence",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-float-independence.dsl",
+      "bytecode": "v3-snapshots-float-independence.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 612c632c62",
+          "float 1.25",
+          "float 2.5",
+          "hex 612c632c62",
+          "float 9.5",
+          "int 4",
+          "int 4"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-float-keys-limit",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-float-keys-limit.dsl",
+      "bytecode": "v3-snapshots-float-keys-limit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrList object limit exceeded (65536)"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-float-values-limit",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-float-values-limit.dsl",
+      "bytecode": "v3-snapshots-float-values-limit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatList object limit exceeded (65536)"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-int",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-int.dsl",
+      "bytecode": "v3-snapshots-int.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 61",
+          "hex 62",
+          "int -9223372036854775808",
+          "int 9223372036854775807",
+          "int 2",
+          "int 2"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-int-empty",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-int-empty.dsl",
+      "bytecode": "v3-snapshots-int-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-int-independence",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-int-independence.dsl",
+      "bytecode": "v3-snapshots-int-independence.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 612c632c62",
+          "int 1",
+          "int 2",
+          "hex 612c632c62",
+          "int 9",
+          "int 4",
+          "int 4"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-int-keys-limit",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-int-keys-limit.dsl",
+      "bytecode": "v3-snapshots-int-keys-limit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrList object limit exceeded (65536)"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-int-values-limit",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-int-values-limit.dsl",
+      "bytecode": "v3-snapshots-int-values-limit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntList object limit exceeded (65536)"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-str",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-str.dsl",
+      "bytecode": "v3-snapshots-str.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6100ff",
+          "hex 62",
+          "hex 7800fe",
+          "hex 79",
+          "hex 62",
+          "hex 79",
+          "hex 63"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-str-empty",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-str-empty.dsl",
+      "bytecode": "v3-snapshots-str-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-str-independence",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-str-independence.dsl",
+      "bytecode": "v3-snapshots-str-independence.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 612c632c62",
+          "hex 6f6e65",
+          "hex 74776f",
+          "hex 612c632c62",
+          "hex 4e4557",
+          "int 4",
+          "int 4"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-str-keys-limit",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-str-keys-limit.dsl",
+      "bytecode": "v3-snapshots-str-keys-limit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrList object limit exceeded (65536)"
+        ]
+      }
+    },
+    {
+      "name": "v3-snapshots-str-values-limit",
+      "covers": "v3 byte codecs and map snapshots",
+      "schema": "v3.schema.json",
+      "source": "v3-snapshots-str-values-limit.dsl",
+      "bytecode": "v3-snapshots-str-values-limit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrList object limit exceeded (65536)"
+        ]
+      }
     }
   ]
 }
