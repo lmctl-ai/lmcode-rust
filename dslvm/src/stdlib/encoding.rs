@@ -2,7 +2,7 @@
 use crate::{Error, Registry, Value};
 
 fn base64_size(n: usize) -> Result<usize, Error> {
-    (n / 3 + usize::from(n % 3 != 0))
+    (n / 3 + usize::from(!n.is_multiple_of(3)))
         .checked_mul(4)
         .ok_or_else(|| Error::host("str_base64_encode: size overflow"))
 }
