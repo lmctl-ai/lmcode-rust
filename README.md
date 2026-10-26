@@ -10,7 +10,7 @@ dependencies.
 Install the released compiler for the router example:
 
 ```sh
-npm install -g @lmctl-ai/lmctl@0.2.420
+npm install -g @lmctl-ai/lmctl@0.2.426
 ```
 
 Build and run the checks:
@@ -57,7 +57,7 @@ the program. Handles remain owned by the host. Schema 2 supports overloads, decl
 conversions, operators, enums, and `returns: "self"`; compiler-inlined functions do
 not add a runtime function table.
 
-`Registry::new()` enables the pinned built-in lmcode standard catalog (`std/lmcode-std.schema.json`, 72 signatures). Use `Registry::without_std()` for a legacy host surface, or call `stdlib::register_std(&mut registry)` explicitly; registration is idempotent. Verify the canonical schema copy with `scripts/sync-std.sh --verify` and `std.lock`.
+`Registry::new()` enables the pinned built-in lmcode standard catalog (`std/lmcode-std.schema.json`, 171 signatures). Use `Registry::without_std()` for a legacy host surface, or call `stdlib::register_std(&mut registry)` explicitly; registration is idempotent. Verify the canonical schema copy with `scripts/sync-std.sh --verify` and `std.lock`.
 
 The common language includes typed locals, branching, range and collection loops,
 `foreach`, `switch`, `while`, `break`, `continue`, and source-located runtime errors.
@@ -78,10 +78,12 @@ The same bytecode v5 and the same conformance vectors are implemented by [lmcode
 
 ## Standard library catalog
 
-`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The 16 byte-oriented functions match the C++ catalog: `str_len`, `str_starts_with`, `str_ends_with`, `str_contains`, `str_find`, `str_substr`, `str_lower`, `str_upper`, `str_trim`, `str_repeat`, `str_to_int`, `str_is_int`, `str_to_float`, `str_is_float`, `str_replace`, and `str_match`. Signature parity with the compiler is checked by
-`cargo test -p dslvm --test stdlib_string` whenever `lmscript` (or `$LMSCRIPT_BIN`) is on PATH.
+`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The v2 catalog has 171 signatures: the original string, math, collection and file surface plus typed Int/Float maps, Int/Float/Str stacks, queues and stable min-first priority queues, and immutable Json. Published `lmscript` 0.2.426 still defaults to v1; set `LMSCRIPT_V2_BIN` to a scratch lmctl-mono-main compiler for merged-schema v2 parity.
+Run `cargo test -p dslvm --test stdlib_catalogs` for exact parity between the explicit canonical schema and the registry; it uses `lmscript` (or `$LMSCRIPT_BIN`) on PATH.
 
 The built-in numeric catalog is also described by `stdlib/math.schema-fragment.json`; it provides int/float overloads of `math_abs`, `math_min`, `math_max`, `math_floor`, `math_ceil`, `math_round`, `math_pow`, and `math_sqrt`. Integer operations wrap at 64 bits, integer roots are exact floor roots, and float operations preserve IEEE NaN, infinity, and signed-zero behavior described by the shared catalog.
+
+Version 2 containers preserve insertion order for typed maps, use non-consuming pop-order `at` for stacks and queues, and use stable min-first priority queues with insertion-order ties. Json parses strict UTF-8 JSON (including escaped NUL), rejects duplicate keys, malformed numbers, BOMs, and nesting beyond 256, and preserves source number/string spellings and object order in compact `to_json()` output. Runtime diagnostics and bounds messages follow the shared catalog vectors.
 
 ## VM strings and host text
 
@@ -100,7 +102,7 @@ cargo run -p dsl-conformance --bin dsl-conformance -- ../lmcode-cpp/conformance/
 
 An empty vector directory is an error, never a successful zero-case run.
 
-Built-in std has four areas: strings, math, collections, and files. `file_read`,
+Built-in std includes strings, math, collections, JSON, and files. `file_read`,
 `file_write` (create/truncate), and `file_append` preserve every content byte.
 `file_exists` is true only for regular files; missing paths and directories are
 false. `file_lines` splits LF bytes into an arena-owned StrList, preserving CR

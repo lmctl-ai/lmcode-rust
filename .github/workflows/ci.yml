@@ -42,7 +42,7 @@ jobs:
 
       - name: lmscript compiler (npm @lmctl-ai/lmctl)
         run: |
-          npm i -g @lmctl-ai/lmctl@0.2.420
+          npm i -g @lmctl-ai/lmctl@0.2.426
           lmscript --version || true
 
       - name: unit tests, string catalog and conformance vectors
