@@ -8,594 +8,6 @@
   },
   "vectors": [
     {
-      "name": "file-basic",
-      "covers": "raw byte write, read, append, and regular-file existence",
-      "schema": "file.schema.json",
-      "source": "file-basic.dsl",
-      "bytecode": "file-basic.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "hex 6100ff",
-          "bool true",
-          "hex 6100ff0a62",
-          "bool false",
-          "bool false"
-        ]
-      }
-    },
-    {
-      "name": "file-lines",
-      "covers": "LF splitting, CR preservation, final empty fields, and empty files",
-      "schema": "file.schema.json",
-      "source": "file-lines.dsl",
-      "bytecode": "file-lines.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "int 3",
-          "int 2",
-          "hex 610d00",
-          "int 0",
-          "hex 00",
-          "int 0",
-          "hex 00",
-          "int 1"
-        ]
-      }
-    },
-    {
-      "name": "file-large",
-      "covers": "binary content above one MiB and append",
-      "schema": "file.schema.json",
-      "source": "file-large.dsl",
-      "bytecode": "file-large.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "int 1200000",
-          "bool true",
-          "int 1200001"
-        ]
-      }
-    },
-    {
-      "name": "file-truncate",
-      "covers": "write truncates an existing regular file",
-      "schema": "file.schema.json",
-      "source": "file-truncate.dsl",
-      "bytecode": "file-truncate.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "hex ff00"
-        ]
-      }
-    },
-    {
-      "name": "file-missing",
-      "covers": "missing-file OS error",
-      "schema": "file.schema.json",
-      "source": "file-missing.dsl",
-      "bytecode": "file-missing.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_file": [
-          "RUN_HOST",
-          "file_read",
-          "missing.bin"
-        ]
-      }
-    },
-    {
-      "name": "file-directory",
-      "covers": "directory is not a regular file",
-      "schema": "file.schema.json",
-      "source": "file-directory.dsl",
-      "bytecode": "file-directory.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_file": [
-          "RUN_HOST",
-          "file_read",
-          "."
-        ]
-      }
-    },
-    {
-      "name": "file-unwritable",
-      "covers": "regular intermediate path component failure",
-      "schema": "file.schema.json",
-      "source": "file-unwritable.dsl",
-      "bytecode": "file-unwritable.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_file": [
-          "RUN_HOST",
-          "file_write",
-          "blocker/child"
-        ]
-      }
-    },
-    {
-      "name": "starts-with",
-      "covers": "str_starts_with byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "starts-with.dsl",
-      "bytecode": "starts-with.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "bool true",
-          "bool true",
-          "bool false"
-        ]
-      }
-    },
-    {
-      "name": "ends-with",
-      "covers": "str_ends_with byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "ends-with.dsl",
-      "bytecode": "ends-with.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "bool true",
-          "bool true",
-          "bool false"
-        ]
-      }
-    },
-    {
-      "name": "contains",
-      "covers": "str_contains byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "contains.dsl",
-      "bytecode": "contains.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "bool true",
-          "bool true",
-          "bool false"
-        ]
-      }
-    },
-    {
-      "name": "lower",
-      "covers": "str_lower byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "lower.dsl",
-      "bytecode": "lower.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "hex 617a2dc3a9",
-          "hex 61ff007a"
-        ]
-      }
-    },
-    {
-      "name": "upper",
-      "covers": "str_upper byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "upper.dsl",
-      "bytecode": "upper.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "hex 415a2dc3a9",
-          "hex 41ff005a"
-        ]
-      }
-    },
-    {
-      "name": "substr",
-      "covers": "str_substr byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "substr.dsl",
-      "bytecode": "substr.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "hex a9",
-          "hex 616263",
-          "int 0",
-          "int 0",
-          "hex ff00"
-        ]
-      }
-    },
-    {
-      "name": "len",
-      "covers": "str_len byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "len.dsl",
-      "bytecode": "len.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "int 0",
-          "int 6",
-          "int 4"
-        ]
-      }
-    },
-    {
-      "name": "match",
-      "covers": "str_match byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "match.dsl",
-      "bytecode": "match.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "bool true",
-          "bool false",
-          "bool true",
-          "bool true",
-          "bool true",
-          "bool false",
-          "bool true"
-        ]
-      }
-    },
-    {
-      "name": "find",
-      "covers": "str_find byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "find.dsl",
-      "bytecode": "find.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "int 2",
-          "int 0",
-          "int -1",
-          "int 1"
-        ]
-      }
-    },
-    {
-      "name": "replace",
-      "covers": "str_replace byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "replace.dsl",
-      "bytecode": "replace.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "hex 626261",
-          "hex 6162",
-          "hex c3a900c3a9"
-        ]
-      }
-    },
-    {
-      "name": "trim",
-      "covers": "str_trim byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "trim.dsl",
-      "bytecode": "trim.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "hex 61",
-          "hex 6100",
-          "hex c3a9"
-        ]
-      }
-    },
-    {
-      "name": "repeat",
-      "covers": "str_repeat byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "repeat.dsl",
-      "bytecode": "repeat.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "hex ff00ff00",
-          "int 0",
-          "int 0"
-        ]
-      }
-    },
-    {
-      "name": "to-int",
-      "covers": "str_to_int byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "to-int.dsl",
-      "bytecode": "to-int.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "int 42",
-          "int -9223372036854775808",
-          "int 0",
-          "int 0",
-          "int 0"
-        ]
-      }
-    },
-    {
-      "name": "is-int",
-      "covers": "str_is_int byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "is-int.dsl",
-      "bytecode": "is-int.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "bool true",
-          "bool false",
-          "bool false",
-          "bool false",
-          "bool false"
-        ]
-      }
-    },
-    {
-      "name": "to-float",
-      "covers": "str_to_float byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "to-float.dsl",
-      "bytecode": "to-float.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "float 125",
-          "float -0",
-          "float 0",
-          "float 0",
-          "float 0"
-        ]
-      }
-    },
-    {
-      "name": "is-float",
-      "covers": "str_is_float byte semantics and edge cases",
-      "schema": "schema.json",
-      "source": "is-float.dsl",
-      "bytecode": "is-float.dslb",
-      "mutated": false,
-      "expect": {
-        "trace": [
-          "bool true",
-          "bool false",
-          "bool false",
-          "bool false",
-          "bool false"
-        ]
-      }
-    },
-    {
-      "name": "repeat-negative",
-      "covers": "catalog resource policy reports host failure",
-      "schema": "schema.json",
-      "source": "repeat-negative.dsl",
-      "bytecode": "repeat-negative.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_at": {
-          "code": "RUN_HOST",
-          "line": 2,
-          "column": 7,
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
-        }
-      }
-    },
-    {
-      "name": "repeat-limit",
-      "covers": "catalog resource policy reports host failure",
-      "schema": "schema.json",
-      "source": "repeat-limit.dsl",
-      "bytecode": "repeat-limit.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_at": {
-          "code": "RUN_HOST",
-          "line": 2,
-          "column": 7,
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
-        }
-      }
-    },
-    {
-      "name": "math-abs",
-      "schema": "math.schema.json",
-      "source": "math-abs.dsl",
-      "bytecode": "math-abs.dslb",
-      "mutated": false,
-      "covers": "math catalog integer/float overloads and edge semantics",
-      "expect": {
-        "trace": [
-          "int 7",
-          "int -9223372036854775808",
-          "float 2.5",
-          "float 0"
-        ]
-      }
-    },
-    {
-      "name": "math-min",
-      "schema": "math.schema.json",
-      "source": "math-min.dsl",
-      "bytecode": "math-min.dslb",
-      "mutated": false,
-      "covers": "math catalog integer/float overloads and edge semantics",
-      "expect": {
-        "trace": [
-          "int -7",
-          "float -3.5",
-          "float -0",
-          "float 0"
-        ]
-      }
-    },
-    {
-      "name": "math-max",
-      "schema": "math.schema.json",
-      "source": "math-max.dsl",
-      "bytecode": "math-max.dslb",
-      "mutated": false,
-      "covers": "math catalog integer/float overloads and edge semantics",
-      "expect": {
-        "trace": [
-          "int 3",
-          "float 2.5",
-          "float -0",
-          "float 0"
-        ]
-      }
-    },
-    {
-      "name": "math-floor",
-      "schema": "math.schema.json",
-      "source": "math-floor.dsl",
-      "bytecode": "math-floor.dslb",
-      "mutated": false,
-      "covers": "math catalog integer/float overloads and edge semantics",
-      "expect": {
-        "trace": [
-          "int -9223372036854775808",
-          "float -2",
-          "float 1",
-          "float -0"
-        ]
-      }
-    },
-    {
-      "name": "math-ceil",
-      "schema": "math.schema.json",
-      "source": "math-ceil.dsl",
-      "bytecode": "math-ceil.dslb",
-      "mutated": false,
-      "covers": "math catalog integer/float overloads and edge semantics",
-      "expect": {
-        "trace": [
-          "int 9223372036854775807",
-          "float -1",
-          "float 2",
-          "float -0"
-        ]
-      }
-    },
-    {
-      "name": "math-round",
-      "schema": "math.schema.json",
-      "source": "math-round.dsl",
-      "bytecode": "math-round.dslb",
-      "mutated": false,
-      "covers": "math catalog integer/float overloads and edge semantics",
-      "expect": {
-        "trace": [
-          "int 9223372036854775807",
-          "float -1",
-          "float 1",
-          "float -0",
-          "float 4.5035996273705e+15"
-        ]
-      }
-    },
-    {
-      "name": "math-pow",
-      "schema": "math.schema.json",
-      "source": "math-pow.dsl",
-      "bytecode": "math-pow.dslb",
-      "mutated": false,
-      "covers": "math catalog integer/float overloads and edge semantics",
-      "expect": {
-        "trace": [
-          "int 1",
-          "int -9223372036854775808",
-          "int 0",
-          "int -8",
-          "float 8",
-          "float -0",
-          "float -inf"
-        ]
-      }
-    },
-    {
-      "name": "math-sqrt",
-      "schema": "math.schema.json",
-      "source": "math-sqrt.dsl",
-      "bytecode": "math-sqrt.dslb",
-      "mutated": false,
-      "covers": "math catalog integer/float overloads and edge semantics",
-      "expect": {
-        "trace": [
-          "int 0",
-          "int 4",
-          "int 3037000499",
-          "int 3037000498",
-          "float 2",
-          "~ float 1.4142135623730951",
-          "float -0"
-        ]
-      }
-    },
-    {
-      "name": "math-nan",
-      "schema": "math.schema.json",
-      "source": "math-nan.dsl",
-      "bytecode": "math-nan.dslb",
-      "mutated": false,
-      "covers": "math catalog integer/float overloads and edge semantics",
-      "expect": {
-        "trace": [
-          "bool true",
-          "bool true",
-          "bool true",
-          "bool true",
-          "bool true",
-          "bool true",
-          "bool true",
-          "bool true",
-          "bool true",
-          "bool true",
-          "float 1",
-          "float 1",
-          "float 1",
-          "float inf"
-        ]
-      }
-    },
-    {
-      "name": "math-pow-negative",
-      "schema": "math.schema.json",
-      "source": "math-pow-negative.dsl",
-      "bytecode": "math-pow-negative.dslb",
-      "mutated": false,
-      "covers": "invalid integer math domain reports located host error",
-      "expect": {
-        "runtime_error_at": {
-          "code": "RUN_HOST",
-          "line": 2,
-          "column": 7,
-          "message": "math_pow: integer exponent must be nonnegative"
-        }
-      }
-    },
-    {
-      "name": "math-sqrt-negative",
-      "schema": "math.schema.json",
-      "source": "math-sqrt-negative.dsl",
-      "bytecode": "math-sqrt-negative.dslb",
-      "mutated": false,
-      "covers": "invalid integer math domain reports located host error",
-      "expect": {
-        "runtime_error_at": {
-          "code": "RUN_HOST",
-          "line": 2,
-          "column": 7,
-          "message": "math_sqrt: integer argument must be nonnegative"
-        }
-      }
-    },
-    {
       "name": "collections-arena-limit",
       "covers": "collection byte semantics and methods",
       "schema": "collections.schema.json",
@@ -993,112 +405,1715 @@
       }
     },
     {
-      "name": "testing-close",
-      "covers": "testing sink and numeric assertion",
-      "schema": "collections.schema.json",
-      "source": "testing-close.dsl",
-      "bytecode": "testing-close.dslb",
+      "name": "contains",
+      "covers": "str_contains byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "contains.dsl",
+      "bytecode": "contains.dslb",
       "mutated": false,
       "expect": {
         "trace": [
+          "bool true",
+          "bool true",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "data-float-map",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-map.dsl",
+      "bytecode": "data-float-map.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool true",
+          "float 1.5",
+          "float 1.5",
+          "hex 6100ff",
+          "bool true",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "data-float-map-bounds",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-map-bounds.dsl",
+      "bytecode": "data-float-map-bounds.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatMap.key_at: index out of range: 9"
+        ]
+      }
+    },
+    {
+      "name": "data-float-map-missing",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-map-missing.dsl",
+      "bytecode": "data-float-map-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatMap.get: missing key"
+        ]
+      }
+    },
+    {
+      "name": "data-float-map-negative-key-at",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-map-negative-key-at.dsl",
+      "bytecode": "data-float-map-negative-key-at.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatMap.key_at: index out of range: -1"
+        ]
+      }
+    },
+    {
+      "name": "data-float-map-order",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-map-order.dsl",
+      "bytecode": "data-float-map-order.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6100ff",
+          "hex 62",
+          "float 3.5",
+          "float 2.5",
+          "float 1.5",
+          "bool false",
+          "bool true",
+          "bool false",
+          "hex 62",
+          "hex 6100ff",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "data-float-pq",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-pq.dsl",
+      "bytecode": "data-float-pq.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool false",
+          "float 1.5",
+          "float 1.5",
           "bool true"
         ]
       }
     },
     {
-      "name": "testing-close-expected-nan",
-      "covers": "testing sink and numeric assertion",
-      "schema": "collections.schema.json",
-      "source": "testing-close-expected-nan.dsl",
-      "bytecode": "testing-close-expected-nan.dslb",
+      "name": "data-float-pq-infinite",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-pq-infinite.dsl",
+      "bytecode": "data-float-pq-infinite.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "assert_close failed: 1 vs nan (tol 0.1)"
-        }
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatPQ.push: priority must be finite"
+        ]
       }
     },
     {
-      "name": "testing-close-fail",
-      "covers": "testing sink and numeric assertion",
-      "schema": "collections.schema.json",
-      "source": "testing-close-fail.dsl",
-      "bytecode": "testing-close-fail.dslb",
+      "name": "data-float-pq-nan",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-pq-nan.dsl",
+      "bytecode": "data-float-pq-nan.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "assert_close failed: 1 vs 2 (tol 0.5)"
-        }
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatPQ.push: priority must be finite"
+        ]
       }
     },
     {
-      "name": "testing-close-infinity",
-      "covers": "testing sink and numeric assertion",
-      "schema": "collections.schema.json",
-      "source": "testing-close-infinity.dsl",
-      "bytecode": "testing-close-infinity.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "assert_close failed: inf vs inf (tol 0)"
-        }
-      }
-    },
-    {
-      "name": "testing-close-nan",
-      "covers": "negative NaN assertion diagnostics use canonical nan text",
-      "schema": "collections.schema.json",
-      "source": "testing-close-nan.dsl",
-      "bytecode": "testing-close-nan.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "assert_close failed: nan vs 1 (tol 0.1)"
-        }
-      }
-    },
-    {
-      "name": "testing-close-negative-tolerance",
-      "covers": "testing sink and numeric assertion",
-      "schema": "collections.schema.json",
-      "source": "testing-close-negative-tolerance.dsl",
-      "bytecode": "testing-close-negative-tolerance.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "assert_close failed: 1 vs 1 (tol -1)"
-        }
-      }
-    },
-    {
-      "name": "testing-close-tolerance-nan",
-      "covers": "testing sink and numeric assertion",
-      "schema": "collections.schema.json",
-      "source": "testing-close-tolerance-nan.dsl",
-      "bytecode": "testing-close-tolerance-nan.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "assert_close failed: 1 vs 1 (tol nan)"
-        }
-      }
-    },
-    {
-      "name": "testing-print",
-      "covers": "testing sink and numeric assertion",
-      "schema": "collections.schema.json",
-      "source": "testing-print.dsl",
-      "bytecode": "testing-print.dslb",
+      "name": "data-float-pq-payloads",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-pq-payloads.dsl",
+      "bytecode": "data-float-pq-payloads.dslb",
       "mutated": false,
       "expect": {
         "trace": [
-          "hex ff00610a0ac3a90a"
+          "bool true",
+          "float -0"
+        ]
+      }
+    },
+    {
+      "name": "data-float-pq-peek-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-pq-peek-empty.dsl",
+      "bytecode": "data-float-pq-peek-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatPQ.peek: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-float-pq-pop-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-pq-pop-empty.dsl",
+      "bytecode": "data-float-pq-pop-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatPQ.pop: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-float-pq-priorities",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-pq-priorities.dsl",
+      "bytecode": "data-float-pq-priorities.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "float 2.5",
+          "int 3",
+          "float 2.5",
+          "float 3.5",
+          "float 1.5",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-float-queue",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-queue.dsl",
+      "bytecode": "data-float-queue.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool false",
+          "float 1.5",
+          "float 1.5",
+          "float 1.5",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-float-queue-at-bounds",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-queue-at-bounds.dsl",
+      "bytecode": "data-float-queue-at-bounds.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatQueue.at: index out of range: 9"
+        ]
+      }
+    },
+    {
+      "name": "data-float-queue-negative-index",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-queue-negative-index.dsl",
+      "bytecode": "data-float-queue-negative-index.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatQueue.at: index out of range: -1"
+        ]
+      }
+    },
+    {
+      "name": "data-float-queue-peek-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-queue-peek-empty.dsl",
+      "bytecode": "data-float-queue-peek-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatQueue.peek: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-float-queue-pop-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-queue-pop-empty.dsl",
+      "bytecode": "data-float-queue-pop-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatQueue.pop: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-float-queue-pop-order",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-queue-pop-order.dsl",
+      "bytecode": "data-float-queue-pop-order.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "float 1.5",
+          "float 2.5",
+          "float 3.5",
+          "int 3",
+          "float 2.5",
+          "float 1.5",
+          "float 2.5",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "data-float-stack",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-stack.dsl",
+      "bytecode": "data-float-stack.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool false",
+          "float 1.5",
+          "float 1.5",
+          "float 1.5",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-float-stack-at-bounds",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-stack-at-bounds.dsl",
+      "bytecode": "data-float-stack-at-bounds.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatStack.at: index out of range: 9"
+        ]
+      }
+    },
+    {
+      "name": "data-float-stack-negative-index",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-stack-negative-index.dsl",
+      "bytecode": "data-float-stack-negative-index.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatStack.at: index out of range: -1"
+        ]
+      }
+    },
+    {
+      "name": "data-float-stack-peek-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-stack-peek-empty.dsl",
+      "bytecode": "data-float-stack-peek-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatStack.peek: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-float-stack-pop-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-stack-pop-empty.dsl",
+      "bytecode": "data-float-stack-pop-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "FloatStack.pop: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-float-stack-pop-order",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-float-stack-pop-order.dsl",
+      "bytecode": "data-float-stack-pop-order.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "float 3.5",
+          "float 2.5",
+          "float 1.5",
+          "int 3",
+          "float 2.5",
+          "float 3.5",
+          "float 2.5",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "data-int-map",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-map.dsl",
+      "bytecode": "data-int-map.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool true",
+          "int 1",
+          "int 1",
+          "hex 6100ff",
+          "bool true",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "data-int-map-bounds",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-map-bounds.dsl",
+      "bytecode": "data-int-map-bounds.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntMap.key_at: index out of range: 9"
+        ]
+      }
+    },
+    {
+      "name": "data-int-map-missing",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-map-missing.dsl",
+      "bytecode": "data-int-map-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntMap.get: missing key"
+        ]
+      }
+    },
+    {
+      "name": "data-int-map-negative-key-at",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-map-negative-key-at.dsl",
+      "bytecode": "data-int-map-negative-key-at.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntMap.key_at: index out of range: -1"
+        ]
+      }
+    },
+    {
+      "name": "data-int-map-order",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-map-order.dsl",
+      "bytecode": "data-int-map-order.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6100ff",
+          "hex 62",
+          "int 9",
+          "int 8",
+          "int 7",
+          "bool false",
+          "bool true",
+          "bool false",
+          "hex 62",
+          "hex 6100ff",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "data-int-pq",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-pq.dsl",
+      "bytecode": "data-int-pq.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool false",
+          "int 1",
+          "int 1",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-int-pq-infinite",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-pq-infinite.dsl",
+      "bytecode": "data-int-pq-infinite.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntPQ.push: priority must be finite"
+        ]
+      }
+    },
+    {
+      "name": "data-int-pq-nan",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-pq-nan.dsl",
+      "bytecode": "data-int-pq-nan.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntPQ.push: priority must be finite"
+        ]
+      }
+    },
+    {
+      "name": "data-int-pq-peek-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-pq-peek-empty.dsl",
+      "bytecode": "data-int-pq-peek-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntPQ.peek: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-int-pq-pop-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-pq-pop-empty.dsl",
+      "bytecode": "data-int-pq-pop-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntPQ.pop: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-int-pq-priorities",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-pq-priorities.dsl",
+      "bytecode": "data-int-pq-priorities.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "int 3",
+          "int 2",
+          "int 3",
+          "int 1",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-int-queue",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-queue.dsl",
+      "bytecode": "data-int-queue.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool false",
+          "int 1",
+          "int 1",
+          "int 1",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-int-queue-at-bounds",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-queue-at-bounds.dsl",
+      "bytecode": "data-int-queue-at-bounds.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntQueue.at: index out of range: 9"
+        ]
+      }
+    },
+    {
+      "name": "data-int-queue-negative-index",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-queue-negative-index.dsl",
+      "bytecode": "data-int-queue-negative-index.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntQueue.at: index out of range: -1"
+        ]
+      }
+    },
+    {
+      "name": "data-int-queue-peek-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-queue-peek-empty.dsl",
+      "bytecode": "data-int-queue-peek-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntQueue.peek: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-int-queue-pop-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-queue-pop-empty.dsl",
+      "bytecode": "data-int-queue-pop-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntQueue.pop: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-int-queue-pop-order",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-queue-pop-order.dsl",
+      "bytecode": "data-int-queue-pop-order.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 1",
+          "int 2",
+          "int 3",
+          "int 3",
+          "int 2",
+          "int 1",
+          "int 2",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "data-int-stack",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-stack.dsl",
+      "bytecode": "data-int-stack.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool false",
+          "int 1",
+          "int 1",
+          "int 1",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-int-stack-at-bounds",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-stack-at-bounds.dsl",
+      "bytecode": "data-int-stack-at-bounds.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntStack.at: index out of range: 9"
+        ]
+      }
+    },
+    {
+      "name": "data-int-stack-negative-index",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-stack-negative-index.dsl",
+      "bytecode": "data-int-stack-negative-index.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntStack.at: index out of range: -1"
+        ]
+      }
+    },
+    {
+      "name": "data-int-stack-peek-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-stack-peek-empty.dsl",
+      "bytecode": "data-int-stack-peek-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntStack.peek: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-int-stack-pop-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-stack-pop-empty.dsl",
+      "bytecode": "data-int-stack-pop-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "IntStack.pop: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-int-stack-pop-order",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-int-stack-pop-order.dsl",
+      "bytecode": "data-int-stack-pop-order.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 3",
+          "int 2",
+          "int 1",
+          "int 3",
+          "int 2",
+          "int 3",
+          "int 2",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "data-json",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json.dsl",
+      "bytecode": "data-json.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6f626a656374",
+          "int 2",
+          "int 123",
+          "bool true",
+          "hex 7b226e223a3132332c2261223a5b747275652c6e756c6c5d7d"
+        ]
+      }
+    },
+    {
+      "name": "data-json-as-bool-kind",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-as-bool-kind.dsl",
+      "bytecode": "data-json-as-bool-kind.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.as_bool: expected bool"
+        ]
+      }
+    },
+    {
+      "name": "data-json-as-float-kind",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-as-float-kind.dsl",
+      "bytecode": "data-json-as-float-kind.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.as_float: expected number"
+        ]
+      }
+    },
+    {
+      "name": "data-json-as-int-kind",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-as-int-kind.dsl",
+      "bytecode": "data-json-as-int-kind.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.as_int: expected int"
+        ]
+      }
+    },
+    {
+      "name": "data-json-as-string-kind",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-as-string-kind.dsl",
+      "bytecode": "data-json-as-string-kind.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.as_string: expected string"
+        ]
+      }
+    },
+    {
+      "name": "data-json-astral",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-astral.dsl",
+      "bytecode": "data-json-astral.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex f09d849e",
+          "hex 225c75443833345c754444314522"
+        ]
+      }
+    },
+    {
+      "name": "data-json-at-kind",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-at-kind.dsl",
+      "bytecode": "data-json-at-kind.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.at: expected array"
+        ]
+      }
+    },
+    {
+      "name": "data-json-bad-escape",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-bad-escape.dsl",
+      "bytecode": "data-json-bad-escape.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: invalid escape at byte 2"
+        ]
+      }
+    },
+    {
+      "name": "data-json-bad-literal",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-bad-literal.dsl",
+      "bytecode": "data-json-bad-literal.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: invalid literal at byte 0"
+        ]
+      }
+    },
+    {
+      "name": "data-json-bad-unicode-escape",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-bad-unicode-escape.dsl",
+      "bytecode": "data-json-bad-unicode-escape.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: invalid Unicode escape at byte 5"
+        ]
+      }
+    },
+    {
+      "name": "data-json-bad-value",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-bad-value.dsl",
+      "bytecode": "data-json-bad-value.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: unexpected value at byte 5"
+        ]
+      }
+    },
+    {
+      "name": "data-json-bom",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-bom.dsl",
+      "bytecode": "data-json-bom.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: BOM is not allowed at byte 0"
+        ]
+      }
+    },
+    {
+      "name": "data-json-bounds",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-bounds.dsl",
+      "bytecode": "data-json-bounds.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.at: index out of range: 0"
+        ]
+      }
+    },
+    {
+      "name": "data-json-complete",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-complete.dsl",
+      "bytecode": "data-json-complete.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool false",
+          "int 3",
+          "hex 61",
+          "hex 6e",
+          "hex 74",
+          "hex 6172726179",
+          "int 5",
+          "hex 7800",
+          "bool true",
+          "hex 6e756c6c",
+          "float 1.25",
+          "float -0",
+          "int 9223372036854775807",
+          "bool false",
+          "hex 7b225c7530303631223a5b22785c7530303030222c747275652c6e756c6c2c312e32352c2d302e305d2c226e223a393232333337323033363835343737353830372c2274223a66616c73657d",
+          "float 12"
+        ]
+      }
+    },
+    {
+      "name": "data-json-depth-256",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-depth-256.dsl",
+      "bytecode": "data-json-depth-256.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 516",
+          "hex 6e756c6c"
+        ]
+      }
+    },
+    {
+      "name": "data-json-depth-257",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-depth-257.dsl",
+      "bytecode": "data-json-depth-257.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: maximum depth exceeded at byte 256"
+        ]
+      }
+    },
+    {
+      "name": "data-json-duplicate-escaped-key",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-duplicate-escaped-key.dsl",
+      "bytecode": "data-json-duplicate-escaped-key.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: duplicate object key at byte 7"
+        ]
+      }
+    },
+    {
+      "name": "data-json-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-empty.dsl",
+      "bytecode": "data-json-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: expected value at byte 0"
+        ]
+      }
+    },
+    {
+      "name": "data-json-escaped-high",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-escaped-high.dsl",
+      "bytecode": "data-json-escaped-high.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: unpaired high surrogate at byte 7"
+        ]
+      }
+    },
+    {
+      "name": "data-json-escaped-low",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-escaped-low.dsl",
+      "bytecode": "data-json-escaped-low.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: unpaired low surrogate at byte 3"
+        ]
+      }
+    },
+    {
+      "name": "data-json-float-boundaries",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-float-boundaries.dsl",
+      "bytecode": "data-json-float-boundaries.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "float -0",
+          "float 0",
+          "float 0"
+        ]
+      }
+    },
+    {
+      "name": "data-json-float-overflow",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-float-overflow.dsl",
+      "bytecode": "data-json-float-overflow.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: nonfinite number at byte 0"
+        ]
+      }
+    },
+    {
+      "name": "data-json-get-kind",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-get-kind.dsl",
+      "bytecode": "data-json-get-kind.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.get: expected object"
+        ]
+      }
+    },
+    {
+      "name": "data-json-has-kind",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-has-kind.dsl",
+      "bytecode": "data-json-has-kind.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.has: expected object"
+        ]
+      }
+    },
+    {
+      "name": "data-json-int-boundaries",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-int-boundaries.dsl",
+      "bytecode": "data-json-int-boundaries.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 9223372036854775807",
+          "int -9223372036854775808"
+        ]
+      }
+    },
+    {
+      "name": "data-json-int-overflow",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-int-overflow.dsl",
+      "bytecode": "data-json-int-overflow.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: integer out of range at byte 0"
+        ]
+      }
+    },
+    {
+      "name": "data-json-invalid-continuation",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-invalid-continuation.dsl",
+      "bytecode": "data-json-invalid-continuation.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: invalid UTF-8 at byte 1"
+        ]
+      }
+    },
+    {
+      "name": "data-json-invalid-utf8-unvisited-key",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-invalid-utf8-unvisited-key.dsl",
+      "bytecode": "data-json-invalid-utf8-unvisited-key.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: invalid UTF-8 at byte 2"
+        ]
+      }
+    },
+    {
+      "name": "data-json-invalid-utf8-unvisited-value",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-invalid-utf8-unvisited-value.dsl",
+      "bytecode": "data-json-invalid-utf8-unvisited-value.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: invalid UTF-8 at byte 5"
+        ]
+      }
+    },
+    {
+      "name": "data-json-jsonc-comment",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-jsonc-comment.dsl",
+      "bytecode": "data-json-jsonc-comment.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: object key must be a string at byte 1"
+        ]
+      }
+    },
+    {
+      "name": "data-json-jsonc-trailing",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-jsonc-trailing.dsl",
+      "bytecode": "data-json-jsonc-trailing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: unexpected value at byte 3"
+        ]
+      }
+    },
+    {
+      "name": "data-json-key-required",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-key-required.dsl",
+      "bytecode": "data-json-key-required.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: object key must be a string at byte 8"
+        ]
+      }
+    },
+    {
+      "name": "data-json-keys-kind",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-keys-kind.dsl",
+      "bytecode": "data-json-keys-kind.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.keys: expected object"
+        ]
+      }
+    },
+    {
+      "name": "data-json-len",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-len.dsl",
+      "bytecode": "data-json-len.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.len: expected array or object"
+        ]
+      }
+    },
+    {
+      "name": "data-json-missing",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-missing.dsl",
+      "bytecode": "data-json-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.get: missing key"
+        ]
+      }
+    },
+    {
+      "name": "data-json-missing-colon",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-missing-colon.dsl",
+      "bytecode": "data-json-missing-colon.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: expected colon at byte 4"
+        ]
+      }
+    },
+    {
+      "name": "data-json-missing-comma",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-missing-comma.dsl",
+      "bytecode": "data-json-missing-comma.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: expected comma at byte 5"
+        ]
+      }
+    },
+    {
+      "name": "data-json-negative-int-overflow",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-negative-int-overflow.dsl",
+      "bytecode": "data-json-negative-int-overflow.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: integer out of range at byte 0"
+        ]
+      }
+    },
+    {
+      "name": "data-json-raw-control",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-raw-control.dsl",
+      "bytecode": "data-json-raw-control.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: control byte in string at byte 1"
+        ]
+      }
+    },
+    {
+      "name": "data-json-space",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-space.dsl",
+      "bytecode": "data-json-space.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: expected value at byte 1"
+        ]
+      }
+    },
+    {
+      "name": "data-json-token-spelling",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-token-spelling.dsl",
+      "bytecode": "data-json-token-spelling.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 7b225c7530303631223a312e32333030652b30322c2273223a225c7530303431222c227a223a2d307d",
+          "hex 312e32333030652b3032",
+          "hex 41"
+        ]
+      }
+    },
+    {
+      "name": "data-json-trailing-input",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-trailing-input.dsl",
+      "bytecode": "data-json-trailing-input.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: trailing input at byte 4"
+        ]
+      }
+    },
+    {
+      "name": "data-json-unfinished-escape",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-unfinished-escape.dsl",
+      "bytecode": "data-json-unfinished-escape.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: unterminated escape at byte 2"
+        ]
+      }
+    },
+    {
+      "name": "data-json-unfinished-string",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-unfinished-string.dsl",
+      "bytecode": "data-json-unfinished-string.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: unterminated string at byte 4"
+        ]
+      }
+    },
+    {
+      "name": "data-json-utf8-before-bom",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-utf8-before-bom.dsl",
+      "bytecode": "data-json-utf8-before-bom.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "json_parse: invalid UTF-8 at byte 3"
+        ]
+      }
+    },
+    {
+      "name": "data-json-wrong-kind",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-json-wrong-kind.dsl",
+      "bytecode": "data-json-wrong-kind.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "Json.get: expected object"
+        ]
+      }
+    },
+    {
+      "name": "data-str-pq",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-pq.dsl",
+      "bytecode": "data-str-pq.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool false",
+          "hex 6100ff",
+          "hex 6100ff",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-str-pq-infinite",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-pq-infinite.dsl",
+      "bytecode": "data-str-pq-infinite.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrPQ.push: priority must be finite"
+        ]
+      }
+    },
+    {
+      "name": "data-str-pq-nan",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-pq-nan.dsl",
+      "bytecode": "data-str-pq-nan.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrPQ.push: priority must be finite"
+        ]
+      }
+    },
+    {
+      "name": "data-str-pq-peek-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-pq-peek-empty.dsl",
+      "bytecode": "data-str-pq-peek-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrPQ.peek: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-str-pq-pop-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-pq-pop-empty.dsl",
+      "bytecode": "data-str-pq-pop-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrPQ.pop: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-str-pq-priorities",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-pq-priorities.dsl",
+      "bytecode": "data-str-pq-priorities.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6200fe",
+          "int 3",
+          "hex 6200fe",
+          "hex 6300fd",
+          "hex 6100ff",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-str-queue",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-queue.dsl",
+      "bytecode": "data-str-queue.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool false",
+          "hex 6100ff",
+          "hex 6100ff",
+          "hex 6100ff",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-str-queue-at-bounds",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-queue-at-bounds.dsl",
+      "bytecode": "data-str-queue-at-bounds.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrQueue.at: index out of range: 9"
+        ]
+      }
+    },
+    {
+      "name": "data-str-queue-negative-index",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-queue-negative-index.dsl",
+      "bytecode": "data-str-queue-negative-index.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrQueue.at: index out of range: -1"
+        ]
+      }
+    },
+    {
+      "name": "data-str-queue-peek-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-queue-peek-empty.dsl",
+      "bytecode": "data-str-queue-peek-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrQueue.peek: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-str-queue-pop-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-queue-pop-empty.dsl",
+      "bytecode": "data-str-queue-pop-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrQueue.pop: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-str-queue-pop-order",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-queue-pop-order.dsl",
+      "bytecode": "data-str-queue-pop-order.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6100ff",
+          "hex 6200fe",
+          "hex 6300fd",
+          "int 3",
+          "hex 6200fe",
+          "hex 6100ff",
+          "hex 6200fe",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "data-str-stack",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-stack.dsl",
+      "bytecode": "data-str-stack.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "bool false",
+          "hex 6100ff",
+          "hex 6100ff",
+          "hex 6100ff",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "data-str-stack-at-bounds",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-stack-at-bounds.dsl",
+      "bytecode": "data-str-stack-at-bounds.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrStack.at: index out of range: 9"
+        ]
+      }
+    },
+    {
+      "name": "data-str-stack-negative-index",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-stack-negative-index.dsl",
+      "bytecode": "data-str-stack-negative-index.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrStack.at: index out of range: -1"
+        ]
+      }
+    },
+    {
+      "name": "data-str-stack-peek-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-stack-peek-empty.dsl",
+      "bytecode": "data-str-stack-peek-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrStack.peek: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-str-stack-pop-empty",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-stack-pop-empty.dsl",
+      "bytecode": "data-str-stack-pop-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": [
+          "RUN_HOST",
+          "StrStack.pop: empty"
+        ]
+      }
+    },
+    {
+      "name": "data-str-stack-pop-order",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-str-stack-pop-order.dsl",
+      "bytecode": "data-str-stack-pop-order.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6300fd",
+          "hex 6200fe",
+          "hex 6100ff",
+          "int 3",
+          "hex 6200fe",
+          "hex 6300fd",
+          "hex 6200fe",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "ends-with",
+      "covers": "str_ends_with byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "ends-with.dsl",
+      "bytecode": "ends-with.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool true",
+          "bool false"
         ]
       }
     },
@@ -1133,6 +2148,38 @@
       }
     },
     {
+      "name": "file-basic",
+      "covers": "raw byte write, read, append, and regular-file existence",
+      "schema": "file.schema.json",
+      "source": "file-basic.dsl",
+      "bytecode": "file-basic.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 6100ff",
+          "bool true",
+          "hex 6100ff0a62",
+          "bool false",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "file-directory",
+      "covers": "directory is not a regular file",
+      "schema": "file.schema.json",
+      "source": "file-directory.dsl",
+      "bytecode": "file-directory.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": [
+          "RUN_HOST",
+          "file_read",
+          "."
+        ]
+      }
+    },
+    {
       "name": "file-empty-append",
       "covers": "raw file bytes, portable native paths and failure contracts",
       "schema": "file.schema.json",
@@ -1147,6 +2194,41 @@
           "hex 00ff",
           "int 0",
           "hex 61"
+        ]
+      }
+    },
+    {
+      "name": "file-large",
+      "covers": "binary content above one MiB and append",
+      "schema": "file.schema.json",
+      "source": "file-large.dsl",
+      "bytecode": "file-large.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 1200000",
+          "bool true",
+          "int 1200001"
+        ]
+      }
+    },
+    {
+      "name": "file-lines",
+      "covers": "LF splitting, CR preservation, final empty fields, and empty files",
+      "schema": "file.schema.json",
+      "source": "file-lines.dsl",
+      "bytecode": "file-lines.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 3",
+          "int 2",
+          "hex 610d00",
+          "int 0",
+          "hex 00",
+          "int 0",
+          "hex 00",
+          "int 1"
         ]
       }
     },
@@ -1214,6 +2296,34 @@
       }
     },
     {
+      "name": "file-missing",
+      "covers": "missing-file OS error",
+      "schema": "file.schema.json",
+      "source": "file-missing.dsl",
+      "bytecode": "file-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": [
+          "RUN_HOST",
+          "file_read",
+          "missing.bin"
+        ]
+      }
+    },
+    {
+      "name": "file-truncate",
+      "covers": "write truncates an existing regular file",
+      "schema": "file.schema.json",
+      "source": "file-truncate.dsl",
+      "bytecode": "file-truncate.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex ff00"
+        ]
+      }
+    },
+    {
       "name": "file-unicode-path",
       "covers": "raw file bytes, portable native paths and failure contracts",
       "schema": "file.schema.json",
@@ -1224,6 +2334,21 @@
         "trace": [
           "bool true",
           "hex 00ff0d0a"
+        ]
+      }
+    },
+    {
+      "name": "file-unwritable",
+      "covers": "regular intermediate path component failure",
+      "schema": "file.schema.json",
+      "source": "file-unwritable.dsl",
+      "bytecode": "file-unwritable.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_file": [
+          "RUN_HOST",
+          "file_write",
+          "blocker/child"
         ]
       }
     },
@@ -1240,6 +2365,22 @@
           "function": "file_write",
           "relative_path": "."
         }
+      }
+    },
+    {
+      "name": "find",
+      "covers": "str_find byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "find.dsl",
+      "bytecode": "find.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 2",
+          "int 0",
+          "int -1",
+          "int 1"
+        ]
       }
     },
     {
@@ -1847,132 +2988,6 @@
       }
     },
     {
-      "name": "fuzz-0000000007-split-empty",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-split-empty.dsl",
-      "bytecode": "fuzz-0000000007-split-empty.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "str_split: separator must not be empty"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000007-repeat-negative",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-repeat-negative.dsl",
-      "bytecode": "fuzz-0000000007-repeat-negative.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000007-map-missing",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-map-missing.dsl",
-      "bytecode": "fuzz-0000000007-map-missing.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrMap.get: missing key"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000007-strlist-1",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-strlist-1.dsl",
-      "bytecode": "fuzz-0000000007-strlist-1.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrList.at: index out of range: -1"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000007-strlist9223372036854775807",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-strlist9223372036854775807.dsl",
-      "bytecode": "fuzz-0000000007-strlist9223372036854775807.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrList.at: index out of range: 9223372036854775807"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000007-strlist-9223372036854775808",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-strlist-9223372036854775808.dsl",
-      "bytecode": "fuzz-0000000007-strlist-9223372036854775808.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrList.at: index out of range: -9223372036854775808"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000007-intlist-1",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-intlist-1.dsl",
-      "bytecode": "fuzz-0000000007-intlist-1.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "IntList.at: index out of range: -1"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000007-intlist9223372036854775807",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-intlist9223372036854775807.dsl",
-      "bytecode": "fuzz-0000000007-intlist9223372036854775807.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "IntList.at: index out of range: 9223372036854775807"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000007-intlist-9223372036854775808",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-intlist-9223372036854775808.dsl",
-      "bytecode": "fuzz-0000000007-intlist-9223372036854775808.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "IntList.at: index out of range: -9223372036854775808"
-        }
-      }
-    },
-    {
       "name": "fuzz-0000000007-floatlist-1",
       "covers": "seeded standard byte/property corpus",
       "schema": "fuzz.schema.json",
@@ -1983,6 +2998,20 @@
         "runtime_error_exact": {
           "code": "RUN_HOST",
           "message": "FloatList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000007-floatlist-9223372036854775808",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000007-floatlist-9223372036854775808.dsl",
+      "bytecode": "fuzz-0000000007-floatlist-9223372036854775808.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "FloatList.at: index out of range: -9223372036854775808"
         }
       }
     },
@@ -2001,16 +3030,128 @@
       }
     },
     {
-      "name": "fuzz-0000000007-floatlist-9223372036854775808",
+      "name": "fuzz-0000000007-intlist-1",
       "covers": "seeded standard byte/property corpus",
       "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000007-floatlist-9223372036854775808.dsl",
-      "bytecode": "fuzz-0000000007-floatlist-9223372036854775808.dslb",
+      "source": "fuzz-0000000007-intlist-1.dsl",
+      "bytecode": "fuzz-0000000007-intlist-1.dslb",
       "mutated": false,
       "expect": {
         "runtime_error_exact": {
           "code": "RUN_HOST",
-          "message": "FloatList.at: index out of range: -9223372036854775808"
+          "message": "IntList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000007-intlist-9223372036854775808",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000007-intlist-9223372036854775808.dsl",
+      "bytecode": "fuzz-0000000007-intlist-9223372036854775808.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.at: index out of range: -9223372036854775808"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000007-intlist9223372036854775807",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000007-intlist9223372036854775807.dsl",
+      "bytecode": "fuzz-0000000007-intlist9223372036854775807.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.at: index out of range: 9223372036854775807"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000007-map-missing",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000007-map-missing.dsl",
+      "bytecode": "fuzz-0000000007-map-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrMap.get: missing key"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000007-repeat-negative",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000007-repeat-negative.dsl",
+      "bytecode": "fuzz-0000000007-repeat-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000007-split-empty",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000007-split-empty.dsl",
+      "bytecode": "fuzz-0000000007-split-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "str_split: separator must not be empty"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000007-strlist-1",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000007-strlist-1.dsl",
+      "bytecode": "fuzz-0000000007-strlist-1.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000007-strlist-9223372036854775808",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000007-strlist-9223372036854775808.dsl",
+      "bytecode": "fuzz-0000000007-strlist-9223372036854775808.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: -9223372036854775808"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000007-strlist9223372036854775807",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000007-strlist9223372036854775807.dsl",
+      "bytecode": "fuzz-0000000007-strlist9223372036854775807.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: 9223372036854775807"
         }
       }
     },
@@ -2650,132 +3791,6 @@
       }
     },
     {
-      "name": "fuzz-0000000042-split-empty",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-split-empty.dsl",
-      "bytecode": "fuzz-0000000042-split-empty.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "str_split: separator must not be empty"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000042-repeat-negative",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-repeat-negative.dsl",
-      "bytecode": "fuzz-0000000042-repeat-negative.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000042-map-missing",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-map-missing.dsl",
-      "bytecode": "fuzz-0000000042-map-missing.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrMap.get: missing key"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000042-strlist-1",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-strlist-1.dsl",
-      "bytecode": "fuzz-0000000042-strlist-1.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrList.at: index out of range: -1"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000042-strlist9223372036854775807",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-strlist9223372036854775807.dsl",
-      "bytecode": "fuzz-0000000042-strlist9223372036854775807.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrList.at: index out of range: 9223372036854775807"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000042-strlist-9223372036854775808",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-strlist-9223372036854775808.dsl",
-      "bytecode": "fuzz-0000000042-strlist-9223372036854775808.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrList.at: index out of range: -9223372036854775808"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000042-intlist-1",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-intlist-1.dsl",
-      "bytecode": "fuzz-0000000042-intlist-1.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "IntList.at: index out of range: -1"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000042-intlist9223372036854775807",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-intlist9223372036854775807.dsl",
-      "bytecode": "fuzz-0000000042-intlist9223372036854775807.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "IntList.at: index out of range: 9223372036854775807"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0000000042-intlist-9223372036854775808",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-intlist-9223372036854775808.dsl",
-      "bytecode": "fuzz-0000000042-intlist-9223372036854775808.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "IntList.at: index out of range: -9223372036854775808"
-        }
-      }
-    },
-    {
       "name": "fuzz-0000000042-floatlist-1",
       "covers": "seeded standard byte/property corpus",
       "schema": "fuzz.schema.json",
@@ -2786,6 +3801,20 @@
         "runtime_error_exact": {
           "code": "RUN_HOST",
           "message": "FloatList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000042-floatlist-9223372036854775808",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000042-floatlist-9223372036854775808.dsl",
+      "bytecode": "fuzz-0000000042-floatlist-9223372036854775808.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "FloatList.at: index out of range: -9223372036854775808"
         }
       }
     },
@@ -2804,16 +3833,128 @@
       }
     },
     {
-      "name": "fuzz-0000000042-floatlist-9223372036854775808",
+      "name": "fuzz-0000000042-intlist-1",
       "covers": "seeded standard byte/property corpus",
       "schema": "fuzz.schema.json",
-      "source": "fuzz-0000000042-floatlist-9223372036854775808.dsl",
-      "bytecode": "fuzz-0000000042-floatlist-9223372036854775808.dslb",
+      "source": "fuzz-0000000042-intlist-1.dsl",
+      "bytecode": "fuzz-0000000042-intlist-1.dslb",
       "mutated": false,
       "expect": {
         "runtime_error_exact": {
           "code": "RUN_HOST",
-          "message": "FloatList.at: index out of range: -9223372036854775808"
+          "message": "IntList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000042-intlist-9223372036854775808",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000042-intlist-9223372036854775808.dsl",
+      "bytecode": "fuzz-0000000042-intlist-9223372036854775808.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.at: index out of range: -9223372036854775808"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000042-intlist9223372036854775807",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000042-intlist9223372036854775807.dsl",
+      "bytecode": "fuzz-0000000042-intlist9223372036854775807.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.at: index out of range: 9223372036854775807"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000042-map-missing",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000042-map-missing.dsl",
+      "bytecode": "fuzz-0000000042-map-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrMap.get: missing key"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000042-repeat-negative",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000042-repeat-negative.dsl",
+      "bytecode": "fuzz-0000000042-repeat-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000042-split-empty",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000042-split-empty.dsl",
+      "bytecode": "fuzz-0000000042-split-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "str_split: separator must not be empty"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000042-strlist-1",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000042-strlist-1.dsl",
+      "bytecode": "fuzz-0000000042-strlist-1.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000042-strlist-9223372036854775808",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000042-strlist-9223372036854775808.dsl",
+      "bytecode": "fuzz-0000000042-strlist-9223372036854775808.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: -9223372036854775808"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0000000042-strlist9223372036854775807",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0000000042-strlist9223372036854775807.dsl",
+      "bytecode": "fuzz-0000000042-strlist9223372036854775807.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: 9223372036854775807"
         }
       }
     },
@@ -3442,132 +4583,6 @@
       }
     },
     {
-      "name": "fuzz-0020261024-split-empty",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-split-empty.dsl",
-      "bytecode": "fuzz-0020261024-split-empty.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "str_split: separator must not be empty"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0020261024-repeat-negative",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-repeat-negative.dsl",
-      "bytecode": "fuzz-0020261024-repeat-negative.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0020261024-map-missing",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-map-missing.dsl",
-      "bytecode": "fuzz-0020261024-map-missing.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrMap.get: missing key"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0020261024-strlist-1",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-strlist-1.dsl",
-      "bytecode": "fuzz-0020261024-strlist-1.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrList.at: index out of range: -1"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0020261024-strlist9223372036854775807",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-strlist9223372036854775807.dsl",
-      "bytecode": "fuzz-0020261024-strlist9223372036854775807.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrList.at: index out of range: 9223372036854775807"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0020261024-strlist-9223372036854775808",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-strlist-9223372036854775808.dsl",
-      "bytecode": "fuzz-0020261024-strlist-9223372036854775808.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrList.at: index out of range: -9223372036854775808"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0020261024-intlist-1",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-intlist-1.dsl",
-      "bytecode": "fuzz-0020261024-intlist-1.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "IntList.at: index out of range: -1"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0020261024-intlist9223372036854775807",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-intlist9223372036854775807.dsl",
-      "bytecode": "fuzz-0020261024-intlist9223372036854775807.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "IntList.at: index out of range: 9223372036854775807"
-        }
-      }
-    },
-    {
-      "name": "fuzz-0020261024-intlist-9223372036854775808",
-      "covers": "seeded standard byte/property corpus",
-      "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-intlist-9223372036854775808.dsl",
-      "bytecode": "fuzz-0020261024-intlist-9223372036854775808.dslb",
-      "mutated": false,
-      "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "IntList.at: index out of range: -9223372036854775808"
-        }
-      }
-    },
-    {
       "name": "fuzz-0020261024-floatlist-1",
       "covers": "seeded standard byte/property corpus",
       "schema": "fuzz.schema.json",
@@ -3578,6 +4593,20 @@
         "runtime_error_exact": {
           "code": "RUN_HOST",
           "message": "FloatList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0020261024-floatlist-9223372036854775808",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0020261024-floatlist-9223372036854775808.dsl",
+      "bytecode": "fuzz-0020261024-floatlist-9223372036854775808.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "FloatList.at: index out of range: -9223372036854775808"
         }
       }
     },
@@ -3596,16 +4625,128 @@
       }
     },
     {
-      "name": "fuzz-0020261024-floatlist-9223372036854775808",
+      "name": "fuzz-0020261024-intlist-1",
       "covers": "seeded standard byte/property corpus",
       "schema": "fuzz.schema.json",
-      "source": "fuzz-0020261024-floatlist-9223372036854775808.dsl",
-      "bytecode": "fuzz-0020261024-floatlist-9223372036854775808.dslb",
+      "source": "fuzz-0020261024-intlist-1.dsl",
+      "bytecode": "fuzz-0020261024-intlist-1.dslb",
       "mutated": false,
       "expect": {
         "runtime_error_exact": {
           "code": "RUN_HOST",
-          "message": "FloatList.at: index out of range: -9223372036854775808"
+          "message": "IntList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0020261024-intlist-9223372036854775808",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0020261024-intlist-9223372036854775808.dsl",
+      "bytecode": "fuzz-0020261024-intlist-9223372036854775808.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.at: index out of range: -9223372036854775808"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0020261024-intlist9223372036854775807",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0020261024-intlist9223372036854775807.dsl",
+      "bytecode": "fuzz-0020261024-intlist9223372036854775807.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "IntList.at: index out of range: 9223372036854775807"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0020261024-map-missing",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0020261024-map-missing.dsl",
+      "bytecode": "fuzz-0020261024-map-missing.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrMap.get: missing key"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0020261024-repeat-negative",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0020261024-repeat-negative.dsl",
+      "bytecode": "fuzz-0020261024-repeat-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0020261024-split-empty",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0020261024-split-empty.dsl",
+      "bytecode": "fuzz-0020261024-split-empty.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "str_split: separator must not be empty"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0020261024-strlist-1",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0020261024-strlist-1.dsl",
+      "bytecode": "fuzz-0020261024-strlist-1.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: -1"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0020261024-strlist-9223372036854775808",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0020261024-strlist-9223372036854775808.dsl",
+      "bytecode": "fuzz-0020261024-strlist-9223372036854775808.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: -9223372036854775808"
+        }
+      }
+    },
+    {
+      "name": "fuzz-0020261024-strlist9223372036854775807",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "fuzz-0020261024-strlist9223372036854775807.dsl",
+      "bytecode": "fuzz-0020261024-strlist9223372036854775807.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "StrList.at: index out of range: 9223372036854775807"
         }
       }
     },
@@ -3646,6 +4787,548 @@
           "int 4194304",
           "hex 3000",
           "hex 3100"
+        ]
+      }
+    },
+    {
+      "name": "is-float",
+      "covers": "str_is_float byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "is-float.dsl",
+      "bytecode": "is-float.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool false",
+          "bool false",
+          "bool false",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "is-int",
+      "covers": "str_is_int byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "is-int.dsl",
+      "bytecode": "is-int.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool false",
+          "bool false",
+          "bool false",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "len",
+      "covers": "str_len byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "len.dsl",
+      "bytecode": "len.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 6",
+          "int 4"
+        ]
+      }
+    },
+    {
+      "name": "lower",
+      "covers": "str_lower byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "lower.dsl",
+      "bytecode": "lower.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 617a2dc3a9",
+          "hex 61ff007a"
+        ]
+      }
+    },
+    {
+      "name": "match",
+      "covers": "str_match byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "match.dsl",
+      "bytecode": "match.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool false",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool false",
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "math-abs",
+      "schema": "math.schema.json",
+      "source": "math-abs.dsl",
+      "bytecode": "math-abs.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 7",
+          "int -9223372036854775808",
+          "float 2.5",
+          "float 0"
+        ]
+      }
+    },
+    {
+      "name": "math-ceil",
+      "schema": "math.schema.json",
+      "source": "math-ceil.dsl",
+      "bytecode": "math-ceil.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 9223372036854775807",
+          "float -1",
+          "float 2",
+          "float -0"
+        ]
+      }
+    },
+    {
+      "name": "math-floor",
+      "schema": "math.schema.json",
+      "source": "math-floor.dsl",
+      "bytecode": "math-floor.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int -9223372036854775808",
+          "float -2",
+          "float 1",
+          "float -0"
+        ]
+      }
+    },
+    {
+      "name": "math-max",
+      "schema": "math.schema.json",
+      "source": "math-max.dsl",
+      "bytecode": "math-max.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 3",
+          "float 2.5",
+          "float -0",
+          "float 0"
+        ]
+      }
+    },
+    {
+      "name": "math-min",
+      "schema": "math.schema.json",
+      "source": "math-min.dsl",
+      "bytecode": "math-min.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int -7",
+          "float -3.5",
+          "float -0",
+          "float 0"
+        ]
+      }
+    },
+    {
+      "name": "math-nan",
+      "schema": "math.schema.json",
+      "source": "math-nan.dsl",
+      "bytecode": "math-nan.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "bool true",
+          "float 1",
+          "float 1",
+          "float 1",
+          "float inf"
+        ]
+      }
+    },
+    {
+      "name": "math-pow",
+      "schema": "math.schema.json",
+      "source": "math-pow.dsl",
+      "bytecode": "math-pow.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 1",
+          "int -9223372036854775808",
+          "int 0",
+          "int -8",
+          "float 8",
+          "float -0",
+          "float -inf"
+        ]
+      }
+    },
+    {
+      "name": "math-pow-negative",
+      "schema": "math.schema.json",
+      "source": "math-pow-negative.dsl",
+      "bytecode": "math-pow-negative.dslb",
+      "mutated": false,
+      "covers": "invalid integer math domain reports located host error",
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 7,
+          "message": "math_pow: integer exponent must be nonnegative"
+        }
+      }
+    },
+    {
+      "name": "math-round",
+      "schema": "math.schema.json",
+      "source": "math-round.dsl",
+      "bytecode": "math-round.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 9223372036854775807",
+          "float -1",
+          "float 1",
+          "float -0",
+          "float 4.5035996273705e+15"
+        ]
+      }
+    },
+    {
+      "name": "math-sqrt",
+      "schema": "math.schema.json",
+      "source": "math-sqrt.dsl",
+      "bytecode": "math-sqrt.dslb",
+      "mutated": false,
+      "covers": "math catalog integer/float overloads and edge semantics",
+      "expect": {
+        "trace": [
+          "int 0",
+          "int 4",
+          "int 3037000499",
+          "int 3037000498",
+          "float 2",
+          "~ float 1.4142135623730951",
+          "float -0"
+        ]
+      }
+    },
+    {
+      "name": "math-sqrt-negative",
+      "schema": "math.schema.json",
+      "source": "math-sqrt-negative.dsl",
+      "bytecode": "math-sqrt-negative.dslb",
+      "mutated": false,
+      "covers": "invalid integer math domain reports located host error",
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 7,
+          "message": "math_sqrt: integer argument must be nonnegative"
+        }
+      }
+    },
+    {
+      "name": "repeat",
+      "covers": "str_repeat byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "repeat.dsl",
+      "bytecode": "repeat.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex ff00ff00",
+          "int 0",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "repeat-limit",
+      "covers": "catalog resource policy reports host failure",
+      "schema": "schema.json",
+      "source": "repeat-limit.dsl",
+      "bytecode": "repeat-limit.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 7,
+          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+        }
+      }
+    },
+    {
+      "name": "repeat-negative",
+      "covers": "catalog resource policy reports host failure",
+      "schema": "schema.json",
+      "source": "repeat-negative.dsl",
+      "bytecode": "repeat-negative.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 7,
+          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+        }
+      }
+    },
+    {
+      "name": "replace",
+      "covers": "str_replace byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "replace.dsl",
+      "bytecode": "replace.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 626261",
+          "hex 6162",
+          "hex c3a900c3a9"
+        ]
+      }
+    },
+    {
+      "name": "starts-with",
+      "covers": "str_starts_with byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "starts-with.dsl",
+      "bytecode": "starts-with.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true",
+          "bool true",
+          "bool false"
+        ]
+      }
+    },
+    {
+      "name": "substr",
+      "covers": "str_substr byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "substr.dsl",
+      "bytecode": "substr.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex a9",
+          "hex 616263",
+          "int 0",
+          "int 0",
+          "hex ff00"
+        ]
+      }
+    },
+    {
+      "name": "testing-close",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close.dsl",
+      "bytecode": "testing-close.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool true"
+        ]
+      }
+    },
+    {
+      "name": "testing-close-expected-nan",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-expected-nan.dsl",
+      "bytecode": "testing-close-expected-nan.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: 1 vs nan (tol 0.1)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-fail",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-fail.dsl",
+      "bytecode": "testing-close-fail.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: 1 vs 2 (tol 0.5)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-infinity",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-infinity.dsl",
+      "bytecode": "testing-close-infinity.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: inf vs inf (tol 0)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-nan",
+      "covers": "negative NaN assertion diagnostics use canonical nan text",
+      "schema": "collections.schema.json",
+      "source": "testing-close-nan.dsl",
+      "bytecode": "testing-close-nan.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: nan vs 1 (tol 0.1)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-negative-tolerance",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-negative-tolerance.dsl",
+      "bytecode": "testing-close-negative-tolerance.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: 1 vs 1 (tol -1)"
+        }
+      }
+    },
+    {
+      "name": "testing-close-tolerance-nan",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-close-tolerance-nan.dsl",
+      "bytecode": "testing-close-tolerance-nan.dslb",
+      "mutated": false,
+      "expect": {
+        "runtime_error_exact": {
+          "code": "RUN_HOST",
+          "message": "assert_close failed: 1 vs 1 (tol nan)"
+        }
+      }
+    },
+    {
+      "name": "testing-print",
+      "covers": "testing sink and numeric assertion",
+      "schema": "collections.schema.json",
+      "source": "testing-print.dsl",
+      "bytecode": "testing-print.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex ff00610a0ac3a90a"
+        ]
+      }
+    },
+    {
+      "name": "to-float",
+      "covers": "str_to_float byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "to-float.dsl",
+      "bytecode": "to-float.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "float 125",
+          "float -0",
+          "float 0",
+          "float 0",
+          "float 0"
+        ]
+      }
+    },
+    {
+      "name": "to-int",
+      "covers": "str_to_int byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "to-int.dsl",
+      "bytecode": "to-int.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 42",
+          "int -9223372036854775808",
+          "int 0",
+          "int 0",
+          "int 0"
+        ]
+      }
+    },
+    {
+      "name": "trim",
+      "covers": "str_trim byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "trim.dsl",
+      "bytecode": "trim.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 61",
+          "hex 6100",
+          "hex c3a9"
+        ]
+      }
+    },
+    {
+      "name": "upper",
+      "covers": "str_upper byte semantics and edge cases",
+      "schema": "schema.json",
+      "source": "upper.dsl",
+      "bytecode": "upper.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 415a2dc3a9",
+          "hex 41ff005a"
         ]
       }
     }
