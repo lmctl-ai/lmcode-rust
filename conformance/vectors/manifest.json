@@ -1,11 +1,12 @@
 {
-  "format": "dsl-conformance/2",
-  "bytecode_version": 5,
+  "format": "dsl-conformance/3",
+  "bytecode_version": 6,
   "generated_by": "lmscript dsl.ts (scripts/generate-dsl-conformance.ts)",
   "schema": "schema.json",
   "host": {
-    "description": "Context t (Trace) records one line per call: 'int N', 'float %.15g', 'str S', 'bool true|false', 'thing ID'. Context root is Thing id 0. Context xs is IntList [0, 1, 2, 3] with len() and at(int), neither recording a trace. bound(i) records bound N and returns i; thing(i) -> Thing id i; Thing.id() -> id; Thing.next() -> Thing id+1; Thing.name() -> 'thing-' + id; Thing.scaled(f) -> id * f. twice(i) -> 2*i; half(f) -> f/2; yes() -> true and records the line 'yes'; fail(s) throws a run-time error whose message contains s. Output 'float' uses C's %.15g (inf, -0 as printed by C). S2: Trace.int(float) records float using the same formatting. Trace.status() returns string OPTIMAL typed Status, without a trace. twice(float) doubles its float with no trace. Context v is Var id 0. var(int) records var N and creates Var N; Var.id returns its id, Var.expr records expr N and returns a new Thing N. thing(int) does not record a trace. Thing.plus(Thing), minus(Thing), times(int), neg(), rminus(int) return new Things with sum, difference, product, negation, or argument minus receiver id, respectively (wrapping i64). Thing.len() records len N and returns its id N as a collection length. Thing.at(int) records at I and returns a new Thing I. Thing.set(int) changes its id and returns the receiver, with concrete canonical return type Thing for schema self. bad_int() is declared int but deliberately returns string x to test defensive VM type errors.",
-    "expect": "trace: the recorded lines in order, after a successful run. A line prefixed ~ compares the last numeric token with relative tolerance 1e-12 (floor scale 1e-300), exact prefix; both values must be finite. This applies only to sin/cos/pow, assuming the platform binary64 libm meets that tolerance (no universal correct-rounding guarantee). Other traces compare exactly; native unit tests also compare exact binary64 results and signed zero. runtime_error: run() throws and the message contains the substring. runtime_error_at: run() throws with exact code, line and column plus a message substring; .expect payload lines are CODE, LINE, COLUMN, MESSAGE. Zero line/column means unavailable; a positive line with zero column is line-only. load_error: load() throws (nothing runs) and the message contains the substring."
+    "description": "Context t (Trace) records lines: int/float/str/bool/thing. Context root is Thing id 0 and xs is IntList [0,1,2,3]. Host functions and methods follow their schema names and preserve the existing trace semantics. Rule entries are called by name after load; primitive args are JSON scalar values and object args are {type:Thing,id:N}, stored into parameter slots 0..n-1. Entry calls return one typed value or void.",
+    "entry_call": "entries expect NAME ANNOTATION INTERFACE; every call runs the body once first, then selects the named entry. call expects line 2 ENTRY ARGS-JSON, args are stored in parameter slots 0..n-1, line 3 result int N|float X|string S|bool true|false|thing ID|void (an enum result is its constant name as string S; an object result is thing ID), then trace lines; call_error expects line 2 ENTRY ARGS-JSON, line 3 CODE, line 4 MESSAGE; call_error_at expects line 2 ENTRY ARGS-JSON, line 3 CODE, line 4 LINE, line 5 COLUMN, line 6 MESSAGE. Interface text is canonical `interface I(T1, ...) -> R` (parameter names are not on the wire). Loader rules per entry (LOAD_BAD_BYTECODE, message substrings pinned by the load-entry-* vectors): nparams equals the interface parameter count (`entry 'NAME' declares N parameter(s); interface I(...) -> R has M`), parameter local i has the interface's type i (`entry 'NAME' parameter I has type T; the interface expects U`), no parameter local is hidden (`entry 'NAME' parameter I is hidden`), and HALT depth is 0 for void or 1 otherwise (`entry 'NAME': HALT leaves N values`). call arity: RUN_HOST `call entry 'NAME' expects N argument(s); found M`. call needs no prior run(); it returns the single HALT value (none for void).",
+    "expect": "trace: the recorded lines in order, after a successful run. entries: one canonical entry line per rule in source order. call: line 2 selects an entry and JSON args, line 3 is the result, remaining lines are trace. call_error: calling with the wrong arity fails before execution. call_error_at: an entry runtime error carries exact code, line and column plus a message substring. runtime_error/runtime_error_at cover body execution. load_error: load() throws (nothing runs) and the message contains the substring."
   },
   "vectors": [
     {
@@ -46,7 +47,7 @@
     },
     {
       "name": "overloads-enum",
-      "covers": "Exact overload selection and enum constants",
+      "covers": "S2 exact overload selection and enum constants",
       "schema": "schema.json",
       "bytecode": "overloads-enum.dslb",
       "source": "overloads-enum.dsl",
@@ -64,7 +65,7 @@
     },
     {
       "name": "operators-conversions",
-      "covers": "Object operators, reversed forms, receiver and argument conversions",
+      "covers": "S2 object operators, reversed forms, receiver and argument conversions",
       "schema": "schema.json",
       "bytecode": "operators-conversions.dslb",
       "source": "operators-conversions.dsl",
@@ -143,7 +144,7 @@
     },
     {
       "name": "math-value-edges",
-      "covers": "Numeric edge cases: saturating int, wrapping abs, reversed clamp, NaN propagation, signed zero",
+      "covers": "R34 no new errors: saturating int, wrapping abs, reversed clamp, NaN propagation, signed zero",
       "schema": "schema.json",
       "bytecode": "math-value-edges.dslb",
       "source": "math-value-edges.dsl",
@@ -392,7 +393,7 @@
     },
     {
       "name": "runtime-host-error-at",
-      "covers": "Host error location inside a nested while loop",
+      "covers": "S5 located host error inside a nested while loop",
       "schema": "schema.json",
       "bytecode": "runtime-host-error-at.dslb",
       "source": "runtime-host-error-at.dsl",
@@ -408,7 +409,7 @@
     },
     {
       "name": "runtime-div-zero-at",
-      "covers": "Integer division error location after argument evaluation",
+      "covers": "S5 located integer division error after argument evaluation",
       "schema": "schema.json",
       "bytecode": "runtime-div-zero-at.dslb",
       "source": "runtime-div-zero-at.dsl",
@@ -424,7 +425,7 @@
     },
     {
       "name": "runtime-mod-zero-at",
-      "covers": "Integer remainder error location",
+      "covers": "S5 located integer remainder error",
       "schema": "schema.json",
       "bytecode": "runtime-mod-zero-at.dslb",
       "source": "runtime-mod-zero-at.dsl",
@@ -440,7 +441,7 @@
     },
     {
       "name": "runtime-inline-error-at",
-      "covers": "Error location in an inlined callee",
+      "covers": "S5 located error in an inlined callee",
       "schema": "schema.json",
       "bytecode": "runtime-inline-error-at.dslb",
       "source": "runtime-inline-error-at.dsl",
@@ -456,7 +457,7 @@
     },
     {
       "name": "runtime-after-inline-error-at",
-      "covers": "Caller location after a multiline host call with an inlined argument",
+      "covers": "S5 caller location after a multiline host call with an inlined argument",
       "schema": "schema.json",
       "bytecode": "runtime-after-inline-error-at.dslb",
       "source": "runtime-after-inline-error-at.dsl",
@@ -472,7 +473,7 @@
     },
     {
       "name": "runtime-empty-lines-fallback",
-      "covers": "Empty line table leaves runtime location unavailable",
+      "covers": "S5 empty line table leaves runtime location unavailable",
       "schema": "schema.json",
       "bytecode": "runtime-empty-lines-fallback.dslb",
       "source": "runtime-empty-lines-fallback.dsl",
@@ -488,7 +489,7 @@
     },
     {
       "name": "runtime-long-column-fallback",
-      "covers": "Columns beyond u16 encode as zero while preserving line",
+      "covers": "S5 columns beyond u16 encode as zero while preserving line",
       "schema": "schema.json",
       "bytecode": "runtime-long-column-fallback.dslb",
       "source": "runtime-long-column-fallback.dsl",
@@ -504,7 +505,7 @@
     },
     {
       "name": "int64-wraparound",
-      "covers": "PUSH_INT i64, two's complement wraparound of ADD_I SUB_I MUL_I DIV_I MOD_I NEG_I (no overflow trap), I2S of 64-bit values",
+      "covers": "PUSH_INT i64, two's complement wraparound of ADD_I SUB_I MUL_I DIV_I MOD_I NEG_I (R34: no overflow trap), I2S of 64-bit values",
       "schema": "schema.json",
       "bytecode": "int64-wraparound.dslb",
       "source": "int64-wraparound.dsl",
@@ -730,13 +731,13 @@
     },
     {
       "name": "load-other-version",
-      "covers": "loader: old v4 version refused; no backward compatibility",
+      "covers": "loader: old v5 version refused; v6 is the only runtime version",
       "schema": "schema.json",
       "bytecode": "load-other-version.dslb",
       "source": "load-other-version.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "unsupported bytecode version 4"
+        "load_error": "unsupported bytecode version 5"
       }
     },
     {
@@ -828,19 +829,340 @@
       }
     },
     {
-      "name": "runtime-type-error",
-      "covers": "VM arithmetic type error code differs from host callback errors",
-      "schema": "type-error.schema.json",
-      "bytecode": "runtime-type-error.dslb",
-      "source": "runtime-type-error.dsl",
+      "name": "entries-order",
+      "covers": "v6 entries source order and plain helpers absent",
+      "schema": "schema.json",
+      "bytecode": "entries-order.dslb",
+      "source": "entries-order.dsl",
       "mutated": false,
       "expect": {
-        "runtime_error_at": {
-          "code": "RUN_ERROR",
-          "line": 2,
-          "column": 17,
-          "message": "int operator applied to string and int"
+        "entries": [
+          "first pair interface Step(int) -> int",
+          "second pair interface Step(int) -> int",
+          "third string interface Flag() -> bool"
+        ]
+      }
+    },
+    {
+      "name": "call-value",
+      "covers": "v6 value entry args occupy parameter slots",
+      "schema": "schema.json",
+      "bytecode": "call-value.dslb",
+      "source": "call-value.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "increment",
+          "args": [
+            41
+          ],
+          "result": "int 42"
         }
+      }
+    },
+    {
+      "name": "call-trace",
+      "covers": "v6 void entry accepts a Thing handle",
+      "schema": "schema.json",
+      "bytecode": "call-trace.dslb",
+      "source": "call-trace.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "visit",
+          "args": [
+            {
+              "type": "Thing",
+              "id": 2
+            }
+          ],
+          "result": "void",
+          "trace": [
+            "int 2",
+            "str thing-2"
+          ]
+        }
+      }
+    },
+    {
+      "name": "call-helper-inlined",
+      "covers": "v6 helper inlining does not create an entry",
+      "schema": "schema.json",
+      "bytecode": "call-helper-inlined.dslb",
+      "source": "call-helper-inlined.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "increment",
+          "args": [
+            1
+          ],
+          "result": "int 3",
+          "trace": []
+        }
+      }
+    },
+    {
+      "name": "call-loop",
+      "covers": "v6 entry owns loop code and locals",
+      "schema": "schema.json",
+      "bytecode": "call-loop.dslb",
+      "source": "call-loop.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "visit",
+          "args": [
+            {
+              "type": "Thing",
+              "id": 0
+            }
+          ],
+          "result": "void",
+          "trace": [
+            "int 0",
+            "int 1",
+            "int 2"
+          ]
+        }
+      }
+    },
+    {
+      "name": "call-body-too",
+      "covers": "v6 rule can also be called inline from body",
+      "schema": "schema.json",
+      "bytecode": "call-body-too.dslb",
+      "source": "call-body-too.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "increment",
+          "args": [
+            4
+          ],
+          "result": "int 5",
+          "trace": [
+            "int 5"
+          ]
+        }
+      }
+    },
+    {
+      "name": "call-error-at",
+      "covers": "v6 entry errors preserve source locations",
+      "schema": "schema.json",
+      "bytecode": "call-error-at.dslb",
+      "source": "call-error-at.dsl",
+      "mutated": false,
+      "expect": {
+        "call_error_at": {
+          "entry": "fail_rule",
+          "args": [
+            {
+              "type": "Thing",
+              "id": 0
+            }
+          ],
+          "code": "RUN_HOST",
+          "line": 3,
+          "column": 3,
+          "message": "entry fault"
+        }
+      }
+    },
+    {
+      "name": "call-arity",
+      "covers": "v6 host arity errors name the entry",
+      "schema": "schema.json",
+      "bytecode": "call-arity.dslb",
+      "source": "call-arity.dsl",
+      "mutated": false,
+      "expect": {
+        "call_error": {
+          "entry": "increment",
+          "args": [],
+          "code": "RUN_HOST",
+          "message": "call entry 'increment' expects 1 argument"
+        }
+      }
+    },
+    {
+      "name": "entries-empty",
+      "covers": "v6 files without rules carry an empty entry table",
+      "schema": "schema.json",
+      "bytecode": "entries-empty.dslb",
+      "source": "entries-empty.dsl",
+      "mutated": false,
+      "expect": {
+        "entries": []
+      }
+    },
+    {
+      "name": "load-entry-jump-out",
+      "covers": "entry verifier rejects a jump outside its region",
+      "schema": "schema.json",
+      "bytecode": "load-entry-jump-out.dslb",
+      "source": "load-entry-jump-out.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "jump"
+      }
+    },
+    {
+      "name": "load-entry-halt-depth",
+      "covers": "entry verifier rejects a value HALT with the wrong stack depth",
+      "schema": "schema.json",
+      "bytecode": "load-entry-halt-depth.dslb",
+      "source": "load-entry-halt-depth.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "HALT leaves 0 values"
+      }
+    },
+    {
+      "name": "call-body-trace",
+      "covers": "v6 every call runs the body first: its trace precedes the entry result",
+      "schema": "schema.json",
+      "bytecode": "call-body-trace.dslb",
+      "source": "call-body-trace.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "increment",
+          "args": [
+            4
+          ],
+          "result": "int 5",
+          "trace": [
+            "int 9"
+          ]
+        }
+      }
+    },
+    {
+      "name": "call-multi-param",
+      "covers": "v6 int, float, string and bool arguments in parameter slots; string result",
+      "schema": "schema.json",
+      "bytecode": "call-multi-param.dslb",
+      "source": "call-multi-param.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "mix",
+          "args": [
+            7,
+            2.5,
+            "a",
+            true
+          ],
+          "result": "string a72.5true"
+        }
+      }
+    },
+    {
+      "name": "call-enum-return",
+      "covers": "v6 enum result is its constant name as a string",
+      "schema": "schema.json",
+      "bytecode": "call-enum-return.dslb",
+      "source": "call-enum-return.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "state",
+          "args": [],
+          "result": "string OPTIMAL"
+        }
+      }
+    },
+    {
+      "name": "call-object-return",
+      "covers": "v6 object result: the host receives the handle (result thing ID)",
+      "schema": "schema.json",
+      "bytecode": "call-object-return.dslb",
+      "source": "call-object-return.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "pick",
+          "args": [
+            {
+              "type": "Thing",
+              "id": 2
+            }
+          ],
+          "result": "thing 3"
+        }
+      }
+    },
+    {
+      "name": "call-switch-foreach",
+      "covers": "v6 foreach over a context collection and switch inside an entry; hidden slots after the parameter",
+      "schema": "schema.json",
+      "bytecode": "call-switch-foreach.dslb",
+      "source": "call-switch-foreach.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "flow",
+          "args": [
+            1
+          ],
+          "result": "int 106"
+        }
+      }
+    },
+    {
+      "name": "call-rule-calls-rule",
+      "covers": "v6 a rule calling another rule inlines it; both stay entries",
+      "schema": "schema.json",
+      "bytecode": "call-rule-calls-rule.dslb",
+      "source": "call-rule-calls-rule.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "outer",
+          "args": [
+            3
+          ],
+          "result": "int 13",
+          "trace": [
+            "int 3",
+            "int 6"
+          ]
+        }
+      }
+    },
+    {
+      "name": "load-entry-params-mismatch",
+      "covers": "loader: entry nparams must equal the interface's parameter count",
+      "schema": "schema.json",
+      "bytecode": "load-entry-params-mismatch.dslb",
+      "source": "load-entry-params-mismatch.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "entry 'increment' declares 0 parameter"
+      }
+    },
+    {
+      "name": "load-entry-hidden-param",
+      "covers": "loader: a parameter local must not carry the hidden flag",
+      "schema": "schema.json",
+      "bytecode": "load-entry-hidden-param.dslb",
+      "source": "load-entry-hidden-param.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "entry 'increment' parameter 1 is hidden"
+      }
+    },
+    {
+      "name": "load-entry-param-type",
+      "covers": "loader: parameter local types must equal the interface's parameter types",
+      "schema": "schema.json",
+      "bytecode": "load-entry-param-type.dslb",
+      "source": "load-entry-param-type.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "entry 'increment' parameter 1 has type step"
       }
     }
   ]

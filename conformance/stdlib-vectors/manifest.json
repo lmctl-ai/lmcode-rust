@@ -1,6 +1,6 @@
 {
   "format": "dsl-conformance/2",
-  "bytecode_version": 5,
+  "bytecode_version": 6,
   "generated_by": "lmscript (one wrapper line preceding NAME.dsl)",
   "schema": "schema.json",
   "host": {

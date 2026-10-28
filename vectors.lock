@@ -1,3 +1,5 @@
-repo=https://github.com/lmctl-ai/lmcode-cpp
-commit=38bbd918b7fde81db15d1d7427955cc5465d6f35
-sha256=6a6a95d6266241f5d7f180cc832f940fc073f160ab637c13a60e0e45af3a6806
+repo=https://github.com/lmctlhq/lmctl-mono
+commit=0e621804
+sha256=8730810f75e6f82f3582d5f7931cf850d22e70231e059a719ad9cff67d4a7665
+generator=lmscript/scripts/generate-dsl-conformance.ts
+fix=runtime-empty-lines-fallback retains v6 entries tail (WP7 generator defect)

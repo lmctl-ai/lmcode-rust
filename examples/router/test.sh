@@ -67,8 +67,8 @@ else
 fi
 (cd "$HERE" && HOME="$WORK/home" "$LMSCRIPT" dsl/build_router.lms "$WORK/router.dslb" >"$WORK/compile.out" 2>&1) || { cat "$WORK/compile.out"; fail "lmscript compiles dsl/build_router.lms"; }
 [ "$(head -c 4 "$WORK/router.dslb")" = "DSLB" ] || fail "magic"
-[ "$(od -An -tu1 -j4 -N2 "$WORK/router.dslb" | xargs)" = "0 5" ] || fail "bytecode version 5 (use a v5 compiler)"
-ok "lmscript $HAVE_LMSCRIPT compiles the router to $(wc -c <"$WORK/router.dslb") bytes (bytecode v5)"
+[ "$(od -An -tu1 -j4 -N2 "$WORK/router.dslb" | xargs)" = "0 6" ] || fail "bytecode version 6 (use a v6 compiler)"
+ok "lmscript $HAVE_LMSCRIPT compiles the router to $(wc -c <"$WORK/router.dslb") bytes (bytecode v6)"
 
 # 3. Serve it on the Rust runtime.
 start_server() { # $1 binary; sets PORT and SERVER_PID

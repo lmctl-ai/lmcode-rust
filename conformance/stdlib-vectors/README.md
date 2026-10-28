@@ -11,7 +11,7 @@ The host contract is in the manifest: `bytes(hex)` supplies arbitrary bytes and
 newline ambiguities. Invalid UTF-8, embedded NUL, and partial UTF-8 slices must
 remain bytes in every SDK. The helper does not decode or normalize text.
 
-Recompile using a matching version-5 compiler from the repository root:
+Recompile using a matching version-6 compiler from the repository root:
 
 ```sh
 python3 conformance/compile-vectors.py conformance/stdlib-vectors
@@ -21,7 +21,7 @@ make conformance
 Set `LMSCRIPT_BIN` to choose the compiler and `TMPDIR` to choose scratch storage.
 The wrapper places one line before the source body; source-located errors thus
 refer to body line plus one. Expectations are never regenerated from VM output.
-The catalog suite is separate from the 51 core runtime vectors so SDKs can
+The catalog suite is separate from the 61 core runtime vectors so SDKs can
 adopt functions independently without silently skipping the core contract.
 
 ## File catalog

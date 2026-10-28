@@ -61,6 +61,7 @@ mod tests {
         file.extend_from_slice(&(code.len() as u32).to_be_bytes());
         file.extend_from_slice(&code);
         file.extend_from_slice(&0u32.to_be_bytes()); // line table
+        file.extend_from_slice(&0u16.to_be_bytes()); // v6 entry table
         let registry = Registry::new();
         Program::load(&file, b"", &registry).unwrap().run(&mut Context::new(), &registry).unwrap();
         assert_eq!(count_ops(&file), 5);

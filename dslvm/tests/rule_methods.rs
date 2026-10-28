@@ -5,8 +5,8 @@ const SCHEMA: &[u8] = include_bytes!("fixtures/rule-methods/schema.json");
 const BYTECODE: &[u8] = include_bytes!("fixtures/rule-methods/program.dslb");
 
 #[test]
-fn annotated_sam_rule_runs_as_inlined_v5_code() {
-    assert_eq!(&BYTECODE[..6], b"DSLB\0\x05");
+fn annotated_sam_rule_runs_as_inlined_v6_code() {
+    assert_eq!(&BYTECODE[..6], b"DSLB\0\x06");
     let captured = Rc::new(RefCell::new(Vec::new()));
     let sink = Rc::clone(&captured);
     let mut registry = Registry::without_std();

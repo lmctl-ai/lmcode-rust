@@ -73,6 +73,115 @@ fn stub_registry_mode(std_catalog: bool) -> Registry {
 #[derive(Debug, PartialEq)]
 pub enum Outcome { Trace(Vec<String>), RuntimeError(Error), LoadError(String) }
 
+#[derive(Debug, Clone)]
+enum JsonArg {
+    Int(i64),
+    Float(f64),
+    String(String),
+    Bool(bool),
+    Thing(i64),
+}
+
+fn parse_arg_json(text: &str) -> Result<Vec<JsonArg>, String> {
+    let text = text.trim();
+    if !text.starts_with('[') || !text.ends_with(']') {
+        return Err("arguments must be a JSON array".into());
+    }
+    let inner = &text[1..text.len() - 1];
+    if inner.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut parts = Vec::new();
+    let mut start = 0;
+    let mut depth = 0;
+    let mut quoted = false;
+    let mut escaped = false;
+    for (i, c) in inner.char_indices() {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                quoted = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => quoted = true,
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(inner[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(inner[start..].trim());
+    parts.into_iter().map(parse_one_arg).collect()
+}
+
+fn parse_one_arg(text: &str) -> Result<JsonArg, String> {
+    if text == "true" {
+        return Ok(JsonArg::Bool(true));
+    }
+    if text == "false" {
+        return Ok(JsonArg::Bool(false));
+    }
+    if text.starts_with('"') && text.ends_with('"') {
+        return Ok(JsonArg::String(
+            text[1..text.len() - 1]
+                .replace("\\\"", "\"")
+                .replace("\\n", "\n"),
+        ));
+    }
+    if text.starts_with('{') {
+        let compact: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+        let marker = "\"id\":";
+        let id = compact
+            .find(marker)
+            .and_then(|p| {
+                compact[p + marker.len()..]
+                    .trim_end_matches('}')
+                    .parse()
+                    .ok()
+            })
+            .ok_or_else(|| "object argument needs integer id".to_string())?;
+        return Ok(JsonArg::Thing(id));
+    }
+    if text.contains('.') {
+        return text
+            .parse::<f64>()
+            .map(JsonArg::Float)
+            .map_err(|e| e.to_string());
+    }
+    text.parse::<i64>()
+        .map(JsonArg::Int)
+        .map_err(|e| e.to_string())
+}
+
+fn arg_value(arg: JsonArg, ty: &str, ctx: &mut Context) -> Result<Value, Error> {
+    match (arg, ty) {
+        (JsonArg::Int(v), "int") => Ok(Value::Int(v)),
+        (JsonArg::Float(v), "float") => Ok(Value::Float(v)),
+        (JsonArg::String(v), "string") => Ok(Value::string(v)),
+        (JsonArg::Bool(v), "bool") => Ok(Value::Bool(v)),
+        (JsonArg::Thing(id), "Thing") => {
+            let slot = ctx.insert("Thing", Thing { id });
+            Ok(Value::object("Thing", slot))
+        }
+        (JsonArg::String(v), _) => Ok(Value::Str(v.into())),
+        (JsonArg::Int(v), _) => Ok(Value::Int(v)),
+        (JsonArg::Float(v), _) => Ok(Value::Float(v)),
+        (JsonArg::Bool(v), _) => Ok(Value::Bool(v)),
+        (JsonArg::Thing(id), _) => {
+            let slot = ctx.insert("Thing", Thing { id });
+            Ok(Value::object("Thing", slot))
+        }
+    }
+}
+
 fn catalog_registry(schema: &[u8], temp_dir: Option<String>) -> (Registry, Rc<RefCell<Vec<u8>>>) {
     let std_catalog = [b"\"str_len\"".as_slice(), b"\"math_abs\"", b"\"str_list\"", b"\"print\""].iter().any(|needle| schema.windows(needle.len()).any(|w| w == *needle));
     let mut reg = stub_registry_mode(std_catalog);
@@ -118,6 +227,83 @@ pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome {
     outcome
 }
 
+enum EntryOutcome {
+    Success { result: String, trace: Vec<String> },
+    Error(Error),
+    Load(String),
+}
+
+fn value_text(value: &Value, ctx: &Context) -> String {
+    match value {
+        Value::Int(v) => format!("int {}", v),
+        Value::Float(v) => format!("float {}", format_g15(*v)),
+        Value::Str(v) => format!("string {}", v),
+        Value::Bool(v) => format!("bool {}", v),
+        Value::None => "void".into(),
+        Value::Obj { obj, .. } => ctx
+            .get::<Thing>(*obj)
+            .map(|t| format!("thing {}", t.id))
+            .unwrap_or_else(|_| "thing ?".into()),
+    }
+}
+
+fn run_entry_vector(
+    bytecode: &[u8],
+    schema: &[u8],
+    entry_name: &str,
+    args_json: &str,
+) -> EntryOutcome {
+    let reg = stub_registry_mode(false);
+    let program = match Program::load(bytecode, schema, &reg) {
+        Ok(p) => p,
+        Err(e) => return EntryOutcome::Load(e.message),
+    };
+    let entry_index = match program.entries().iter().position(|e| e.name == entry_name) {
+        Some(i) => i,
+        None => {
+            return EntryOutcome::Error(Error::host(format!(
+                "entry '{}' is not present",
+                entry_name
+            )))
+        }
+    };
+    let entry = &program.entries()[entry_index];
+    let raw = match parse_arg_json(args_json) {
+        Ok(v) => v,
+        Err(e) => return EntryOutcome::Error(Error::host(e)),
+    };
+    let mut ctx = Context::new();
+    let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
+    ctx.set_object("root", "Thing", Thing { id: 0 });
+    ctx.set_object("v", "Var", Thing { id: 0 });
+    ctx.set_object(
+        "xs",
+        "IntList",
+        IntList {
+            values: vec![0, 1, 2, 3],
+        },
+    );
+    if let Err(e) = program.run(&mut ctx, &reg) {
+        return EntryOutcome::Error(e);
+    }
+    let args = raw
+        .into_iter()
+        .enumerate()
+        .map(|(i, arg)| arg_value(arg, entry.params.get(i).map(String::as_str).unwrap_or(""), &mut ctx))
+        .collect::<Result<Vec<_>, _>>();
+    let args = match args {
+        Ok(v) => v,
+        Err(e) => return EntryOutcome::Error(e),
+    };
+    match program.call(entry_index, &mut ctx, &reg, args) {
+        Ok(result) => EntryOutcome::Success {
+            result: value_text(&result, &ctx),
+            trace: ctx.take::<Trace>(t).map(|v| v.0).unwrap_or_default(),
+        },
+        Err(e) => EntryOutcome::Error(e),
+    }
+}
+
 pub struct Expect { pub kind: String, pub lines: Vec<String> }
 pub fn read_expect(path: &Path) -> Expect {
     let text = std::fs::read_to_string(path).expect("expect file");
@@ -161,33 +347,108 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
     let expect = read_expect(&dir.join(format!("{}.expect", name)));
     let bytecode = std::fs::read(dir.join(format!("{}.dslb", name))).map_err(|e| e.to_string())?;
     let schema = std::fs::read(schema_for(dir, name)).map_err(|e| e.to_string())?;
-    let outcome = run_vector(&bytecode, &schema);
+    let outcome = if expect.kind == "entries" {
+        Outcome::Trace(Vec::new())
+    } else if expect.kind == "call"
+        || expect.kind == "call_error"
+        || expect.kind == "call_error_at"
+    {
+        let first = expect.lines.first().cloned().unwrap_or_default();
+        let mut split = first.splitn(2, ' ');
+        let entry = split.next().unwrap_or("");
+        let args = split.next().unwrap_or("[]");
+        match run_entry_vector(&bytecode, &schema, entry, args) {
+            EntryOutcome::Success { result, trace } => Outcome::Trace({
+                let mut lines = vec![format!("result {}", result)];
+                lines.extend(trace);
+                lines
+            }),
+            EntryOutcome::Error(e) => Outcome::RuntimeError(e),
+            EntryOutcome::Load(m) => Outcome::LoadError(m),
+        }
+    } else {
+        run_vector(&bytecode, &schema)
+    };
     if std::env::var_os("LMCODE_TRACE").is_some() {
         match &outcome {
-            Outcome::Trace(lines) => for line in lines { println!("TRACE\t{}\t{}", name, line); },
-            Outcome::RuntimeError(error) => println!("ERROR\t{}\t{}\t{}", name, error.code, bare_error(error)),
+            Outcome::Trace(lines) => {
+                for line in lines {
+                    println!("TRACE\t{}\t{}", name, line);
+                }
+            }
+            Outcome::RuntimeError(error) => {
+                println!("ERROR\t{}\t{}\t{}", name, error.code, bare_error(error))
+            }
             _ => {}
         }
     }
     let ok = match (expect.kind.as_str(), &outcome) {
         ("trace", Outcome::Trace(lines)) => trace_matches(&expect.lines, lines),
-        ("runtime_error", Outcome::RuntimeError(e)) => expect.lines.len() == 1 && e.message.contains(&expect.lines[0]),
-        ("runtime_error_exact", Outcome::RuntimeError(e)) => expect.lines.len() == 2 && e.code == expect.lines[0] && bare_error(e) == expect.lines[1],
+        ("entries", Outcome::Trace(_lines)) => {
+            let program = Program::load(&bytecode, &schema, &stub_registry_mode(false))
+                .map_err(|e| e.message)?;
+            let actual = program.entries().iter().map(|e| format!("{} {} {}",e.name,e.annotation,e.iface)).collect::<Vec<_>>();
+            expect.lines == actual
+        }
+        ("call", Outcome::Trace(lines)) => expect.lines.len() >= 2 && trace_matches(&expect.lines[1..], lines),
+        ("call_error", Outcome::RuntimeError(e)) => expect.lines.len() == 3 && e.code == expect.lines[1] && e.message.contains(&expect.lines[2]),
+        ("call_error_at", Outcome::RuntimeError(e)) => {
+            expect.lines.len() >= 5
+                && e.code == expect.lines[1]
+                && e.line.map(|x| x.to_string()) == Some(expect.lines[2].clone())
+                && e.column.map(|x| x.to_string()) == Some(expect.lines[3].clone())
+                && e.message.contains(&expect.lines[4])
+        }
+        ("runtime_error", Outcome::RuntimeError(e)) => {
+            expect.lines.len() == 1 && e.message.contains(&expect.lines[0])
+        }
+        ("runtime_error_exact", Outcome::RuntimeError(e)) => {
+            expect.lines.len() == 2 && e.code == expect.lines[0] && bare_error(e) == expect.lines[1]
+        }
         ("runtime_error_file", Outcome::RuntimeError(e)) => {
             let function = expect.lines.get(1).cloned().unwrap_or_default();
-            let path_suffix = expect.lines.get(2).map(|p| format!("/{}: ", p)).unwrap_or_default();
+            let path_suffix = expect
+                .lines
+                .get(2)
+                .map(|p| format!("/{}: ", p))
+                .unwrap_or_default();
             let message = bare_error(e);
-            e.code == expect.lines.first().map(String::as_str).unwrap_or("") && message.contains(&format!("{}: ", function)) && message.contains(&path_suffix) && message.rsplit_once(": ").map(|(_, reason)| reason.chars().any(|c| !c.is_whitespace())).unwrap_or(false)
-        },
+            e.code == expect.lines.first().map(String::as_str).unwrap_or("")
+                && message.contains(&format!("{}: ", function))
+                && message.contains(&path_suffix)
+                && message
+                    .rsplit_once(": ")
+                    .map(|(_, reason)| reason.chars().any(|c| !c.is_whitespace()))
+                    .unwrap_or(false)
+        }
         ("runtime_error_at", Outcome::RuntimeError(e)) => {
-            let line = expect.lines.get(1).and_then(|s| s.parse::<u32>().ok()).filter(|v| *v != 0);
-            let column = expect.lines.get(2).and_then(|s| s.parse::<u16>().ok()).filter(|v| *v != 0);
-            expect.lines.len() >= 4 && e.code == expect.lines[0] && e.line == line && e.column == column && e.message.contains(&expect.lines[3])
-        },
+            let line = expect
+                .lines
+                .get(1)
+                .and_then(|s| s.parse::<u32>().ok())
+                .filter(|v| *v != 0);
+            let column = expect
+                .lines
+                .get(2)
+                .and_then(|s| s.parse::<u16>().ok())
+                .filter(|v| *v != 0);
+            expect.lines.len() >= 4
+                && e.code == expect.lines[0]
+                && e.line == line
+                && e.column == column
+                && e.message.contains(&expect.lines[3])
+        }
         ("load_error", Outcome::LoadError(m)) => m.contains(&expect.lines[0]),
         _ => false,
     };
-    if ok { Ok(expect.kind) } else { Err(format!("{}: expected {} {:?}, got {:?}", name, expect.kind, expect.lines, outcome)) }
+    if ok {
+        Ok(expect.kind)
+    } else {
+        Err(format!(
+            "{}: expected {} {:?}, got {:?}",
+            name, expect.kind, expect.lines, outcome
+        ))
+    }
 }
 pub fn default_dir() -> PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).join("vectors") }
 
@@ -238,7 +499,7 @@ mod tests {
     #[test]
     fn every_vector_gives_the_expected_result_class() {
         let dir = default_dir(); let names = vector_names(&dir);
-        assert!(names.len() >= 21, "{} vectors", names.len());
+        assert_eq!(names.len(),70,"core v6 vector count");
         let failures: Vec<String> = names.iter().filter_map(|n| check_vector(&dir, n).err()).collect();
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }

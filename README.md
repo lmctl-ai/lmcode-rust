@@ -2,15 +2,15 @@
 
 Status: experimental; bytecode compatibility is not promised. Requires a Rust toolchain; the router checks also use curl and lmscript.
 
-`lmcode-rust` is the Rust runtime for lmscript bytecode v5. It provides the `dslvm`
+`lmcode-rust` is the Rust runtime for lmscript bytecode v6. It provides the `dslvm`
 crate, a loader, structural verifier, stack VM, typed host registry, and a conformance
 runner over the shared SDK vectors. The workspace has no external Rust crate
 dependencies.
 
-Install the released compiler for the router example:
+Use a matching v6 compiler for the router example:
 
 ```sh
-npm install -g @lmctl-ai/lmctl@0.2.426
+export LMSCRIPT_BIN=/path/to/v6/lmscript
 ```
 
 Build and run the checks:
@@ -25,12 +25,12 @@ bash examples/router/test.sh
 | **Bytecode Conformance Suite** | **Unit Tests & Invariants** |
 | --- | --- |
 | <img src="docs/images/conformance.png" width="440" alt="Bytecode Conformance Suite"> | <img src="docs/images/unit-tests.png" width="440" alt="Unit Tests & Invariants"> |
-| All 51 core bytecode vectors pass across opcodes, types, error paths, and control flow.<br>`cargo run --bin dsl-conformance -- conformance/vectors` | 74 VM tests, string catalog tests, and type invariants passing.<br>`cargo test` |
+| All 70 core bytecode vectors pass across opcodes, types, error paths, and control flow.<br>`cargo run --bin dsl-conformance -- conformance/vectors` | 74 VM tests, string catalog tests, and type invariants passing.<br>`cargo test` |
 
 | **Router Example Host** | **Same Bytecode, Four Runtimes** |
 | --- | --- |
 | <img src="docs/images/router-example.png" width="440" alt="Router Example Host"> | <img src="docs/images/same-bytecode-four-runtimes.png" width="440" alt="Same Bytecode, Four Runtimes"> |
-| Real HTTP router running compiled DSL routing logic in pure Rust.<br>`bash examples/router/test.sh` | Cross-language parity: C++, Rust, Go, and C# run the exact same bytecode.<br>`PASS 51/51 vectors across 4 runtimes` |
+| Real HTTP router running compiled DSL routing logic in pure Rust.<br>`bash examples/router/test.sh` | Cross-language parity: C++, Rust, Go, and C# run the exact same bytecode.<br>`Historical v5 parity; v6 ports are rolling out` |
 
 The test requires `lmscript` (or `lmctl`) 0.2.346 or newer from `PATH`. It compiles the public
 router example, runs it on the Rust host, checks the shared vectors, and uses a sibling
@@ -72,7 +72,7 @@ and [lmcpp](https://github.com/lmctl-ai/lmcpp).
 
 ## Sibling runtimes
 
-The same bytecode v5 and the same conformance vectors are implemented by [lmcode-cpp](https://github.com/lmctl-ai/lmcode-cpp),
+The same bytecode v6 and the same conformance vectors are implemented by [lmcode-cpp](https://github.com/lmctl-ai/lmcode-cpp),
 [lmcode-rust](https://github.com/lmctl-ai/lmcode-rust), [lmcode-go](https://github.com/lmctl-ai/lmcode-go) and
 [lmcode-csharp](https://github.com/lmctl-ai/lmcode-csharp). Each is a library that turns an AOT executable into an lmscript host.
 
@@ -120,27 +120,32 @@ padding and nonzero pad bits. Hex output is lowercase and input accepts either
 case. `keys()`/`values()` on StrMap, IntMap and FloatMap allocate independent
 mutable list snapshots in insertion order, preserving bytes and float bits.
 All snapshots share the 65,536-object run arena. The shared suite now contains
-267 catalog vectors plus 51 core vectors.
+267 catalog vectors plus 70 core vectors.
 
-## Compiler-only rule methods (R47/R48)
+## Rule entries (R47/R48/R49, DSLB v6)
 
-Schema 2 may declare `interfaces`, each containing one named-parameter signature.
-A top-level `@NAME fn ... implements Interface` is checked and inlined by the
-compiler; annotations do not install runtime callbacks or add registry signatures.
-The loader hashes the schema bytes without parsing JSON, so the interface-bearing
-schema needs no VM change. `scripts/merge-std.py` preserves the metadata when
-merging or stripping std. DSLB stays v5, but changing schema bytes requires
-recompilation. The shared 51 core and 267 std vectors are unchanged by this feature.
+An annotated `@NAME fn ... implements Interface` is both an inlined source
+helper and a host-callable entry. `Program::entries()` returns source-order
+`Entry { name, annotation, iface, params, returns }` metadata. Interfaces remain
+compiler/schema declarations, not registry callbacks. Pools are shared; body and
+entries have independent code, locals, stack facts and source maps.
 
-`cargo test -p dslvm --test rule_methods` runs a pinned annotated rule through a
-host callback (42), checks schema mismatch, and tests schema-tool preservation.
-The fixture source and exact schema are in `dslvm/tests/fixtures/rule-methods`.
-Reproduce its bytecode with an R47/R48-capable compiler (mono `c1eb89de` used):
-
-```sh
-"$LMSCRIPT_BIN" dslvm/tests/fixtures/rule-methods/program.lms /tmp/rule-methods.dslb
-cmp /tmp/rule-methods.dslb dslvm/tests/fixtures/rule-methods/program.dslb
+```rust,ignore
+let entry = &program.entries()[0];
+assert_eq!(entry.params, ["int"]);
+let result = program.call(0, &mut context, &registry, vec![Value::Int(41)])?;
 ```
 
-Pinned runtime tests need no new compiler; regenerating this source does. The
-older published compiler in CI must not be used to regenerate rule fixtures.
+`run()` executes only the body. `call()` needs no prior run, initializes parameter
+locals and returns the HALT value (`Value::None` for void). It shares execution,
+std cleanup and located-error behavior with `run()`. Argument kinds are host-owned;
+wrong arity is RUN_HOST: `call entry 'NAME' expects N argument(s); found M`.
+The loader verifies parameter count/type/visibility and structural/stack correctness
+per entry, even without loops. Version 6 is the only accepted format; recompile
+v5 programs against a matching compiler. No new opcode or runtime call stack.
+
+Run `cargo test -p dslvm --test v6_entries` for loader/API controls. The complete
+gate includes 70 core vectors and 267 standard-catalog vectors. See
+[rule-entry notes](durable-memory/07-rule-entries.md) for pins and the documented
+compiler-generator fixture correction. Samples retain their own old SDK pins
+until their separate migration; this repository does not change them.
