@@ -1164,6 +1164,39 @@
       "expect": {
         "load_error": "entry 'increment' parameter 1 has type step"
       }
+    },
+    {
+      "name": "load-entry-lines-huge",
+      "covers": "loader: a line count larger than the file is a truncation/order error, never an allocation (WP11 F1)",
+      "schema": "schema.json",
+      "bytecode": "load-entry-lines-huge.dslb",
+      "source": "load-entry-lines-huge.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "line table"
+      }
+    },
+    {
+      "name": "load-entry-dup-name",
+      "covers": "loader: entry names are unique (WP11 F3)",
+      "schema": "schema.json",
+      "bytecode": "load-entry-dup-name.dslb",
+      "source": "load-entry-dup-name.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "duplicate entry name 'first'"
+      }
+    },
+    {
+      "name": "load-entry-hidden-store",
+      "covers": "verifier: a hidden local is compiler-owned; STORE_LOCAL to it is refused in every region (WP11 F2)",
+      "schema": "schema.json",
+      "bytecode": "load-entry-hidden-store.dslb",
+      "source": "load-entry-hidden-store.dsl",
+      "mutated": true,
+      "expect": {
+        "load_error": "writes compiler-owned loop local 1"
+      }
     }
   ]
 }
