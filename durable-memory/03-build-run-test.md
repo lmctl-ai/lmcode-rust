@@ -20,3 +20,16 @@ trace/error records for byte-exact cross-SDK comparisons; the source generator
 and larger 16-seed/64-round mode live in lmcode-cpp `scripts/gen-std-corpus.py`
 and `scripts/diff-stdlib.py`. The synchronized suite has 229 catalog cases and
 51 core cases.
+
+## R47/R48 rule-method preparation (2026-10-28)
+
+`cargo test -p dslvm --test rule_methods` checks the compiler-only SAM feature:
+annotated/inlined code invokes capture(42), exact interface-bearing schema bytes
+are required, and merge/strip tooling preserves interfaces without registry entries.
+Control observed first: removing interfaces from the fixture schema caused
+LOAD_SCHEMA_MISMATCH (cargo exit 101); restoring the compiler's exact schema fixes it.
+No runtime implementation change or conformance refresh was needed: both vendored
+vector directories match canonical lmcode-cpp aec9b09 (51 core, 267 catalog cases).
+Use LMSCRIPT_BIN and LMSCRIPT_STD_BIN pointing to an R47/R48-capable compiler for
+current compiler parity. Historical 171-signature/229-vector counts above predate
+std v3 (181 signatures/267 catalog vectors).

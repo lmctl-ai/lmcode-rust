@@ -121,3 +121,26 @@ case. `keys()`/`values()` on StrMap, IntMap and FloatMap allocate independent
 mutable list snapshots in insertion order, preserving bytes and float bits.
 All snapshots share the 65,536-object run arena. The shared suite now contains
 267 catalog vectors plus 51 core vectors.
+
+## Compiler-only rule methods (R47/R48)
+
+Schema 2 may declare `interfaces`, each containing one named-parameter signature.
+A top-level `@NAME fn ... implements Interface` is checked and inlined by the
+compiler; annotations do not install runtime callbacks or add registry signatures.
+The loader hashes the schema bytes without parsing JSON, so the interface-bearing
+schema needs no VM change. `scripts/merge-std.py` preserves the metadata when
+merging or stripping std. DSLB stays v5, but changing schema bytes requires
+recompilation. The shared 51 core and 267 std vectors are unchanged by this feature.
+
+`cargo test -p dslvm --test rule_methods` runs a pinned annotated rule through a
+host callback (42), checks schema mismatch, and tests schema-tool preservation.
+The fixture source and exact schema are in `dslvm/tests/fixtures/rule-methods`.
+Reproduce its bytecode with an R47/R48-capable compiler (mono `c1eb89de` used):
+
+```sh
+"$LMSCRIPT_BIN" dslvm/tests/fixtures/rule-methods/program.lms /tmp/rule-methods.dslb
+cmp /tmp/rule-methods.dslb dslvm/tests/fixtures/rule-methods/program.dslb
+```
+
+Pinned runtime tests need no new compiler; regenerating this source does. The
+older published compiler in CI must not be used to regenerate rule fixtures.
