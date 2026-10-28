@@ -79,7 +79,7 @@ enum JsonArg {
     Float(f64),
     String(String),
     Bool(bool),
-    Thing(i64),
+    Object(String, i64),
 }
 
 fn parse_arg_json(text: &str) -> Result<Vec<JsonArg>, String> {
@@ -148,7 +148,9 @@ fn parse_one_arg(text: &str) -> Result<JsonArg, String> {
                     .ok()
             })
             .ok_or_else(|| "object argument needs integer id".to_string())?;
-        return Ok(JsonArg::Thing(id));
+        let tmark = "\"type\":\"";
+        let ty = compact.find(tmark).map(|p| { let rest = &compact[p + tmark.len()..]; rest[..rest.find('"').unwrap_or(rest.len())].to_string() }).unwrap_or_default();
+        return Ok(JsonArg::Object(ty, id));
     }
     if text.contains('.') {
         return text
@@ -162,23 +164,21 @@ fn parse_one_arg(text: &str) -> Result<JsonArg, String> {
 }
 
 fn arg_value(arg: JsonArg, ty: &str, ctx: &mut Context) -> Result<Value, Error> {
+    // WP11 F5: a JSON kind that does not match the declared parameter type is a runner error, never a VM input.
+    let bad = |what: &str| Error::host(format!("conformance: bad call args: {} does not match parameter type {}", what, ty));
     match (arg, ty) {
         (JsonArg::Int(v), "int") => Ok(Value::Int(v)),
+        (JsonArg::Int(v), "float") => Ok(Value::Float(v as f64)),
         (JsonArg::Float(v), "float") => Ok(Value::Float(v)),
         (JsonArg::String(v), "string") => Ok(Value::string(v)),
+        (JsonArg::String(v), t) if t != "int" && t != "float" && t != "bool" && t != "Thing" => Ok(Value::string(v)),
         (JsonArg::Bool(v), "bool") => Ok(Value::Bool(v)),
-        (JsonArg::Thing(id), "Thing") => {
-            let slot = ctx.insert("Thing", Thing { id });
-            Ok(Value::object("Thing", slot))
-        }
-        (JsonArg::String(v), _) => Ok(Value::Str(v.into())),
-        (JsonArg::Int(v), _) => Ok(Value::Int(v)),
-        (JsonArg::Float(v), _) => Ok(Value::Float(v)),
-        (JsonArg::Bool(v), _) => Ok(Value::Bool(v)),
-        (JsonArg::Thing(id), _) => {
-            let slot = ctx.insert("Thing", Thing { id });
-            Ok(Value::object("Thing", slot))
-        }
+        (JsonArg::Object(t, id), "Thing") if t == "Thing" => { let slot = ctx.insert("Thing", Thing { id }); Ok(Value::object("Thing", slot)) }
+        (JsonArg::Object(t, _), _) => Err(bad(&format!("object of type {}", t))),
+        (JsonArg::Int(_), _) => Err(bad("int")),
+        (JsonArg::Float(_), _) => Err(bad("float")),
+        (JsonArg::String(_), _) => Err(bad("string")),
+        (JsonArg::Bool(_), _) => Err(bad("bool")),
     }
 }
 
