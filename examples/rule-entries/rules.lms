@@ -1,0 +1,7 @@
+program = _lmcode_ schema="schema.json";
+@increment
+fn next(value: int) -> int implements Score {
+  return value + 1;
+}
+end _lmcode_
+savedsl(program, ARGV[0]);

@@ -1,0 +1,12 @@
+# Run from the repository root with lmctl test.lms or lmscript test.lms.
+fn step(command) {
+  result = system(command, {timeoutMs:600000});
+  print(result.stdout); print(result.stderr);
+  assert(result.code == 0, "failed: " + json_stringify(command));
+}
+step(["cargo", "test", "--workspace", "--locked"]);
+step(["cargo", "build", "--workspace", "--release", "--locked"]);
+step(["cargo", "run", "--release", "--bin", "dsl-conformance", "--", "conformance/vectors"]);
+step(["cargo", "run", "--release", "--bin", "dsl-conformance", "--", "conformance/stdlib-vectors"]);
+step(["bash", "scripts/compile-example.sh"]);
+step(["cargo", "run", "--release", "--bin", "rule-entries", "--", "target/rule-entries.dslb"]);

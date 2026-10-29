@@ -14,7 +14,7 @@ LMSCRIPT="${LMSCRIPT_BIN:-}"
 if [ -z "$LMSCRIPT" ]; then LMSCRIPT=lmscript; command -v lmscript >/dev/null 2>&1 || LMSCRIPT=lmctl; fi; MIN_LMSCRIPT="${LMSCRIPT_MIN:-0.2.346}"
 if ! command -v "$LMSCRIPT" >/dev/null 2>&1 && [ ! -f "$LMSCRIPT" ]; then echo "FAIL: lmscript not found ($LMSCRIPT). Install the released CLI: npm install -g @lmctl-ai/lmctl (>= $MIN_LMSCRIPT), or set LMSCRIPT_BIN." >&2; exit 1; fi
 HAVE_LMSCRIPT="$("$LMSCRIPT" --version 2>/dev/null | sed -n 's/^lm\(script\|ctl\) //p')"
-if [ -z "$HAVE_LMSCRIPT" ] || [ "$(printf '%s\n%s\n' "$MIN_LMSCRIPT" "$HAVE_LMSCRIPT" | sort -V | head -1)" != "$MIN_LMSCRIPT" ]; then echo "FAIL: lmscript ${HAVE_LMSCRIPT:-unknown} at $LMSCRIPT is too old: _dsl_ needs >= $MIN_LMSCRIPT (npm install -g @lmctl-ai/lmctl@latest) or set LMSCRIPT_BIN." >&2; exit 1; fi
+if [ -z "$HAVE_LMSCRIPT" ] || [ "$(printf '%s\n%s\n' "$MIN_LMSCRIPT" "$HAVE_LMSCRIPT" | sort -V | head -1)" != "$MIN_LMSCRIPT" ]; then echo "FAIL: lmscript ${HAVE_LMSCRIPT:-unknown} at $LMSCRIPT is too old: _lmcode_ needs >= $MIN_LMSCRIPT (npm install -g @lmctl-ai/lmctl@latest) or set LMSCRIPT_BIN." >&2; exit 1; fi
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/rust-router-test-XXXXXX")"; mkdir -p "$WORK/home"
 PIDS=""
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -91,16 +91,16 @@ ok "Rust runtime: POST / -> 405 method not allowed"
 stop_server; grep -q '^stopped$' "$WORK/s.err" || fail "clean stop: $(cat "$WORK/s.err")"
 ok "Rust router stops cleanly on SIGTERM"
 
-# 3b. _dsl_ cli="PROGRAM" (lmscript R42) compiles against the binary's own embedded schema; older compilers reject it.
-printf 'p = _dsl_ cli="%s";\nres.status(200);\nres.body("cli");\nend _dsl_\nsavedsl(p, "%s");\n' "$SERVER" "$WORK/cli.dslb" >"$WORK/cli.lms"
+# 3b. _lmcode_ cli="PROGRAM" (lmscript R42) compiles against the binary's own embedded schema; older compilers reject it.
+printf 'p = _lmcode_ cli="%s";\nres.status(200);\nres.body("cli");\nend _lmcode_\nsavedsl(p, "%s");\n' "$SERVER" "$WORK/cli.dslb" >"$WORK/cli.lms"
 if HOME="$WORK/home" "$LMSCRIPT" --check "$WORK/cli.lms" >/dev/null 2>&1; then
   HOME="$WORK/home" "$LMSCRIPT" "$WORK/cli.lms" >/dev/null 2>"$WORK/cli.err" || { cat "$WORK/cli.err"; fail "compiling with cli=$SERVER"; }
   start_server "$SERVER" "$WORK/cli.dslb"
   [ "$(curl -s "http://127.0.0.1:$PORT/")" = cli ] || fail "running a cli= compiled program"
   stop_server
-  ok "_dsl_ cli=\"router\" compiles against the binary's own schema and serves"
+  ok "_lmcode_ cli=\"router\" compiles against the binary's own schema and serves"
 else
-  echo "skip - _dsl_ cli= (this lmscript predates lmscript R42)"
+  echo "skip - _lmcode_ cli= (this lmscript predates lmscript R42)"
 fi
 
 # 4. The SAME bytecode file on the C++ runtime (lmweb), when it is built next to this repo.

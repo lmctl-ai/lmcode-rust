@@ -1,6 +1,6 @@
 # lmcode-rust notes
 
-Rust runtime and SDK for lmscript `_dsl_` bytecode. The workspace provides a dependency-free loader, structural verifier, stack VM, typed host registry, and shared conformance runner.
+Rust runtime and SDK for lmscript `_lmcode_` bytecode. The workspace provides a dependency-free loader, structural verifier, stack VM, typed host registry, and shared conformance runner.
 Repository: https://github.com/lmctl-ai/lmcode-rust. Crate: `dslvm`. Toolchain: Rust 1.80+.
 
 ## Document map
@@ -33,3 +33,5 @@ Platform binaries: `router-linux-x64`, `router-linux-arm64`, `router-macos-arm64
 - [update-sample-suite.md](update-sample-suite.md): canonical sample-suite update and all-port verification rule.
 
 - [Rule entries v6](07-rule-entries.md): R49 loader/API contract, gates and vector provenance; supersedes earlier v5-only notes.
+
+- [lmscript tests and releases](08-lmscript-releases.md)

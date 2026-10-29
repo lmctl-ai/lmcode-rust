@@ -7,18 +7,15 @@ crate, a loader, structural verifier, stack VM, typed host registry, and a confo
 runner over the shared SDK vectors. The workspace has no external Rust crate
 dependencies.
 
-Use a matching v6 compiler for the router example:
+Install Rust stable and the published compiler, then run the lmscript test driver:
 
 ```sh
-export LMSCRIPT_BIN=/path/to/v6/lmscript
+npm install -g @lmctl-ai/lmctl
+lmscript test.lms
+# Equivalent: lmctl test.lms
 ```
 
-Build and run the checks:
-
-```sh
-cargo test --workspace
-bash examples/router/test.sh
-```
+The optional HTTP router integration checks run with `bash examples/router/test.sh`.
 
 ## Gallery
 
@@ -78,7 +75,7 @@ The same bytecode v6 and the same conformance vectors are implemented by [lmcode
 
 ## Standard library catalog
 
-`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The v3 catalog has 181 signatures: the original string, math, collection and file surface plus typed Int/Float maps, Int/Float/Str stacks, queues and stable min-first priority queues, immutable Json, strict byte Base64/hex codecs, and map key/value snapshots. Published `lmscript` 0.2.426 still defaults to v1; set `LMSCRIPT_STD_BIN` to a scratch lmctl-mono-main compiler for default-injection v3 parity.
+`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The v3 catalog has 181 signatures: the original string, math, collection and file surface plus typed Int/Float maps, Int/Float/Str stacks, queues and stable min-first priority queues, immutable Json, strict byte Base64/hex codecs, and map key/value snapshots. Install current `@lmctl-ai/lmctl` for v3 catalog and v6 entry support.
 Run `cargo test -p dslvm --test stdlib_catalogs` for exact parity between the explicit canonical schema and the registry; it uses `lmscript` (or `$LMSCRIPT_BIN`) on PATH.
 
 The built-in numeric catalog is also described by `stdlib/math.schema-fragment.json`; it provides int/float overloads of `math_abs`, `math_min`, `math_max`, `math_floor`, `math_ceil`, `math_round`, `math_pow`, and `math_sqrt`. Integer operations wrap at 64 bits, integer roots are exact floor roots, and float operations preserve IEEE NaN, infinity, and signed-zero behavior described by the shared catalog.
@@ -147,5 +144,12 @@ v5 programs against a matching compiler. No new opcode or runtime call stack.
 Run `cargo test -p dslvm --test v6_entries` for loader/API controls. The complete
 gate includes 70 core vectors and 267 standard-catalog vectors. See
 [rule-entry notes](durable-memory/07-rule-entries.md) for pins and the documented
-compiler-generator fixture correction. Samples retain their own old SDK pins
-until their separate migration; this repository does not change them.
+compiler-generator fixture correction. Samples record their independently reviewed SDK commits in sdk.lock.
+
+## Automated tests and releases
+
+Install Rust stable and `npm install -g @lmctl-ai/lmctl` (provides both `lmctl` and `lmscript`). From the repository root run `lmscript test.lms` or `lmctl test.lms`; `test.sh` is a thin wrapper.
+
+Every push to main builds and tests Linux x64/arm64, macOS x64/arm64, and Windows x64 executables. Only after all five jobs pass does Actions publish a GitHub release with platform binaries, licenses and SHA256SUMS. Pull requests run the same tests without publishing.
+
+`examples/rule-entries/rules.lms` defines `@increment fn next(value: int) -> int implements Score`. The Rust embedding example selects the annotation, checks parameter metadata and calls the entry with 41, asserting 42 without running the body first. `test.lms` builds release executables and runs both conformance catalogs and this example. Release assets include router, dsl-conformance, and rule-entries.

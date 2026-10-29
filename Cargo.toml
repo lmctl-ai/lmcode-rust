@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["dslvm", "conformance", "examples/router"]
+members = ["dslvm", "conformance", "examples/router", "examples/rule-entries"]
 
 [workspace.package]
 repository = "https://github.com/lmctl-ai/lmcode-rust"
