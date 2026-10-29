@@ -1,3 +1,4 @@
+* text=auto eol=lf
 # Precompiled vectors bind to the exact schema bytes, including line endings.
 conformance/vectors/*.json text eol=lf
 conformance/stdlib-vectors/*.json text eol=lf
