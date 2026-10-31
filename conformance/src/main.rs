@@ -323,22 +323,24 @@ fn json_string(text: &str, pos: &mut usize) -> Option<String> {
     }
     None
 }
-fn parse_sink(line: &str) -> Option<SinkExpectation> {
-    let body = line.strip_prefix("sink ")?.trim(); let mut p = 0;
-    if body.as_bytes().get(p) != Some(&b'{') { return None; } p += 1;
+fn parse_sink(line: &str) -> Result<Option<SinkExpectation>, String> {
+    let Some(body) = line.strip_prefix("sink ").map(str::trim) else { return Ok(None); }; let mut p = 0;
+    if body.as_bytes().get(p) != Some(&b'{') { return Err("expected object".into()); } p += 1;
     while body.as_bytes().get(p) == Some(&b' ') { p += 1; }
-    let key = json_string(body, &mut p)?; if key != "json" { return None; }
+    let key = json_string(body, &mut p).ok_or("expected json key")?; if key != "json" { return Err("expected json key".into()); }
     while matches!(body.as_bytes().get(p), Some(b' ' | b':')) { p += 1; }
-    let json = json_string(body, &mut p)?;
+    let json = json_string(body, &mut p).ok_or("expected json string")?;
     while matches!(body.as_bytes().get(p), Some(b' ' | b',')) { p += 1; }
-    let key = json_string(body, &mut p)?; if key != "frame" { return None; }
+    let key = json_string(body, &mut p).ok_or("expected frame key")?; if key != "frame" { return Err("expected frame key".into()); }
     while matches!(body.as_bytes().get(p), Some(b' ' | b':')) { p += 1; }
-    let frame = json_string(body, &mut p)?;
-    Some(SinkExpectation { json, frame })
+    let frame = json_string(body, &mut p).ok_or("expected frame string")?;
+    while body.as_bytes().get(p) == Some(&b' ') { p += 1; }
+    if body.as_bytes().get(p) != Some(&b'}') { return Err("expected object end".into()); }
+    Ok(Some(SinkExpectation { json, frame }))
 }
 pub fn read_expect(path: &Path) -> Expect {
     let text = std::fs::read_to_string(path).expect("expect file");
-    let mut raw: Vec<&str> = text.lines().collect(); let sink = raw.last().and_then(|line| parse_sink(line)); if sink.is_some() { raw.pop(); }
+    let mut raw: Vec<&str> = text.lines().collect(); let sink = match raw.last().copied() { Some(line) => parse_sink(line).unwrap_or_else(|e| panic!("invalid sink metadata: {}", e)), None => None }; if sink.is_some() { raw.pop(); }
     let kind = raw.first().copied().unwrap_or("").to_string();
     Expect { kind, lines: raw.into_iter().skip(1).map(|l| l.replace("\\n", "\n")).collect(), sink }
 }
@@ -553,6 +555,10 @@ mod tests {
         let dir = default_dir();
         let bytecode = std::fs::read(dir.join("literals.dslb")).unwrap(); let schema = std::fs::read(dir.join("schema.json")).unwrap();
         match run_vector(&bytecode, &schema) { Outcome::Trace(lines) => assert_ne!(lines, vec!["int 41".to_string()]), other => panic!("{:?}", other) }
+    }
+    #[test]
+    fn malformed_sink_metadata_is_rejected() {
+        assert!(parse_sink("sink {\"json\":}").is_err());
     }
     #[test]
     fn approximate_trace_lines_use_prefix_and_relative_tolerance() {
