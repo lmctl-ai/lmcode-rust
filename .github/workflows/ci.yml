@@ -43,8 +43,15 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/lmcode-lmctl" "@lmctl-ai/lmctl@$LMCODE_COMPILER_VERSION"
           echo "$RUNNER_TEMP/lmcode-lmctl/node_modules/.bin" >> "$GITHUB_PATH"
-          export PATH="$RUNNER_TEMP/lmcode-lmctl/node_modules/.bin:$PATH"
-          lmscript --version
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            export LMSCRIPT_BIN="$RUNNER_TEMP/lmcode-lmctl/node_modules/.bin/lmscript.cmd"
+            echo "LMSCRIPT_BIN=$LMSCRIPT_BIN" >> "$GITHUB_ENV"
+            "$LMSCRIPT_BIN" --version
+          else
+            export PATH="$RUNNER_TEMP/lmcode-lmctl/node_modules/.bin:$PATH"
+            echo "LMSCRIPT_BIN=lmscript" >> "$GITHUB_ENV"
+            lmscript --version
+          fi
           rustup toolchain install stable --profile minimal
           rustup default stable
       - name: Build and test
