@@ -96,3 +96,22 @@ fn concurrent_invocations_keep_distinct_values() {
         t.join().unwrap();
     }
 }
+
+#[test]
+fn shortest_float_and_escaped_frame_payloads() {
+    use dslvm::{Context, Value};
+    let mut ctx = Context::new();
+    ctx.result_sink = Some(dslvm::stdlib::ResultSink::default());
+    for (value, want) in [
+        (Value::Float(-0.0), "0"),
+        (Value::Float(f64::from_bits(1)), "5e-324"),
+        (Value::Float(1.0), "1"),
+        (
+            Value::string("LMCODE_RETURN_END\n\"\\"),
+            "\"LMCODE_RETURN_END\\n\\\"\\\\\"",
+        ),
+    ] {
+        dslvm::stdlib::result::set_result(&mut ctx, &value).unwrap();
+        assert_eq!(ctx.result_sink.as_ref().unwrap().json(), want);
+    }
+}

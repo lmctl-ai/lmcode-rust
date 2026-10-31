@@ -13,6 +13,7 @@ Repository: https://github.com/lmctl-ai/lmcode-rust. Crate: `dslvm`. Toolchain: 
 | [04-gotchas.md](04-gotchas.md) | Exact schema hash binding, opaque handles, resource policy |
 | [05-open-items.md](05-open-items.md) | Planned improvements and multi-runtime parity |
 | [06-stdlib-catalog.md](06-stdlib-catalog.md) | Standard library math, string, and collections catalogs |
+| [09-result-sink.md](09-result-sink.md) | Invocation-owned result sink, return signatures, validation, and frame contract |
 
 ## Adding an example or host function
 
@@ -28,7 +29,7 @@ Repository: https://github.com/lmctl-ai/lmcode-rust. Crate: `dslvm`. Toolchain: 
 4. Register context objects: `reg.register_context(name, type)`.
 
 ## Releases
-Releases are built and published automatically on every push to `main` when CI workflows succeed.
+Releases are built and published only from an explicitly dispatched workflow; pushes do not run CI or publish.
 Platform binaries: `router-linux-x64`, `router-linux-arm64`, `router-macos-arm64`, `router-macos-x64`, `router-windows-x64.exe`.
 - [update-sample-suite.md](update-sample-suite.md): canonical sample-suite update and all-port verification rule.
 
