@@ -210,9 +210,9 @@ fn catalog_registry(schema: &[u8], temp_dir: Option<String>) -> (Registry, Rc<Re
 }
 
 /// Runs one vector: load (phase 1) then run (phase 2) with a fresh context.
-fn finish_result(results:&mut dslvm::stdlib::InvocationResults,ctx:&Context,outcome:&Outcome)->(String,String){
+fn finish_result(results:&mut dslvm::stdlib::InvocationResults,ctx:&Context,outcome:&mut Outcome)->(String,String){
  let payload=ctx.result_sink.as_ref().unwrap().json();
- match outcome {Outcome::RuntimeError(e)=>results.fail(Some(0),"run",e.clone()).unwrap(),_=>{let _=results.complete(0);}}
+ match outcome {Outcome::RuntimeError(e)=>results.fail(Some(0),"run",e.clone()).unwrap(),_=>{if let Err(e)=results.complete(0){*outcome=Outcome::RuntimeError(e);}}}
  let mut out=Vec::new();results.write_frame(&mut out);(payload,String::from_utf8(out).unwrap())
 }
 struct Observed { outcome: Outcome, sink_json: String, frame: String }
@@ -231,18 +231,14 @@ fn run_vector_observed(bytecode: &[u8], schema: &[u8]) -> Observed {
     ctx.set_object("root", "Thing", Thing { id: 0 });
     ctx.set_object("v", "Var", Thing { id: 0 });
     ctx.set_object("xs", "IntList", IntList { values: vec![0, 1, 2, 3] });
-    let outcome = match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e) };
-    let sink = finish_result(&mut results,&ctx,&outcome);
+    let mut outcome = match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e) };
+    let sink = finish_result(&mut results,&ctx,&mut outcome);
     if let Some(path) = temp_dir { let _ = std::fs::remove_dir_all(path); }
     Observed { outcome, sink_json: sink.0, frame: sink.1 }
 }
 pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome { run_vector_observed(bytecode, schema).outcome }
 
-enum EntryOutcome {
-    Success { result: String, trace: Vec<String> },
-    Error(Error),
-    Load(String),
-}
+
 
 fn value_text(value: &Value, ctx: &Context) -> String {
     match value {
@@ -297,7 +293,7 @@ fn run_entry_vector_observed(
         },
     );
     if let Err(e) = program.run(&mut ctx, &reg) {
-        return {let outcome=Outcome::RuntimeError(e);let sink=finish_result(&mut results,&ctx,&outcome);Observed {outcome,sink_json:sink.0,frame:sink.1}};
+        return {let mut outcome=Outcome::RuntimeError(e);let sink=finish_result(&mut results,&ctx,&mut outcome);Observed {outcome,sink_json:sink.0,frame:sink.1}};
     }
     let args = raw
         .into_iter()
@@ -306,11 +302,11 @@ fn run_entry_vector_observed(
         .collect::<Result<Vec<_>, _>>();
     let args = match args {
         Ok(v) => v,
-        Err(e) => return {let outcome=Outcome::RuntimeError(e);let sink=finish_result(&mut results,&ctx,&outcome);Observed {outcome,sink_json:sink.0,frame:sink.1}},
+        Err(e) => return {let mut outcome=Outcome::RuntimeError(e);let sink=finish_result(&mut results,&ctx,&mut outcome);Observed {outcome,sink_json:sink.0,frame:sink.1}},
     };
     match program.call(entry_index, &mut ctx, &reg, args) {
-        Ok(result) => { let trace = ctx.take::<Trace>(t).map(|v| v.0).unwrap_or_default(); let sink = finish_result(&mut results,&ctx,&Outcome::Trace(vec![])); Observed { outcome: Outcome::Trace({ let mut lines = vec![format!("result {}", value_text(&result, &ctx))]; lines.extend(trace); lines }), sink_json: sink.0, frame: sink.1 } },
-        Err(e) => {let outcome=Outcome::RuntimeError(e);let sink=finish_result(&mut results,&ctx,&outcome);Observed {outcome,sink_json:sink.0,frame:sink.1}},
+        Ok(result) => { let trace = ctx.take::<Trace>(t).map(|v| v.0).unwrap_or_default(); let mut lines=vec![format!("result {}",value_text(&result,&ctx))];lines.extend(trace);let mut outcome=Outcome::Trace(lines);let sink=finish_result(&mut results,&ctx,&mut outcome);Observed{outcome,sink_json:sink.0,frame:sink.1} },
+        Err(e) => {let mut outcome=Outcome::RuntimeError(e);let sink=finish_result(&mut results,&ctx,&mut outcome);Observed {outcome,sink_json:sink.0,frame:sink.1}},
     }
 }
 
@@ -503,6 +499,17 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn completion_contract_failure_is_not_a_successful_trace() {
+        let mut results=dslvm::stdlib::InvocationResults::from_command_with_manifest(&["fixture".into()],None).unwrap();
+        let mut ctx=Context::new();
+        results.select(0,&mut ctx,dslvm::stdlib::ResultContract::from_schema(br#"{"dsl.schema":2,"result":{"type":"int"}}"#).unwrap()).unwrap();
+        let mut outcome=Outcome::Trace(vec![]);
+        let (_,frame)=finish_result(&mut results,&ctx,&mut outcome);
+        assert!(matches!(outcome,Outcome::RuntimeError(_)),"completion failure must reach the conformance outcome");
+        assert!(frame.contains("expected int; got null"));
+    }
+
     use super::*;
     #[test]
     fn catalog_fixture_bytes_preserve_binary_values() {

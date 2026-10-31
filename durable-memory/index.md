@@ -36,3 +36,5 @@ Platform binaries: `router-linux-x64`, `router-linux-arm64`, `router-macos-arm64
 - [Rule entries v6](07-rule-entries.md): R49 loader/API contract, gates and vector provenance; supersedes earlier v5-only notes.
 
 - [lmscript tests and releases](08-lmscript-releases.md)
+
+- [Invocation results and contracts](10-invocation-results.md): R3 collector, metadata, framing and R7 migration.

@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
+# Fixture-only bytecode generation; the language never exports program files.
 set -euo pipefail
-"${LMSCRIPT_BIN:-lmscript}" --no-preflight examples/rule-entries/rules.lms target/rule-entries.dslb
+node scripts/compile-fixture.mjs examples/rule-entries/rules.lms target/rule-entries.dslb

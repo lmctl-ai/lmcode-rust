@@ -117,7 +117,7 @@ padding and nonzero pad bits. Hex output is lowercase and input accepts either
 case. `keys()`/`values()` on StrMap, IntMap and FloatMap allocate independent
 mutable list snapshots in insertion order, preserving bytes and float bits.
 All snapshots share the 65,536-object run arena. The shared suite now contains
-267 catalog vectors plus 70 core vectors.
+268 catalog vectors plus 406 core vectors.
 
 ## Rule entries (R47/R48/R49, lmcode bytecode (DSLB v6))
 
@@ -142,15 +142,15 @@ per entry, even without loops. Version 6 is the only accepted format; recompile
 v5 programs against a matching compiler. No new opcode or runtime call stack.
 
 Run `cargo test -p dslvm --test v6_entries` for loader/API controls. The complete
-gate includes 70 core vectors and 267 standard-catalog vectors. See
+gate includes 406 core vectors and 268 standard-catalog vectors. See
 [rule-entry notes](durable-memory/07-rule-entries.md) for pins and the documented
 compiler-generator fixture correction. Samples record their independently reviewed SDK commits in sdk.lock.
 
 ## Automated tests and releases
 
-Install Rust stable and `npm install -g @lmctl-ai/lmctl` (provides both `lmctl` and `lmscript`). From the repository root run `lmscript test.lms` or `lmctl test.lms`; `test.sh` is a thin wrapper.
+Install Rust stable and use a private current compiler. Set LMSCRIPT_BIN to its CLI and LMCODE_COMPILER_MODULE to its compiler library for fixture generation. From the repository root run that compiler on test.lms; test.sh is a thin wrapper.
 
-Every push to main builds and tests Linux x64/arm64, macOS x64/arm64, and Windows x64 executables. Only after all five jobs pass does Actions publish a GitHub release with platform binaries, licenses and SHA256SUMS. Pull requests run the same tests without publishing.
+The Actions workflow is manual. No push dispatches a release. Local gates below require a coherent compiler and SDK; promotion is operator-owned.
 
 `examples/rule-entries/rules.lms` defines `@increment fn next(value: int) -> int implements Score`. The Rust embedding example selects the annotation, checks parameter metadata and calls the entry with 41, asserting 42 without running the body first. `test.lms` builds release executables and runs both conformance catalogs and this example. Release assets include router, `dsl-conformance`, and rule-entries.
 
@@ -161,3 +161,10 @@ The standard `template_render(string, Json) -> string` function renders arbitrar
 ## Historical literal names
 
 The documentation calls the language lmcode. `--lmcode`, `--lmcode-schema` and `--lmcode-signatures` are current host flag literals; `DSLB` is the bytecode magic and `DSLB v6` is the current format name; `.dslb` is the current bytecode filename extension. Other code-formatted API names, paths, manifest names and diagnostic text retain their current literal spellings.
+
+## Per-program results in one invocation
+
+Use [InvocationResults](durable-memory/10-invocation-results.md) for canonical
+single/builder envelopes, authoritative result contracts and sealed per-part
+sinks. Old sink-only framers and unframed reporters are removed. The Rust sample
+must complete R7 adapter adoption before updating its SDK pin.

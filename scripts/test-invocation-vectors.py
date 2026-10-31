@@ -3,7 +3,7 @@
 import hashlib,json,os,subprocess,tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];HERE=ROOT/'conformance/invocation-vectors'
-BINARY=Path(os.environ.get('LMCODE_INVOCATION_HARNESS',str(ROOT/'target/debug/invocation-conformance'))).resolve()
+BINARY=Path(os.environ.get('LMCODE_INVOCATION_HARNESS',str(ROOT/'target/release/invocation-conformance'))).resolve()
 manifest=json.loads((HERE/'manifest.json').read_text())
 for row in (HERE/'vectors.lock').read_text().splitlines():
  digest,name=row.split('  ');assert hashlib.sha256((HERE/name).read_bytes()).hexdigest()==digest,name

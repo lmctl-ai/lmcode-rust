@@ -4,4 +4,3 @@ fn next(value: int) -> int implements Score {
   return value + 1;
 }
 end _lmcode_
-savedsl(program, ARGV[0]);
