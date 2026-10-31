@@ -210,6 +210,11 @@ fn catalog_registry(schema: &[u8], temp_dir: Option<String>) -> (Registry, Rc<Re
 }
 
 /// Runs one vector: load (phase 1) then run (phase 2) with a fresh context.
+fn finish_result(results:&mut dslvm::stdlib::InvocationResults,ctx:&Context,outcome:&Outcome)->(String,String){
+ let payload=ctx.result_sink.as_ref().unwrap().json();
+ match outcome {Outcome::RuntimeError(e)=>results.fail(Some(0),"run",e.clone()).unwrap(),_=>{let _=results.complete(0);}}
+ let mut out=Vec::new();results.write_frame(&mut out);(payload,String::from_utf8(out).unwrap())
+}
 struct Observed { outcome: Outcome, sink_json: String, frame: String }
 fn run_vector_observed(bytecode: &[u8], schema: &[u8]) -> Observed {
     let temp_dir = if schema.windows(b"\"test_temp_dir\"".len()).any(|w| w == b"\"test_temp_dir\"") {
@@ -220,14 +225,14 @@ fn run_vector_observed(bytecode: &[u8], schema: &[u8]) -> Observed {
     let (reg, _) = catalog_registry(schema, temp_dir.clone());
     let program = match Program::load(bytecode, schema, &reg) { Ok(p) => p, Err(e) => return Observed { outcome: Outcome::LoadError(e), sink_json: String::new(), frame: String::new() } };
     let mut ctx = Context::new();
-    ctx.result_sink = Some(dslvm::stdlib::ResultSink::default());
+    let mut results=dslvm::stdlib::InvocationResults::from_command_with_manifest(&["fixture".into()],None).unwrap();
+    results.select(0,&mut ctx,dslvm::stdlib::ResultContract::from_schema(schema).unwrap()).unwrap();
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
     ctx.set_object("root", "Thing", Thing { id: 0 });
     ctx.set_object("v", "Var", Thing { id: 0 });
     ctx.set_object("xs", "IntList", IntList { values: vec![0, 1, 2, 3] });
     let outcome = match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e) };
-    let success = matches!(outcome, Outcome::Trace(_));
-    let sink = ctx.result_sink.as_ref().map(|s| (s.json(), s.frame_if_success(success).unwrap_or_default())).unwrap_or_default();
+    let sink = finish_result(&mut results,&ctx,&outcome);
     if let Some(path) = temp_dir { let _ = std::fs::remove_dir_all(path); }
     Observed { outcome, sink_json: sink.0, frame: sink.1 }
 }
@@ -279,7 +284,8 @@ fn run_entry_vector_observed(
         Err(e) => return Observed { outcome: Outcome::RuntimeError(Error::host(e)), sink_json: String::new(), frame: String::new() },
     };
     let mut ctx = Context::new();
-    ctx.result_sink = Some(dslvm::stdlib::ResultSink::default());
+    let mut results=dslvm::stdlib::InvocationResults::from_command_with_manifest(&["fixture".into()],None).unwrap();
+    results.select(0,&mut ctx,dslvm::stdlib::ResultContract::from_schema(schema).unwrap()).unwrap();
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
     ctx.set_object("root", "Thing", Thing { id: 0 });
     ctx.set_object("v", "Var", Thing { id: 0 });
@@ -291,7 +297,7 @@ fn run_entry_vector_observed(
         },
     );
     if let Err(e) = program.run(&mut ctx, &reg) {
-        return Observed { outcome: Outcome::RuntimeError(e), sink_json: ctx.result_sink.as_ref().map(|s| s.json()).unwrap_or_default(), frame: String::new() };
+        return {let outcome=Outcome::RuntimeError(e);let sink=finish_result(&mut results,&ctx,&outcome);Observed {outcome,sink_json:sink.0,frame:sink.1}};
     }
     let args = raw
         .into_iter()
@@ -300,11 +306,11 @@ fn run_entry_vector_observed(
         .collect::<Result<Vec<_>, _>>();
     let args = match args {
         Ok(v) => v,
-        Err(e) => return Observed { outcome: Outcome::RuntimeError(e), sink_json: ctx.result_sink.as_ref().map(|s| s.json()).unwrap_or_default(), frame: String::new() },
+        Err(e) => return {let outcome=Outcome::RuntimeError(e);let sink=finish_result(&mut results,&ctx,&outcome);Observed {outcome,sink_json:sink.0,frame:sink.1}},
     };
     match program.call(entry_index, &mut ctx, &reg, args) {
-        Ok(result) => { let trace = ctx.take::<Trace>(t).map(|v| v.0).unwrap_or_default(); let sink = ctx.result_sink.as_ref().map(|s| (s.json(), s.frame_if_success(true).unwrap_or_default())).unwrap_or_default(); Observed { outcome: Outcome::Trace({ let mut lines = vec![format!("result {}", value_text(&result, &ctx))]; lines.extend(trace); lines }), sink_json: sink.0, frame: sink.1 } },
-        Err(e) => Observed { outcome: Outcome::RuntimeError(e), sink_json: ctx.result_sink.as_ref().map(|s| s.json()).unwrap_or_default(), frame: String::new() },
+        Ok(result) => { let trace = ctx.take::<Trace>(t).map(|v| v.0).unwrap_or_default(); let sink = finish_result(&mut results,&ctx,&Outcome::Trace(vec![])); Observed { outcome: Outcome::Trace({ let mut lines = vec![format!("result {}", value_text(&result, &ctx))]; lines.extend(trace); lines }), sink_json: sink.0, frame: sink.1 } },
+        Err(e) => {let outcome=Outcome::RuntimeError(e);let sink=finish_result(&mut results,&ctx,&outcome);Observed {outcome,sink_json:sink.0,frame:sink.1}},
     }
 }
 

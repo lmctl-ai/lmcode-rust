@@ -3,7 +3,7 @@
   "version": 6,
   "host": {
     "entries": "call in declared order; repeated-calls calls twice; int HALT results must remain 7",
-    "frames": "emit only after body, entries and application validation succeed; no frame on any error"
+    "frames": "one invocation envelope on success or controlled failure, after body/entries/application validation; no partial payload on error"
   },
   "vectors": [
     {

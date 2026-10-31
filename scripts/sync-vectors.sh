@@ -7,7 +7,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SDK="${LMCODE_CPP:-$HERE/../lmcode-cpp}"
 digest() { (cd "$1" && find . -type f | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-64); }
 if [ "${1:-}" = "--verify" ]; then
-  for suite in vectors stdlib-vectors return-vectors; do
+  for suite in vectors stdlib-vectors return-vectors invocation-vectors; do
     dst="$HERE/conformance/$suite"; lock="$HERE/$suite.lock"; label="conformance/$suite"
     [ -f "$lock" ] || { echo "$label lock missing" >&2; exit 1; }
     [ -d "$dst" ] && [ "$(find "$dst" -type f | wc -l)" -gt 0 ] || { echo "$label is empty" >&2; exit 1; }
@@ -18,7 +18,7 @@ if [ "${1:-}" = "--verify" ]; then
   exit 0
 fi
 [ -d "$SDK/conformance/vectors" ] && [ -d "$SDK/conformance/stdlib-vectors" ] || { echo "lmcode-cpp vector directories not found at $SDK (set LMCODE_CPP)" >&2; exit 1; }
-for suite in vectors stdlib-vectors return-vectors; do
+for suite in vectors stdlib-vectors return-vectors invocation-vectors; do
   src="$SDK/conformance/$suite"; dst="$HERE/conformance/$suite"; lock="$HERE/$suite.lock"
   rm -rf "$dst"; mkdir -p "$dst"; cp "$src"/* "$dst"/
   printf 'repo=https://github.com/lmctl-ai/lmcode-cpp\ncommit=%s\nsha256=%s\n' "$(git -C "$SDK" rev-parse HEAD)" "$(digest "$dst")" >"$lock"

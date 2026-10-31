@@ -12,3 +12,7 @@ dslvm = { path = "../dslvm" }
 [[bin]]
 name = "dsl-conformance"
 path = "src/main.rs"
+
+[[bin]]
+name = "invocation-conformance"
+path = "src/invocations.rs"

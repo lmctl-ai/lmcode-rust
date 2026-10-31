@@ -1,27 +1,18 @@
-# Canonical invocation-result fixtures
+# Original return boundary fixtures
 
-These are compiler-produced lmcode bytecode (DSLB v6) programs, independently executed by
-`conformance/run_returns.cpp` through `Program::load`, `run` and `call`.
-`make conformance` always runs them; no optional harness skip is accepted.
+These nine untyped compiler-produced lmcode bytecodes (DSLB v6) retain their
+original instructions, HALT values, schema binding and source positions. The
+fixture host now uses the canonical invocation collector and emits one success
+or controlled-failure envelope. All 24 imports are checked after execution.
 
-The fixture host binds a ResultSink before the body, keeps it across selected
-entries, checks each integer HALT result is 7, and emits only after dispatch and
-application validation succeed. `all-overloads` asserts the payload after every
-one of the 24 standard return imports. Error fixtures emit zero stdout bytes.
-The frame expectations end in exactly one LF, including null when no write ran.
+`payloads.json` records the authored success values. The envelope generator uses
+those values and authored error/source positions, never host output. The virtual
+header is one line, preserving the original compiled location offsets.
 
-Regenerate with the prepared/pinned compiler:
-
-```
-LMSCRIPT_BIN=/path/to/lmscript python3 conformance/return-vectors/generate.py
+```sh
+LMCODE_COMPILER_MODULE=/absolute/mono/lmscript/dist/dsl.js node conformance/return-vectors/generate.mjs
 ```
 
-The explicit schema declares the new imports so the slice-1 fixtures compile
-before the compiler's bundled std/lowering slice 3. This does not eliminate the
-std-skew release ban. `vectors.lock` binds schema, sources, binary v6 programs,
-manifest and expected bytes; execution never derives expectations from outputs.
-
-Fault-host flags demonstrate the wrong `%.15g` formatter, resetting the sink
-before an entry, and framing before an entry can fail. Application validation
-failure (exit 4) is also frame-silent. Native hosts must preserve LF bytes on
-stdout; this harness selects binary stdout on Windows.
+`make conformance` always executes the fixture host; there is no harness skip.
+The old public export wrapper is removed. Fault hosts deliberately reset state,
+emit prematurely or use a lossy formatter; their output is refused by the oracle.

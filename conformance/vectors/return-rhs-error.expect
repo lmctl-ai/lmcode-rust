@@ -3,4 +3,4 @@ RUN_ERROR
 3
 5
 division by zero
-sink {"json":"1","frame":""}
+sink {"json":"1","frame":"LMCODE_RETURN_BEGIN\n{\"ok\":false,\"phase\":\"run\",\"code\":\"RUN_ERROR\",\"message\":\"dsl line 3:5: int division by zero\",\"line\":3,\"column\":5}\nLMCODE_RETURN_END\n"}
