@@ -1,0 +1,49 @@
+name: test
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      compiler_version:
+        description: "Published @lmctl-ai/lmctl version"
+        required: false
+        default: "0.2.444"
+permissions:
+  contents: read
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  LMCODE_COMPILER_VERSION: ${{ inputs.compiler_version || vars.LMCODE_COMPILER_VERSION || '0.2.444' }}
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, label: linux-x64, ext: ''}
+          - {os: ubuntu-24.04-arm, label: linux-arm64, ext: ''}
+          - {os: macos-15, label: macos-arm64, ext: ''}
+          - {os: macos-15-intel, label: macos-x64, ext: ''}
+          - {os: windows-2022, label: windows-x64, ext: '.exe'}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: '24'}
+      - name: Install compiler and Rust toolchain
+        run: |
+          npm install --prefix "$RUNNER_TEMP/lmcode-lmctl" "@lmctl-ai/lmctl@$LMCODE_COMPILER_VERSION"
+          echo "$RUNNER_TEMP/lmcode-lmctl/node_modules/.bin" >> "$GITHUB_PATH"
+          if [[ "$RUNNER_OS" == Windows ]]; then export LMSCRIPT_BIN="$RUNNER_TEMP/lmcode-lmctl/node_modules/.bin/lmscript.cmd"; else export PATH="$RUNNER_TEMP/lmcode-lmctl/node_modules/.bin:$PATH"; export LMSCRIPT_BIN=lmscript; fi
+          echo "LMSCRIPT_BIN=$LMSCRIPT_BIN" >> "$GITHUB_ENV"
+          "$LMSCRIPT_BIN" --version
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Build and test
+        run: LMSCRIPT_BIN="$LMSCRIPT_BIN" lmscript --no-preflight test.lms
