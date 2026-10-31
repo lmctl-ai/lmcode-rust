@@ -136,6 +136,8 @@ impl Value {
 /// The live objects of one run: an arena the host fills before `run` and empties (or drops) after it.
 #[derive(Default)]
 pub struct Context {
+    /// Explicit invocation result; never reset by collection-region teardown.
+    pub result_sink: Option<stdlib::result::ResultSink>,
     objects: Vec<Option<Box<dyn Any>>>,
     types: Vec<String>,
     names: HashMap<String, ObjRef>,
