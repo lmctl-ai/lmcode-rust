@@ -908,7 +908,12 @@ impl Program {
                     let mut args = vec![Value::None; argc]; for k in (0..argc).rev() { args[k] = pop(&mut stack)?; }
                     let Import::Function(canonical) = &self.imports[i] else { return err("CALL_FN names a method import") };
                     let (_, signature, real_fn, dry_slot) = reg.functions.get(canonical).ok_or_else(|| Error::new("RUN_ERROR", format!("host function '{}' is not bound", canonical)))?;
-                    if args.iter().any(Value::is_dry_null) { return Err(Error::host("dry null cannot be passed to a host callback")); }
+                    // SDK result conversion owns nullable/provenance validation.
+                    let result_conversion = reg.std_signatures.contains(canonical) &&
+                        (canonical.starts_with("fn lmcode_return_set(") || canonical.starts_with("fn lmcode_return_put("));
+                    if (!ctx.dry() || dry_slot.is_some()) && !(ctx.dry() && result_conversion) && args.iter().any(Value::is_dry_null) {
+                        return Err(Error::host("dry null cannot be passed to a host callback"));
+                    }
                     let result = if ctx.dry() {
                         match dry_slot {
                             None => stdlib::dry_dummy(ctx, &signature.returns)?,
@@ -926,11 +931,11 @@ impl Program {
                     let this = pop(&mut stack)?;
                     let (_, _, signature, real_fn, dry_slot) = reg.methods.get(canonical).ok_or_else(|| Error::new("RUN_ERROR", format!("method '{}.{}' is not bound", type_name, name)))?;
                     if this.is_dry_null() && (!ctx.dry() || this.dry_null_type().is_none()) { return Err(Error::host("invalid dry null provenance in method receiver")); }
-                    if args.iter().any(Value::is_dry_null) { return Err(Error::host("dry null cannot be passed to a host callback")); }
                     let result = if ctx.dry() && dry_slot.is_none() {
                         // A method with no preview is skipped without dereferencing its receiver.
                         stdlib::dry_dummy(ctx, &signature.returns)?
                     } else {
+                        if args.iter().any(Value::is_dry_null) { return Err(Error::host("dry null cannot be passed to a host callback")); }
                         let obj = match &this {
                             Value::DryNull(_) => return Err(Error::host(format!("method {}.{} requires a concrete receiver after dry null", type_name, name))),
                             Value::Obj { type_name: t, obj } if t == type_name => *obj,

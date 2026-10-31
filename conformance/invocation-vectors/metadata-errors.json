@@ -137,11 +137,13 @@
   {
     "name": "invalid-parts-dry",
     "raw_hex": "7b2276657273696f6e223a312c226d6f6465223a2273696e676c65222c22647279223a747275652c227061727473223a5b5d7d",
-    "frame": "LMCODE_RETURN_BEGIN\n{\"ok\":false,\"phase\":\"cli\",\"code\":\"CLI_USAGE\",\"message\":\"lmcode invocation: invalid parts\",\"dry\":true}\nLMCODE_RETURN_END\n"
+    "frame": "LMCODE_RETURN_BEGIN\n{\"ok\":false,\"phase\":\"cli\",\"code\":\"CLI_USAGE\",\"message\":\"lmcode invocation: invalid parts\",\"dry\":true}\nLMCODE_RETURN_END\n",
+    "dry": true
   },
   {
     "name": "valid-dry-unknown-root",
     "raw_hex": "7b2276657273696f6e223a20312c20226d6f6465223a202273696e676c65222c2022647279223a20747275652c20227061727473223a205b7b22696e646578223a20302c202266696c65223a20222f756e75736564227d5d2c20226578747261223a20307d",
-    "frame": "LMCODE_RETURN_BEGIN\n{\"ok\":false,\"phase\":\"cli\",\"code\":\"CLI_USAGE\",\"message\":\"lmcode invocation: unknown key extra\",\"dry\":true}\nLMCODE_RETURN_END\n"
+    "frame": "LMCODE_RETURN_BEGIN\n{\"ok\":false,\"phase\":\"cli\",\"code\":\"CLI_USAGE\",\"message\":\"lmcode invocation: unknown key extra\",\"dry\":true}\nLMCODE_RETURN_END\n",
+    "dry": true
   }
 ]
