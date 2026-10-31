@@ -8,7 +8,7 @@ use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Thing { pub id: i64 }
-pub struct IntList { pub values: Vec<i64> }
+pub use dslvm::stdlib::collections::IntList;
 pub struct Trace(pub Vec<String>);
 
 /// The manifest's host stub: `t` (Trace) records calls; `root` is Thing 0; thing/twice/half/yes/fail.
@@ -25,11 +25,9 @@ fn fixture_bytes(hex: &[u8]) -> Result<Vec<u8>, Error> {
     hex.chunks_exact(2).map(|pair| Ok(digit(pair[0])? * 16 + digit(pair[1])?)).collect()
 }
 
-pub fn stub_registry() -> Registry { stub_registry_mode(false) }
-
-fn stub_registry_mode(std_catalog: bool) -> Registry {
-    let mut reg = if std_catalog { Registry::new() } else { Registry::without_std() };
-    if !std_catalog { dslvm::stdlib::result::register_result(&mut reg).unwrap(); }
+pub fn stub_registry() -> Registry {
+    // Core typed-result vectors also use compiler-injected standard imports.
+    let mut reg = Registry::new();
     reg.function("bytes", &["string"], "string", |_, a| Ok(Value::string(fixture_bytes(a[0].as_bytes()?)?))).unwrap();
     reg.method("Trace", "hex", &["string"], "void", |ctx, _, a| trace(ctx, format!("hex {}", dslvm::hex(a[0].as_bytes()?)))).unwrap();
     reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap().context("v", "Var").unwrap().context("xs", "IntList").unwrap();
@@ -41,10 +39,6 @@ fn stub_registry_mode(std_catalog: bool) -> Registry {
     reg.method("Trace", "thing", &["Thing"], "void", |ctx, _, a| { let id = ctx.get::<Thing>(a[0].as_obj()?)?.id; trace(ctx, format!("thing {}", id)) }).unwrap();
     reg.method("Thing", "len", &[], "int", |ctx, this, _| { let n=ctx.get::<Thing>(this)?.id; trace(ctx,format!("len {}",n))?; Ok(Value::Int(n)) }).unwrap();
     reg.method("Thing", "at", &["int"], "Thing", |ctx, _, a| { let id=a[0].as_int()?; trace(ctx,format!("at {}",id))?; let r=ctx.insert("Thing",Thing{id}); Ok(Value::object("Thing",r)) }).unwrap();
-    if !std_catalog {
-        reg.method("IntList", "len", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<IntList>(this)?.values.len() as i64))).unwrap();
-        reg.method("IntList", "at", &["int"], "int", |ctx, this, a| { let i = a[0].as_int()?; let value = ctx.get::<IntList>(this)?.values.get(usize::try_from(i).map_err(|_| Error::host("IntList index out of range"))?).copied().ok_or_else(|| Error::host("IntList index out of range"))?; Ok(Value::Int(value)) }).unwrap();
-    }
     reg.method("Thing", "id", &[], "int", |ctx, this, _| Ok(Value::Int(ctx.get::<Thing>(this)?.id))).unwrap();
     reg.method("Thing", "next", &[], "Thing", |ctx, this, _| { let id = ctx.get::<Thing>(this)?.id; let r = ctx.insert("Thing", Thing { id: id + 1 }); Ok(Value::object("Thing", r)) }).unwrap();
     reg.method("Thing", "name", &[], "string", |ctx, this, _| Ok(Value::string(format!("thing-{}", ctx.get::<Thing>(this)?.id)))).unwrap();
@@ -185,7 +179,7 @@ fn arg_value(arg: JsonArg, ty: &str, ctx: &mut Context) -> Result<Value, Error> 
 
 fn catalog_registry(schema: &[u8], temp_dir: Option<String>) -> (Registry, Rc<RefCell<Vec<u8>>>) {
     let std_catalog = [b"\"str_len\"".as_slice(), b"\"math_abs\"", b"\"str_list\"", b"\"print\""].iter().any(|needle| schema.windows(needle.len()).any(|w| w == *needle));
-    let mut reg = stub_registry_mode(std_catalog);
+    let mut reg = stub_registry();
     let printed = Rc::new(RefCell::new(Vec::new()));
     if std_catalog {
         let sink: dslvm::stdlib::testing::Sink = printed.clone();
@@ -230,7 +224,7 @@ fn run_vector_observed(bytecode: &[u8], schema: &[u8]) -> Observed {
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
     ctx.set_object("root", "Thing", Thing { id: 0 });
     ctx.set_object("v", "Var", Thing { id: 0 });
-    ctx.set_object("xs", "IntList", IntList { values: vec![0, 1, 2, 3] });
+    ctx.set_object("xs", "IntList", IntList { items: vec![0, 1, 2, 3] });
     let mut outcome = match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e) };
     let sink = finish_result(&mut results,&ctx,&mut outcome);
     if let Some(path) = temp_dir { let _ = std::fs::remove_dir_all(path); }
@@ -260,7 +254,7 @@ fn run_entry_vector_observed(
     entry_name: &str,
     args_json: &str,
 ) -> Observed {
-    let reg = stub_registry_mode(false);
+    let reg = stub_registry();
     let program = match Program::load(bytecode, schema, &reg) {
         Ok(p) => p,
         Err(e) => return Observed { outcome: Outcome::LoadError(e), sink_json: String::new(), frame: String::new() },
@@ -289,7 +283,7 @@ fn run_entry_vector_observed(
         "xs",
         "IntList",
         IntList {
-            values: vec![0, 1, 2, 3],
+            items: vec![0, 1, 2, 3],
         },
     );
     if let Err(e) = program.run(&mut ctx, &reg) {
@@ -414,7 +408,7 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
     let mut ok = match (expect.kind.as_str(), &outcome) {
         ("trace", Outcome::Trace(lines)) => trace_matches(&expect.lines, lines),
         ("entries", Outcome::Trace(_lines)) => {
-            let program = Program::load(&bytecode, &schema, &stub_registry_mode(false))
+            let program = Program::load(&bytecode, &schema, &stub_registry())
                 .map_err(|e| e.message)?;
             let actual = program.entries().iter().map(|e| format!("{} {} {}",e.name,e.annotation,e.iface)).collect::<Vec<_>>();
             expect.lines == actual
@@ -540,7 +534,7 @@ mod tests {
     #[test]
     fn every_vector_gives_the_expected_result_class() {
         let dir = default_dir(); let names = vector_names(&dir);
-        assert_eq!(names.len(),406,"core v6 vector count");
+        assert_eq!(names.len(),410,"core v6 vector count");
         let failures: Vec<String> = names.iter().filter_map(|n| check_vector(&dir, n).err()).collect();
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }

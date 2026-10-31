@@ -6,7 +6,7 @@
   "host": {
     "description": "Context t (Trace) records lines: int/float/str/bool/thing. Context root is Thing id 0 and xs is IntList [0,1,2,3]. lmcode_return_* writes a separate invocation sink and adds no trace line. Host functions and methods follow their schema names and preserve the existing trace semantics. Rule entries are called by name after load; primitive args are JSON scalar values and object args are {type:Thing,id:N}, stored into parameter slots 0..n-1. Entry calls return one typed value or void.",
     "entry_call": "entries expect NAME ANNOTATION INTERFACE; every call runs the body once first, then selects the named entry. call expects line 2 ENTRY ARGS-JSON, args are stored in parameter slots 0..n-1, line 3 result int N|float X|string S|bool true|false|thing ID|void (an enum result is its constant name as string S; an object result is thing ID), then trace lines; call_error expects line 2 ENTRY ARGS-JSON, line 3 CODE, line 4 MESSAGE; call_error_at expects line 2 ENTRY ARGS-JSON, line 3 CODE, line 4 LINE, line 5 COLUMN, line 6 MESSAGE. Interface text is canonical `interface I(T1, ...) -> R` (parameter names are not on the wire). Loader rules per entry (LOAD_BAD_BYTECODE, message substrings pinned by the load-entry-* vectors): nparams equals the interface parameter count (`entry 'NAME' declares N parameter(s); interface I(...) -> R has M`), parameter local i has the interface's type i (`entry 'NAME' parameter I has type T; the interface expects U`), no parameter local is hidden (`entry 'NAME' parameter I is hidden`), and HALT depth is 0 for void or 1 otherwise (`entry 'NAME': HALT leaves N values`). call arity: RUN_HOST `call entry 'NAME' expects N argument(s); found M`. call needs no prior run(); it returns the single HALT value (none for void).",
-    "result_sink": "Native sink JSON is asserted independently from one terminal invocation envelope; success includes ok/result and controlled failure includes phase/code/message/location with no payload.",
+    "result_sink": "Optional trailing .expect line: sink JSON-OBJECT, mirrored as expect.sink in manifest. json is the exact serialized sink payload, including partial writes on failure. frame is one terminal LMCODE_RETURN_BEGIN/END frame: success wraps payload in {ok:true,result}; controlled failure carries {ok:false,phase,code,message,line,column} without payload. Bind one sink across body and selected entry; publish only after invocation completion. Existing located VM diagnostic spellings are wire data.",
     "expect": "trace: the recorded lines in order, after a successful run. entries: one canonical entry line per rule in source order. call: line 2 selects an entry and JSON args, line 3 is the result, remaining lines are trace. call_error: calling with the wrong arity fails before execution. call_error_at: an entry runtime error carries exact code, line and column plus a message substring. runtime_error/runtime_error_at cover body execution. load_error: load() throws before execution; line 2 is the exact error code and line 3 a message substring. The manifest stores {code, message}."
   },
   "vectors": [
@@ -1342,7 +1342,7 @@
     },
     {
       "name": "return-entry-error",
-      "covers": "F3: body and entry share a sink, but entry failure emits no frame",
+      "covers": "F3: body and entry share a sink, entry failure emits a failure envelope",
       "schema": "schema.json",
       "bytecode": "return-entry-error.dslb",
       "source": "return-entry-error.dsl",
@@ -1416,6 +1416,66 @@
         "sink": {
           "json": "null",
           "frame": "LMCODE_RETURN_BEGIN\n{\"ok\":true,\"result\":null}\nLMCODE_RETURN_END\n"
+        }
+      }
+    },
+    {
+      "name": "typed-result-map",
+      "covers": "R2: typed IntMap result accepts its declared root value without changing HALT",
+      "schema": "schema-typed.json",
+      "bytecode": "typed-result-map.dslb",
+      "source": "typed-result-map.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [],
+        "sink": {
+          "json": "{\"score\":7}",
+          "frame": "LMCODE_RETURN_BEGIN\n{\"ok\":true,\"result\":{\"score\":7}}\nLMCODE_RETURN_END\n"
+        }
+      }
+    },
+    {
+      "name": "typed-result-field",
+      "covers": "R2: typed IntMap field writes compile through the existing standard import",
+      "schema": "schema-typed.json",
+      "bytecode": "typed-result-field.dslb",
+      "source": "typed-result-field.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [],
+        "sink": {
+          "json": "{\"score\":7}",
+          "frame": "LMCODE_RETURN_BEGIN\n{\"ok\":true,\"result\":{\"score\":7}}\nLMCODE_RETURN_END\n"
+        }
+      }
+    },
+    {
+      "name": "typed-result-nullable",
+      "covers": "R2: nullable scalar contract permits explicit root null",
+      "schema": "schema-nullable.json",
+      "bytecode": "typed-result-nullable.dslb",
+      "source": "typed-result-nullable.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [],
+        "sink": {
+          "json": "null",
+          "frame": "LMCODE_RETURN_BEGIN\n{\"ok\":true,\"result\":null}\nLMCODE_RETURN_END\n"
+        }
+      }
+    },
+    {
+      "name": "typed-result-json-deferred",
+      "covers": "R2: Json root value remains compiler-checkable with runtime shape validation",
+      "schema": "schema-typed.json",
+      "bytecode": "typed-result-json-deferred.dslb",
+      "source": "typed-result-json-deferred.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [],
+        "sink": {
+          "json": "{\"score\":7}",
+          "frame": "LMCODE_RETURN_BEGIN\n{\"ok\":true,\"result\":{\"score\":7}}\nLMCODE_RETURN_END\n"
         }
       }
     },
@@ -6099,6 +6159,5 @@
         }
       }
     }
-  ],
-  "invocation_expectations_generated_by": "scripts/gen-invocation-expectations.py"
+  ]
 }
