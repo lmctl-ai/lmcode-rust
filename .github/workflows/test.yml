@@ -8,14 +8,14 @@ on:
       compiler_version:
         description: "Published @lmctl-ai/lmctl version"
         required: false
-        default: "0.2.444"
+        default: "0.2.450"
 permissions:
   contents: read
 concurrency:
   group: test-${{ github.ref }}
   cancel-in-progress: true
 env:
-  LMCODE_COMPILER_VERSION: ${{ inputs.compiler_version || vars.LMCODE_COMPILER_VERSION || '0.2.444' }}
+  LMCODE_COMPILER_VERSION: ${{ inputs.compiler_version || vars.LMCODE_COMPILER_VERSION || '0.2.450' }}
 jobs:
   build:
     strategy:
