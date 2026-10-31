@@ -1,5 +1,5 @@
 //! Conformance runner: implements the host stub described in conformance/vectors/manifest.json ("host") and checks every
-//! NAME.dslb against NAME.expect (line 1: trace | runtime_error | load_error; then the expected lines or the error substring).
+//! NAME.dslb against NAME.expect (line 1: trace | runtime_error | load_error; then the expected lines or the exact load code and error substring).
 //! `cargo test -p dsl-conformance` runs all vectors; `cargo run -p dsl-conformance -- [VECTOR_DIR]` prints a report.
 use dslvm::{format_g15, Context, Error, Program, Registry, Value};
 use std::cell::RefCell;
@@ -72,7 +72,7 @@ fn stub_registry_mode(std_catalog: bool) -> Registry {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Outcome { Trace(Vec<String>), RuntimeError(Error), LoadError(String) }
+pub enum Outcome { Trace(Vec<String>), RuntimeError(Error), LoadError(Error) }
 
 #[derive(Debug, Clone)]
 enum JsonArg {
@@ -218,7 +218,7 @@ fn run_vector_observed(bytecode: &[u8], schema: &[u8]) -> Observed {
         Some(path.to_string_lossy().into_owned())
     } else { None };
     let (reg, _) = catalog_registry(schema, temp_dir.clone());
-    let program = match Program::load(bytecode, schema, &reg) { Ok(p) => p, Err(e) => return Observed { outcome: Outcome::LoadError(e.message), sink_json: String::new(), frame: String::new() } };
+    let program = match Program::load(bytecode, schema, &reg) { Ok(p) => p, Err(e) => return Observed { outcome: Outcome::LoadError(e), sink_json: String::new(), frame: String::new() } };
     let mut ctx = Context::new();
     ctx.result_sink = Some(dslvm::stdlib::ResultSink::default());
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
@@ -262,7 +262,7 @@ fn run_entry_vector_observed(
     let reg = stub_registry_mode(false);
     let program = match Program::load(bytecode, schema, &reg) {
         Ok(p) => p,
-        Err(e) => return Observed { outcome: Outcome::LoadError(e.message), sink_json: String::new(), frame: String::new() },
+        Err(e) => return Observed { outcome: Outcome::LoadError(e), sink_json: String::new(), frame: String::new() },
     };
     let entry_index = match program.entries().iter().position(|e| e.name == entry_name) {
         Some(i) => i,
@@ -465,7 +465,7 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
                 && e.column == column
                 && e.message.contains(&expect.lines[3])
         }
-        ("load_error", Outcome::LoadError(m)) => m.contains(&expect.lines[0]),
+        ("load_error", Outcome::LoadError(e)) => expect.lines.len() == 2 && e.code == expect.lines[0] && e.message.contains(&expect.lines[1]),
         _ => false,
     };
     if ok { if let Some(sink) = &expect.sink { ok = sink.json == sink_json && sink.frame == frame; } }

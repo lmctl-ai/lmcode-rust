@@ -7,7 +7,7 @@
     "description": "Context t (Trace) records lines: int/float/str/bool/thing. Context root is Thing id 0 and xs is IntList [0,1,2,3]. lmcode_return_* writes a separate invocation sink and adds no trace line. Host functions and methods follow their schema names and preserve the existing trace semantics. Rule entries are called by name after load; primitive args are JSON scalar values and object args are {type:Thing,id:N}, stored into parameter slots 0..n-1. Entry calls return one typed value or void.",
     "entry_call": "entries expect NAME ANNOTATION INTERFACE; every call runs the body once first, then selects the named entry. call expects line 2 ENTRY ARGS-JSON, args are stored in parameter slots 0..n-1, line 3 result int N|float X|string S|bool true|false|thing ID|void (an enum result is its constant name as string S; an object result is thing ID), then trace lines; call_error expects line 2 ENTRY ARGS-JSON, line 3 CODE, line 4 MESSAGE; call_error_at expects line 2 ENTRY ARGS-JSON, line 3 CODE, line 4 LINE, line 5 COLUMN, line 6 MESSAGE. Interface text is canonical `interface I(T1, ...) -> R` (parameter names are not on the wire). Loader rules per entry (LOAD_BAD_BYTECODE, message substrings pinned by the load-entry-* vectors): nparams equals the interface parameter count (`entry 'NAME' declares N parameter(s); interface I(...) -> R has M`), parameter local i has the interface's type i (`entry 'NAME' parameter I has type T; the interface expects U`), no parameter local is hidden (`entry 'NAME' parameter I is hidden`), and HALT depth is 0 for void or 1 otherwise (`entry 'NAME': HALT leaves N values`). call arity: RUN_HOST `call entry 'NAME' expects N argument(s); found M`. call needs no prior run(); it returns the single HALT value (none for void).",
     "result_sink": "Optional trailing .expect line: sink JSON-OBJECT, mirrored as expect.sink in manifest. json is the exact serialized sink payload after execution, including partial writes on failure. frame is exact output: LMCODE_RETURN_BEGIN\\n + json + \\nLMCODE_RETURN_END\\n only after body and selected entry succeed; empty on failure. Bind one sink for body plus entry, reset once before body, never between phases. Compare sink and frame on error paths as well as success; framing at body HALT before entry completion is forbidden.",
-    "expect": "trace: the recorded lines in order, after a successful run. entries: one canonical entry line per rule in source order. call: line 2 selects an entry and JSON args, line 3 is the result, remaining lines are trace. call_error: calling with the wrong arity fails before execution. call_error_at: an entry runtime error carries exact code, line and column plus a message substring. runtime_error/runtime_error_at cover body execution. load_error: load() throws (nothing runs) and the message contains the substring."
+    "expect": "trace: the recorded lines in order, after a successful run. entries: one canonical entry line per rule in source order. call: line 2 selects an entry and JSON args, line 3 is the result, remaining lines are trace. call_error: calling with the wrong arity fails before execution. call_error_at: an entry runtime error carries exact code, line and column plus a message substring. runtime_error/runtime_error_at cover body execution. load_error: load() throws before execution; line 2 is the exact error code and line 3 a message substring. The manifest stores {code, message}."
   },
   "vectors": [
     {
@@ -727,7 +727,10 @@
       "source": "load-bad-magic.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "bad magic"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "bad magic"
+        }
       }
     },
     {
@@ -738,7 +741,10 @@
       "source": "load-other-version.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "unsupported bytecode version 5"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "unsupported bytecode version 5"
+        }
       }
     },
     {
@@ -749,7 +755,10 @@
       "source": "load-bad-constant-tag.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "constant 0 has unknown tag 7"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "constant 0 has unknown tag 7"
+        }
       }
     },
     {
@@ -760,7 +769,10 @@
       "source": "load-context-type.dsl",
       "mutated": false,
       "expect": {
-        "load_error": "context variable 't' is declared as Thing by the bytecode, the host provides Trace"
+        "load_error": {
+          "code": "LOAD_UNBOUND",
+          "message": "context variable 't' is declared as Thing by the bytecode, the host provides Trace"
+        }
       }
     },
     {
@@ -771,7 +783,10 @@
       "source": "load-truncated.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "bytecode is truncated"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "bytecode is truncated"
+        }
       }
     },
     {
@@ -782,7 +797,10 @@
       "source": "load-trailing.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "trailing byte"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "trailing byte"
+        }
       }
     },
     {
@@ -793,7 +811,10 @@
       "source": "load-schema-mismatch.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "schema mismatch"
+        "load_error": {
+          "code": "LOAD_SCHEMA_MISMATCH",
+          "message": "schema mismatch"
+        }
       }
     },
     {
@@ -804,7 +825,10 @@
       "source": "load-unbound-function.dsl",
       "mutated": false,
       "expect": {
-        "load_error": "import 'fn unbound_extra() -> int' is not provided by the host"
+        "load_error": {
+          "code": "LOAD_UNBOUND",
+          "message": "import 'fn unbound_extra() -> int' is not provided by the host"
+        }
       }
     },
     {
@@ -815,7 +839,10 @@
       "source": "load-backward-jump.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "goes backwards"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "goes backwards"
+        }
       }
     },
     {
@@ -826,7 +853,10 @@
       "source": "load-bad-loop-pair.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "does not target its paired WHILE_BEGIN"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "does not target its paired WHILE_BEGIN"
+        }
       }
     },
     {
@@ -1006,7 +1036,10 @@
       "source": "load-entry-jump-out.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "jump"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "jump"
+        }
       }
     },
     {
@@ -1017,7 +1050,10 @@
       "source": "load-entry-halt-depth.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "HALT leaves 0 values"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "HALT leaves 0 values"
+        }
       }
     },
     {
@@ -1141,7 +1177,10 @@
       "source": "load-entry-params-mismatch.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "entry 'increment' declares 0 parameter"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "entry 'increment' declares 0 parameter"
+        }
       }
     },
     {
@@ -1152,7 +1191,10 @@
       "source": "load-entry-hidden-param.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "entry 'increment' parameter 1 is hidden"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "entry 'increment' parameter 1 is hidden"
+        }
       }
     },
     {
@@ -1163,7 +1205,10 @@
       "source": "load-entry-param-type.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "entry 'increment' parameter 1 has type step"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "entry 'increment' parameter 1 has type step"
+        }
       }
     },
     {
@@ -1174,7 +1219,10 @@
       "source": "load-entry-lines-huge.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "line table"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "line table"
+        }
       }
     },
     {
@@ -1185,7 +1233,10 @@
       "source": "load-entry-dup-name.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "duplicate entry name 'first'"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "duplicate entry name 'first'"
+        }
       }
     },
     {
@@ -1196,7 +1247,10 @@
       "source": "load-entry-hidden-store.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "writes compiler-owned loop local 1"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "writes compiler-owned loop local 1"
+        }
       }
     },
     {
@@ -5731,7 +5785,10 @@
       "source": "hostile-bool-operand.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "PUSH_BOOL operand"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "PUSH_BOOL operand"
+        }
       }
     },
     {
@@ -5742,7 +5799,10 @@
       "source": "hostile-local-index.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "local slot"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "local slot"
+        }
       }
     },
     {
@@ -5753,7 +5813,10 @@
       "source": "hostile-context-index.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "context index"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "context index"
+        }
       }
     },
     {
@@ -5764,7 +5827,10 @@
       "source": "hostile-call-fn-arity.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "CALL_FN at offset"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "CALL_FN at offset"
+        }
       }
     },
     {
@@ -5775,7 +5841,10 @@
       "source": "hostile-call-fn-import.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "import index"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "import index"
+        }
       }
     },
     {
@@ -5786,7 +5855,10 @@
       "source": "hostile-call-method-arity.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "CALL_METHOD at offset"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "CALL_METHOD at offset"
+        }
       }
     },
     {
@@ -5797,7 +5869,10 @@
       "source": "hostile-call-method-import.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "import index"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "import index"
+        }
       }
     },
     {
@@ -5808,7 +5883,10 @@
       "source": "hostile-math-id.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "unknown MATH function"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "unknown MATH function"
+        }
       }
     },
     {
@@ -5819,7 +5897,10 @@
       "source": "hostile-jump-backward.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "goes backwards"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "goes backwards"
+        }
       }
     },
     {
@@ -5830,7 +5911,10 @@
       "source": "hostile-jump-target.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "not an instruction start"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "not an instruction start"
+        }
       }
     },
     {
@@ -5841,7 +5925,10 @@
       "source": "hostile-range-same-slot.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "counter and end slots must be distinct"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "counter and end slots must be distinct"
+        }
       }
     },
     {
@@ -5852,7 +5939,10 @@
       "source": "hostile-range-overlap.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "already owned by another range loop"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "already owned by another range loop"
+        }
       }
     },
     {
@@ -5863,7 +5953,10 @@
       "source": "hostile-range-backward-exit.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "FOR_RANGE at offset"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "FOR_RANGE at offset"
+        }
       }
     },
     {
@@ -5874,7 +5967,10 @@
       "source": "hostile-for-next-orphan.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "has no matching FOR_RANGE"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "has no matching FOR_RANGE"
+        }
       }
     },
     {
@@ -5885,7 +5981,10 @@
       "source": "hostile-for-next-end.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "names end slot"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "names end slot"
+        }
       }
     },
     {
@@ -5896,7 +5995,10 @@
       "source": "hostile-for-next-target.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "must return to its FOR_RANGE body"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "must return to its FOR_RANGE body"
+        }
       }
     },
     {
@@ -5907,7 +6009,10 @@
       "source": "hostile-while-test-orphan.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "WHILE_TEST at offset"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "WHILE_TEST at offset"
+        }
       }
     },
     {
@@ -5918,7 +6023,10 @@
       "source": "hostile-loopback-target.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "does not target its paired WHILE_BEGIN"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "does not target its paired WHILE_BEGIN"
+        }
       }
     },
     {
@@ -5929,7 +6037,10 @@
       "source": "hostile-halt-inside-loop.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "HALT inside loop"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "HALT inside loop"
+        }
       }
     },
     {
@@ -5940,7 +6051,10 @@
       "source": "hostile-unknown-opcode.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "unknown opcode"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "unknown opcode"
+        }
       }
     },
     {
@@ -5951,7 +6065,10 @@
       "source": "hostile-line-pc.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "line table entry points"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "line table entry points"
+        }
       }
     },
     {
@@ -5962,7 +6079,10 @@
       "source": "hostile-line-unsorted.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "line table is not sorted"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "line table is not sorted"
+        }
       }
     },
     {
@@ -5973,7 +6093,10 @@
       "source": "hostile-entry-jump-target.dsl",
       "mutated": true,
       "expect": {
-        "load_error": "jump"
+        "load_error": {
+          "code": "LOAD_BAD_BYTECODE",
+          "message": "jump"
+        }
       }
     }
   ]
