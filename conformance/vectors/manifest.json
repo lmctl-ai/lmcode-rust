@@ -4,8 +4,9 @@
   "generated_by": "lmscript dsl.ts (scripts/generate-dsl-conformance.ts)",
   "schema": "schema.json",
   "host": {
-    "description": "Context t (Trace) records lines: int/float/str/bool/thing. Context root is Thing id 0 and xs is IntList [0,1,2,3]. Host functions and methods follow their schema names and preserve the existing trace semantics. Rule entries are called by name after load; primitive args are JSON scalar values and object args are {type:Thing,id:N}, stored into parameter slots 0..n-1. Entry calls return one typed value or void.",
+    "description": "Context t (Trace) records lines: int/float/str/bool/thing. Context root is Thing id 0 and xs is IntList [0,1,2,3]. lmcode_return_* writes a separate invocation sink and adds no trace line. Host functions and methods follow their schema names and preserve the existing trace semantics. Rule entries are called by name after load; primitive args are JSON scalar values and object args are {type:Thing,id:N}, stored into parameter slots 0..n-1. Entry calls return one typed value or void.",
     "entry_call": "entries expect NAME ANNOTATION INTERFACE; every call runs the body once first, then selects the named entry. call expects line 2 ENTRY ARGS-JSON, args are stored in parameter slots 0..n-1, line 3 result int N|float X|string S|bool true|false|thing ID|void (an enum result is its constant name as string S; an object result is thing ID), then trace lines; call_error expects line 2 ENTRY ARGS-JSON, line 3 CODE, line 4 MESSAGE; call_error_at expects line 2 ENTRY ARGS-JSON, line 3 CODE, line 4 LINE, line 5 COLUMN, line 6 MESSAGE. Interface text is canonical `interface I(T1, ...) -> R` (parameter names are not on the wire). Loader rules per entry (LOAD_BAD_BYTECODE, message substrings pinned by the load-entry-* vectors): nparams equals the interface parameter count (`entry 'NAME' declares N parameter(s); interface I(...) -> R has M`), parameter local i has the interface's type i (`entry 'NAME' parameter I has type T; the interface expects U`), no parameter local is hidden (`entry 'NAME' parameter I is hidden`), and HALT depth is 0 for void or 1 otherwise (`entry 'NAME': HALT leaves N values`). call arity: RUN_HOST `call entry 'NAME' expects N argument(s); found M`. call needs no prior run(); it returns the single HALT value (none for void).",
+    "result_sink": "Optional trailing .expect line: sink JSON-OBJECT, mirrored as expect.sink in manifest. json is the exact serialized sink payload after execution, including partial writes on failure. frame is exact output: LMCODE_RETURN_BEGIN\\n + json + \\nLMCODE_RETURN_END\\n only after body and selected entry succeed; empty on failure. Bind one sink for body plus entry, reset once before body, never between phases. Compare sink and frame on error paths as well as success; framing at body HALT before entry completion is forbidden.",
     "expect": "trace: the recorded lines in order, after a successful run. entries: one canonical entry line per rule in source order. call: line 2 selects an entry and JSON args, line 3 is the result, remaining lines are trace. call_error: calling with the wrong arity fails before execution. call_error_at: an entry runtime error carries exact code, line and column plus a message substring. runtime_error/runtime_error_at cover body execution. load_error: load() throws (nothing runs) and the message contains the substring."
   },
   "vectors": [
@@ -1196,6 +1197,172 @@
       "mutated": true,
       "expect": {
         "load_error": "writes compiler-owned loop local 1"
+      }
+    },
+    {
+      "name": "return-root",
+      "covers": "slice 3: whole-result assignment lowers to lmcode_return_set without changing v6",
+      "schema": "schema.json",
+      "bytecode": "return-root.dslb",
+      "source": "return-root.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [],
+        "sink": {
+          "json": "17",
+          "frame": "LMCODE_RETURN_BEGIN\n17\nLMCODE_RETURN_END\n"
+        }
+      }
+    },
+    {
+      "name": "return-field",
+      "covers": "slice 3: literal and computed one-level fields lower to lmcode_return_put",
+      "schema": "schema.json",
+      "bytecode": "return-field.dslb",
+      "source": "return-field.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [],
+        "sink": {
+          "json": "{\"name\":\"Ada\",\"score\":9}",
+          "frame": "LMCODE_RETURN_BEGIN\n{\"name\":\"Ada\",\"score\":9}\nLMCODE_RETURN_END\n"
+        }
+      }
+    },
+    {
+      "name": "return-null",
+      "covers": "slice 3: explicit root and field null use the dedicated null imports",
+      "schema": "schema.json",
+      "bytecode": "return-null.dslb",
+      "source": "return-null.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [],
+        "sink": {
+          "json": "{\"name\":null}",
+          "frame": "LMCODE_RETURN_BEGIN\n{\"name\":null}\nLMCODE_RETURN_END\n"
+        }
+      }
+    },
+    {
+      "name": "return-entry-write",
+      "covers": "slice 3: entry-side writes use the invocation sink; the entry return and HALT remain separate",
+      "schema": "schema.json",
+      "bytecode": "return-entry-write.dslb",
+      "source": "return-entry-write.dsl",
+      "mutated": false,
+      "expect": {
+        "call": {
+          "entry": "write",
+          "args": [
+            7
+          ],
+          "result": "int 8",
+          "trace": []
+        },
+        "sink": {
+          "json": "{\"body\":1,\"value\":7}",
+          "frame": "LMCODE_RETURN_BEGIN\n{\"body\":1,\"value\":7}\nLMCODE_RETURN_END\n"
+        }
+      }
+    },
+    {
+      "name": "return-scalar-field",
+      "covers": "slice 3: a field write after a scalar root is RUN_HOST",
+      "schema": "schema.json",
+      "bytecode": "return-scalar-field.dslb",
+      "source": "return-scalar-field.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 2,
+          "column": 1,
+          "message": "lmcode return: field assignment requires object or null"
+        },
+        "sink": {
+          "json": "1",
+          "frame": ""
+        }
+      }
+    },
+    {
+      "name": "return-entry-error",
+      "covers": "F3: body and entry share a sink, but entry failure emits no frame",
+      "schema": "schema.json",
+      "bytecode": "return-entry-error.dslb",
+      "source": "return-entry-error.dsl",
+      "mutated": false,
+      "expect": {
+        "call_error_at": {
+          "entry": "write",
+          "args": [
+            7
+          ],
+          "code": "RUN_HOST",
+          "line": 5,
+          "column": 3,
+          "message": "entry fault after write"
+        },
+        "sink": {
+          "json": "{\"body\":1,\"value\":7}",
+          "frame": ""
+        }
+      }
+    },
+    {
+      "name": "return-multiline-helper",
+      "covers": "synthetic sink CALL maps to assignment after successful helper RHS",
+      "schema": "schema.json",
+      "bytecode": "return-multiline-helper.dslb",
+      "source": "return-multiline-helper.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_HOST",
+          "line": 3,
+          "column": 1,
+          "message": "lmcode return: field assignment requires object or null"
+        },
+        "sink": {
+          "json": "1",
+          "frame": ""
+        }
+      }
+    },
+    {
+      "name": "return-rhs-error",
+      "covers": "RHS failure retains expression location before synthetic sink CALL",
+      "schema": "schema.json",
+      "bytecode": "return-rhs-error.dslb",
+      "source": "return-rhs-error.dsl",
+      "mutated": false,
+      "expect": {
+        "runtime_error_at": {
+          "code": "RUN_ERROR",
+          "line": 3,
+          "column": 5,
+          "message": "division by zero"
+        },
+        "sink": {
+          "json": "1",
+          "frame": ""
+        }
+      }
+    },
+    {
+      "name": "return-root-null",
+      "covers": "explicit root null remains observable at success framing",
+      "schema": "schema.json",
+      "bytecode": "return-root-null.dslb",
+      "source": "return-root-null.dsl",
+      "mutated": false,
+      "expect": {
+        "trace": [],
+        "sink": {
+          "json": "null",
+          "frame": "LMCODE_RETURN_BEGIN\nnull\nLMCODE_RETURN_END\n"
+        }
       }
     },
     {

@@ -1,0 +1,6 @@
+runtime_error_at
+RUN_HOST
+3
+1
+lmcode return: field assignment requires object or null
+sink {"json":"1","frame":""}

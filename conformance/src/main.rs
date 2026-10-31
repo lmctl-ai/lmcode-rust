@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn every_vector_gives_the_expected_result_class() {
         let dir = default_dir(); let names = vector_names(&dir);
-        assert_eq!(names.len(),397,"core v6 vector count");
+        assert_eq!(names.len(),406,"core v6 vector count");
         let failures: Vec<String> = names.iter().filter_map(|n| check_vector(&dir, n).err()).collect();
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
