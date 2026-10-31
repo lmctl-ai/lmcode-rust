@@ -43,6 +43,7 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/lmcode-lmctl" "@lmctl-ai/lmctl@$LMCODE_COMPILER_VERSION"
           echo "$RUNNER_TEMP/lmcode-lmctl/node_modules/.bin" >> "$GITHUB_PATH"
+          export PATH="$RUNNER_TEMP/lmcode-lmctl/node_modules/.bin:$PATH"
           lmscript --version
           rustup toolchain install stable --profile minimal
           rustup default stable
