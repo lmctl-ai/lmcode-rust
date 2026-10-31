@@ -31,20 +31,27 @@ cannot write/reset a sealed slot. Fresh collectors create fresh slots; no implic
 reset on body/entry execution. Context/collector use Rc and are not Send/Sync:
 interleave on one thread or provide host serialization, not concurrent mutation.
 
-Private LMCODE_INVOCATION_FILE selects strict version-1 metadata. Explicit
-from_command_with_manifest(files, None) is the standalone/test seam and never
-reads ambient environment. Standalone duplicate file occurrences are distinct
-slots; metadata paths are absolute, unique and matched exactly to registrations.
-from_metadata accepts bytes for isolated testing/embedding. No public manifest
-flag, timer, retry, size cap or shell is added.
+Private LMCODE_INVOCATION_FILE selects strict version-1 metadata, now including
+required boolean `dry`. Explicit from_command_with_manifest(files, None) is the
+standalone/test seam and never reads ambient environment; it defaults to real mode.
+Embedded SDK callers can construct a dry collector with
+from_command_with_dry(files, true). Standalone duplicate file occurrences are
+distinct slots; metadata paths are absolute, unique and matched exactly to
+registrations. from_metadata accepts bytes for isolated testing/embedding. No
+public manifest flag, dry environment variable, timer, retry, size cap or shell
+is added.
 
-One single success envelope is {"ok":true,"result":value}. Builder results are
-in add order, even if execution is reversed, and have a required parts count.
-A one-slot builder remains an array of one payload. fail latches the first error
-and optional zero-based builder part; later failures cannot replace it. Existing
-active work can drain but no new slot may start. Missing completion is failure,
-not implicit null. Failure envelopes have no result/parts, and use phase cli,
-load, run or app with exit 2, 3, 3 or 4 respectively.
+One real-mode single success envelope is {"ok":true,"result":value}; a dry
+success appends `"dry":true` after the ordinary single or builder keys. Builder
+results are in add order, even if execution is reversed, and have a required
+parts count; a one-slot builder remains an array of one payload. `select` copies
+the collector mode into Context, and `Context::dry()` is the host's mode accessor.
+fail latches the first error and optional zero-based builder part; later failures
+cannot replace it. Existing active work can drain but no new slot may start.
+Missing completion is failure, not implicit null. Dry failure envelopes append
+`"dry":true` after the existing failure keys; real failures omit it. Failure
+envelopes have no result/parts, and use phase cli, load, run or app with exit 2,
+3, 3 or 4 respectively.
 
 write_frame writes the terminal markers and compact envelope, then flushes.
 It is single-shot even after partial-write or flush failure (exit 4). A host
@@ -58,11 +65,12 @@ permits JSON including null. Known native types preserve distinctions; Json
 values defer to their actual shape. Writes validate before changing the sink;
 unset nonnullable values fail completion. Integers widen to floats without value
 conversion. Rust shortest-round-trip digits use the canonical general layout;
-0.1+0.2 remains 0.30000000000000004. No bytecode or standard signature changes.
+0.1+0.2 remains 0.30000000000000004. The collector copies its dry mode into each selected Context; `Context::dry()` is
+the host's invocation-mode accessor. No bytecode or standard signature changes.
 
-Gate: cargo test --workspace --locked, canonical invocation vector script,
-production-copy mutate-results.py (includes seal/sink/part/flush controls), and
-scripts/sync-vectors.sh --verify. New fixtures include invocation-vectors.lock.
-R7 updates sample adapters before changing their SDK pin; do not restore reporters
-just to compile an old sample. Linux was locally qualified; other platforms need
-native CI runs. Actions is manual; no release is dispatched by this work.
+Gate: cargo test --workspace --locked, canonical invocation vector script (H0 dry
+goldens included), dry sentinel/fallback/double-call/shared-dummy controls,
+production-copy mutate-results.py (seal/sink/part/flush), and
+scripts/sync-vectors.sh --verify. H1 adds no bytecode or standard signature changes.
+Linux was locally qualified; other platforms need native CI runs. Actions is
+manual; no release is dispatched by this work.

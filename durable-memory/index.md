@@ -14,6 +14,7 @@ Repository: https://github.com/lmctl-ai/lmcode-rust. Crate: `dslvm`. Toolchain: 
 | [05-open-items.md](05-open-items.md) | Planned improvements and multi-runtime parity |
 | [06-stdlib-catalog.md](06-stdlib-catalog.md) | Standard library math, string, and collections catalogs |
 | [09-result-sink.md](09-result-sink.md) | Invocation-owned result sink, return signatures, validation, and frame contract |
+| [11-dry-host-callbacks.md](11-dry-host-callbacks.md) | Optional dry slots, typed dummies, manifest mode, and dry envelopes (H1) |
 
 ## Adding an example or host function
 

@@ -75,7 +75,7 @@ The same bytecode v6 and the same conformance vectors are implemented by [lmcode
 
 ## Standard library catalog
 
-`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The v3 catalog has 182 signatures: the original string, math, collection and file surface plus typed Int/Float maps, Int/Float/Str stacks, queues and stable min-first priority queues, immutable Json, strict byte Base64/hex codecs, and map key/value snapshots. Install current `@lmctl-ai/lmctl` for v3 catalog and v6 entry support.
+`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The v3 catalog has 182 signatures: the original string, math, collection and file surface plus typed Int/Float maps, Int/Float/Str stacks, queues and stable min-first priority queues, immutable Json, strict byte Base64/hex codecs, and map key/value snapshots. Use a compiler that supports the schema v3 catalog, v6 entries, and optional dry-program execution (published lmctl 0.2.450 or newer).
 Run `cargo test -p dslvm --test stdlib_catalogs` for exact parity between the explicit canonical schema and the registry; it uses `lmscript` (or `$LMSCRIPT_BIN`) on PATH.
 
 The built-in numeric catalog is also described by `stdlib/math.schema-fragment.json`; it provides int/float overloads of `math_abs`, `math_min`, `math_max`, `math_floor`, `math_ceil`, `math_round`, `math_pow`, and `math_sqrt`. Integer operations wrap at 64 bits, integer roots are exact floor roots, and float operations preserve IEEE NaN, infinity, and signed-zero behavior described by the shared catalog.
@@ -162,9 +162,22 @@ The standard `template_render(string, Json) -> string` function renders arbitrar
 
 The documentation calls the language lmcode. `--lmcode`, `--lmcode-schema` and `--lmcode-signatures` are current host flag literals; `DSLB` is the bytecode magic and `DSLB v6` is the current format name; `.dslb` is the current bytecode filename extension. Other code-formatted API names, paths, manifest names and diagnostic text retain their current literal spellings.
 
+## Dry host callbacks
+
+Registrations keep their real callback and may add one optional dry callback with
+`function_with_dry` or `method_with_dry`. Without a slot, dry execution skips the
+real callback and returns a fresh type-based dummy. Use `dry(real)` to opt into the
+registered real callback; use `dry(closure)` for a preview. Dry callbacks are trusted
+host code, not a sandbox. `Context::dry()` reports the invocation mode.
+
+`InvocationResults` reads the required boolean `dry` field from the private manifest,
+sets the selected context mode, and writes `"dry":true` last in the returned envelope.
+Standalone hosts without a manifest and embedded collectors created with
+`from_command_with_dry(files, false)` use real mode. See
+[the dry callback contract](durable-memory/11-dry-host-callbacks.md).
+
 ## Per-program results in one invocation
 
 Use [InvocationResults](durable-memory/10-invocation-results.md) for canonical
 single/builder envelopes, authoritative result contracts and sealed per-part
-sinks. Old sink-only framers and unframed reporters are removed. The Rust sample
-must complete R7 adapter adoption before updating its SDK pin.
+sinks. Old sink-only framers and unframed reporters are removed.
