@@ -9,12 +9,13 @@ for row in (HERE/'vectors.lock').read_text().splitlines():
  digest,name=row.split('  ');assert hashlib.sha256((HERE/name).read_bytes()).hexdigest()==digest,name
 for case in manifest['cases']:
  with tempfile.TemporaryDirectory(prefix='native-invocation-')as temporary:
+  schema_path=HERE/case.get('schema','schema.json')
   folder=Path(temporary);parts=[];files=[]
   for index,name in enumerate(case['programs']):
    raw=(HERE/(name+'.dslb')).read_bytes()
    if name=='bad':
     original=(HERE/'a.dslb').read_bytes();assert raw[0]==original[0]^1 and raw[1:]==original[1:]
-   else:assert raw[:6]==b'DSLB\0\6' and raw[6:38]==hashlib.sha256((HERE/'schema.json').read_bytes()).digest()
+   else:assert raw[:6]==b'DSLB\0\6' and raw[6:38]==hashlib.sha256(schema_path.read_bytes()).digest()
    target=folder/f'part {index}-水.dslb';target.write_bytes(raw);files.append(str(target));parts.append({'index':index,'file':str(target)})
   env=dict(os.environ);env.pop('LMCODE_INVOCATION_FILE',None)
   dry=case.get('dry',False)
@@ -27,7 +28,7 @@ for case in manifest['cases']:
   else:files=[files[0]]*len(files) # standalone duplicate file occurrences are legal
   # Reverse parsed argv order too: canonical indices must come from metadata.
   parsed=files[::-1]if case['mode']is not None else files
-  result=subprocess.run([str(BINARY),str(HERE/'schema.json'),str(config_path),*parsed],env=env,capture_output=True)
+  result=subprocess.run([str(BINARY),str(schema_path),str(config_path),*parsed],env=env,capture_output=True)
   expected=(HERE/(case['name']+'.expect')).read_bytes()
   assert(result.returncode,result.stdout,result.stderr)==(case['exit'],expected,b''),(case['name'],result)
   assert result.stdout.count(b'LMCODE_RETURN_BEGIN\n')==1 and result.stdout.endswith(b'LMCODE_RETURN_END\n')

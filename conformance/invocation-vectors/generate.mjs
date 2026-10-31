@@ -9,6 +9,8 @@ schema.name='invocation_vectors';schema.functions.next_counter=[{params:[],retur
 const raw=JSON.stringify(schema,null,2)+'\n';fs.writeFileSync(path.join(here,'schema.json'),raw);
 const parsed=parseDslSchema(Buffer.from(raw),'invocation_vectors',{includeStd:false});
 for(const file of fs.readdirSync(here).filter(s=>s.endsWith('.lmcode'))){
+ const ownSchema=path.join(here,file.replace(/\.lmcode$/,'.schema.json'));
+ const compilerSchema=fs.existsSync(ownSchema)?parseDslSchema(fs.readFileSync(ownSchema),ownSchema):parsed;
  const source=fs.readFileSync(path.join(here,file),'utf8');
- fs.writeFileSync(path.join(here,file.replace(/\.lmcode$/,'.dslb')),compileDsl(source.trimEnd().split('\n'),parsed).bytes);
+ fs.writeFileSync(path.join(here,file.replace(/\.lmcode$/,'.dslb')),compileDsl(source.trimEnd().split('\n'),compilerSchema).bytes);
 }

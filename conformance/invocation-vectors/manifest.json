@@ -164,6 +164,96 @@
       "mode": "builder",
       "dry": true,
       "exit": 3
+    },
+    {
+      "name": "dry-null-object-return",
+      "programs": [
+        "dry-null-object-return"
+      ],
+      "schema": "dry-null-object-return.schema.json",
+      "mode": "single",
+      "dry": true,
+      "exit": 0
+    },
+    {
+      "name": "dry-null-skipped-consumer",
+      "programs": [
+        "dry-null-skipped-consumer"
+      ],
+      "schema": "dry-null-skipped-consumer.schema.json",
+      "mode": "single",
+      "dry": true,
+      "exit": 0
+    },
+    {
+      "name": "dry-null-null-receiver",
+      "programs": [
+        "dry-null-null-receiver"
+      ],
+      "schema": "dry-null-null-receiver.schema.json",
+      "mode": "single",
+      "dry": true,
+      "exit": 3
+    },
+    {
+      "name": "dry-null-field",
+      "programs": [
+        "dry-null-field"
+      ],
+      "schema": "dry-null-field.schema.json",
+      "mode": "single",
+      "dry": true,
+      "exit": 0
+    },
+    {
+      "name": "dry-null-nonnullable",
+      "programs": [
+        "dry-null-nonnullable"
+      ],
+      "schema": "dry-null-nonnullable.schema.json",
+      "mode": "single",
+      "dry": true,
+      "exit": 3
+    },
+    {
+      "name": "dry-null-invoked-function",
+      "programs": [
+        "dry-null-invoked-function"
+      ],
+      "schema": "dry-null-invoked-function.schema.json",
+      "mode": "single",
+      "dry": true,
+      "exit": 3
+    },
+    {
+      "name": "dry-null-skipped-method",
+      "programs": [
+        "dry-null-skipped-method"
+      ],
+      "schema": "dry-null-skipped-method.schema.json",
+      "mode": "single",
+      "dry": true,
+      "exit": 0
+    },
+    {
+      "name": "dry-null-invoked-method",
+      "programs": [
+        "dry-null-invoked-method"
+      ],
+      "schema": "dry-null-invoked-method.schema.json",
+      "mode": "single",
+      "dry": true,
+      "exit": 3
+    },
+    {
+      "name": "dry-null-skipped-concrete-method",
+      "programs": [
+        "dry-null-skipped-concrete-method"
+      ],
+      "schema": "dry-null-skipped-concrete-method.schema.json",
+      "mode": "single",
+      "dry": true,
+      "exit": 0
     }
   ]
 }

@@ -69,6 +69,10 @@ fn run(out: &mut impl std::io::Write) -> Result<i32, Error> {
             Err(Error::host("preview failed"))
         }),
     )?;
+    registry.function("wp90_Json", &[], "Json", |_, _| Err(Error::host("real dummy callback ran")))?;
+    registry.function("wp90_consume", &["Json"], "int", |_, _| Err(Error::host("real consumer ran")))?;
+    registry.method("Json", "wp90_consume", &["Json"], "int", |_, _, _| Err(Error::host("real method ran")))?;
+    registry.method_with_dry("Json", "wp90_preview", &["Json"], "int", |_, _, _| Err(Error::host("real method ran")), dslvm::dry(|_: &mut Context, _, _: &dslvm::Args| Err(Error::host("preview received dry null"))))?;
     let schema = std::fs::read(&args[0]).map_err(|_| Error::host("cannot read fixture schema"))?;
     let contract = ResultContract::from_schema(&schema)?;
     let mut ctx = Context::new();

@@ -29,3 +29,10 @@ smallest and adjacent subnormals, signed zero, all 32 ASCII controls and Unicode
 fields, unsafe/underflow numbers (including nested pointer paths), UTF-8, BOM,
 duplicate keys, overflow and parser errors. `check_metadata.py` is the shared
 child-process oracle; comparisons include status, stdout bytes and stderr.
+
+The `dry-null-*` vectors pin the VM boundary before result conversion and host
+callback dispatch. They use the per-case `schema` field (including nullable and
+nonnullable result contracts), exercise skipped functions/methods, and reject
+null arguments/receivers for invoked previews. The object-return, skipped-consumer
+and null-receiver source/schema/bytecode are the original WP90 reproducers.
+`valid-dry-unknown-root` in `metadata-errors.json` pins the pre-collector dry marker.
