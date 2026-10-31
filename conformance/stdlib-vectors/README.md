@@ -4,7 +4,7 @@ The 18 string vectors cover all 16 functions in
 `stdlib/string.schema-fragment.json`, plus negative/oversized repeat failures.
 Run `make conformance` to run both the core and catalog suites.
 
-Each `NAME.dsl` is a DSL body; its `.dslb` is compiled, not hand-assembled.
+Each `NAME.dsl` is a lmcode body; its `.dslb` is compiled, not hand-assembled.
 `NAME.expect` and `manifest.json` record independently specified expectations.
 The host contract is in the manifest: `bytes(hex)` supplies arbitrary bytes and
 `t.hex(value)` records lowercase hexadecimal, avoiding source-encoding and

@@ -1,6 +1,6 @@
 # Canonical invocation-result fixtures
 
-These are compiler-produced DSLB v6 programs, independently executed by
+These are compiler-produced lmcode bytecode (DSLB v6) programs, independently executed by
 `conformance/run_returns.cpp` through `Program::load`, `run` and `call`.
 `make conformance` always runs them; no optional harness skip is accepted.
 

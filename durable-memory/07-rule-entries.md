@@ -1,7 +1,7 @@
-# Rule entries, DSLB v6 (2026-10-28)
+# Rule entries, lmcode bytecode (DSLB v6) (2026-10-28)
 
-R49 is authoritative: mono lmscript durable-memory requirements/dsl-bytecode.md
-and design/dsl-language.md at 0e621804. Version 6 only; all other versions fail load.
+R49 is authoritative: mono lmscript durable-memory `requirements/dsl-bytecode.md`
+and `design/dsl-language.md` at 0e621804. Version 6 only; all other versions fail load.
 Entries store name, annotation, canonical interface, nparams and an independent
 locals/max-stack/code/line-table region, sharing constants/imports/contexts.
 
@@ -17,7 +17,7 @@ outside the region. They use LOAD_BAD_BYTECODE and name the entry. New tests wer
 run against v5 first: ten refusal tests failed; after implementation they pass.
 Context/registry cleanup and location behavior use the same path as body execution.
 
-Core vectors: 70 from the mono generator at 0e621804, format dsl-conformance/3.
+Core vectors: 70 from the mono generator at 0e621804, format `dsl-conformance/3`.
 Standard vectors: 267 v6 files copied byte-for-byte from lmcode-cpp 451bc67.
 The mono generator has a known runtime-empty-lines-fallback mutation defect: it
 truncates the final entry count while removing the line table. Only that generated

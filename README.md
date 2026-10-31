@@ -27,14 +27,14 @@ The optional HTTP router integration checks run with `bash examples/router/test.
 | **Router Example Host** | **Same Bytecode, Four Runtimes** |
 | --- | --- |
 | <img src="docs/images/router-example.png" width="440" alt="Router Example Host"> | <img src="docs/images/same-bytecode-four-runtimes.png" width="440" alt="Same Bytecode, Four Runtimes"> |
-| Real HTTP router running compiled DSL routing logic in pure Rust.<br>`bash examples/router/test.sh` | Cross-language parity: C++, Rust, Go, and C# run the exact same bytecode.<br>`Historical v5 parity; v6 ports are rolling out` |
+| Real HTTP router running compiled lmcode routing logic in pure Rust.<br>`bash examples/router/test.sh` | Cross-language parity: C++, Rust, Go, and C# run the exact same bytecode.<br>`Historical v5 parity; v6 ports are rolling out` |
 
 The test requires `lmscript` (or `lmctl`) 0.2.346 or newer from `PATH`. It compiles the public
 router example, runs it on the Rust host, checks the shared vectors, and uses a sibling
 `lmweb` checkout when available for cross-runtime comparison. The test accepts
 `LMWEB_DIR`; before the repository move it also recognizes the legacy sibling checkout.
 
-The router follows the DSL host flag standard (lmscript R42). Its schema is embedded at
+The router follows the lmcode host flag standard (lmscript R42). Its schema is embedded at
 build time (`include_bytes!`), and bytecode is verified against those exact bytes:
 
 ```sh
@@ -119,7 +119,7 @@ mutable list snapshots in insertion order, preserving bytes and float bits.
 All snapshots share the 65,536-object run arena. The shared suite now contains
 267 catalog vectors plus 70 core vectors.
 
-## Rule entries (R47/R48/R49, DSLB v6)
+## Rule entries (R47/R48/R49, lmcode bytecode (DSLB v6))
 
 An annotated `@NAME fn ... implements Interface` is both an inlined source
 helper and a host-callable entry. `Program::entries()` returns source-order
@@ -152,8 +152,12 @@ Install Rust stable and `npm install -g @lmctl-ai/lmctl` (provides both `lmctl` 
 
 Every push to main builds and tests Linux x64/arm64, macOS x64/arm64, and Windows x64 executables. Only after all five jobs pass does Actions publish a GitHub release with platform binaries, licenses and SHA256SUMS. Pull requests run the same tests without publishing.
 
-`examples/rule-entries/rules.lms` defines `@increment fn next(value: int) -> int implements Score`. The Rust embedding example selects the annotation, checks parameter metadata and calls the entry with 41, asserting 42 without running the body first. `test.lms` builds release executables and runs both conformance catalogs and this example. Release assets include router, dsl-conformance, and rule-entries.
+`examples/rule-entries/rules.lms` defines `@increment fn next(value: int) -> int implements Score`. The Rust embedding example selects the annotation, checks parameter metadata and calls the entry with 41, asserting 42 without running the body first. `test.lms` builds release executables and runs both conformance catalogs and this example. Release assets include router, `dsl-conformance`, and rule-entries.
 
 ## Text templates
 
 The standard `template_render(string, Json) -> string` function renders arbitrary text with nested context, indexed lists, loops and boolean conditions. Inserted values remain literal. See the [portable contract and examples](std/template.md).
+
+## Historical literal names
+
+The documentation calls the language lmcode. `--dsl`, `--dsl-schema` and `--dsl-signatures` are current host flag literals; `DSLB` is the bytecode magic and `DSLB v6` is the current format name; `.dslb` is the current bytecode filename extension. Other code-formatted API names, paths, manifest names and diagnostic text retain their current literal spellings.
