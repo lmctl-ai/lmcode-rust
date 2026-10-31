@@ -33,26 +33,27 @@ bash "$ROOT/scripts/sync-vectors.sh" --verify >/dev/null || fail "conformance ve
 ok "conformance vectors match vectors.lock"
 
 # 1b. DSL host flag standard (lmscript R42): the schema is embedded; introspection flags are exact, --schema is gone.
-"$SERVER" --dsl-schema --json >"$WORK/embedded.json" || fail "--dsl-schema --json exit"
-cmp -s "$WORK/embedded.json" "$SCHEMA" || fail "--dsl-schema --json differs from schema/router.dsl.json"
-ok "--dsl-schema --json prints the embedded schema bytes exactly"
-"$SERVER" --dsl-signatures >"$WORK/sigs.txt" || fail "--dsl-signatures exit"
+"$SERVER" --lmcode-schema --json >"$WORK/embedded.json" || fail "--lmcode-schema --json exit"
+cmp -s "$WORK/embedded.json" "$SCHEMA" || fail "--lmcode-schema --json differs from schema/router.dsl.json"
+ok "--lmcode-schema --json prints the embedded schema bytes exactly"
+"$SERVER" --lmcode-signatures >"$WORK/sigs.txt" || fail "--lmcode-signatures exit"
 { grep -E '^(context|fn) ' "$WORK/sigs.txt"
   sed -n 's/^method //p' "$WORK/sigs.txt" | awk -F. '$1 != owner { owner = $1; print owner ":" } { print "  " $0 }'
 } >"$WORK/summary.expect"
-"$SERVER" --dsl-schema >"$WORK/summary.txt" || fail "--dsl-schema exit"
-cmp -s "$WORK/summary.txt" "$WORK/summary.expect" || { diff "$WORK/summary.expect" "$WORK/summary.txt"; fail "--dsl-schema summary format"; }
+"$SERVER" --lmcode-schema >"$WORK/summary.txt" || fail "--lmcode-schema exit"
+cmp -s "$WORK/summary.txt" "$WORK/summary.expect" || { diff "$WORK/summary.expect" "$WORK/summary.txt"; fail "--lmcode-schema summary format"; }
 grep -q '^Response:$' "$WORK/summary.txt" && grep -q '^  Response.status(int) -> void$' "$WORK/summary.txt" || fail "summary groups methods by owner"
-ok "--dsl-schema prints the shared summary (context/fn lines, then Owner: and indented Owner.method lines)"
-if "$LMSCRIPT" --dsl-signatures "$SCHEMA" >"$WORK/lmscript-sigs.txt" 2>/dev/null; then
+ok "--lmcode-schema prints the shared summary (context/fn lines, then Owner: and indented Owner.method lines)"
+if "$LMSCRIPT" --lmcode-signatures "$SCHEMA" >"$WORK/lmscript-sigs.txt" 2>/dev/null; then
   python3 "$ROOT/scripts/merge-std.py" "$SCHEMA" "$WORK/router-std.schema.json" --std "$ROOT/std/lmcode-std.schema.json" || fail "merge canonical std schema"
-  "$LMSCRIPT" --dsl-signatures "$WORK/router-std.schema.json" >"$WORK/lmscript-std-sigs.txt" 2>/dev/null || fail "lmscript canonical std signatures"
-  cmp -s "$WORK/sigs.txt" "$WORK/lmscript-std-sigs.txt" || { diff "$WORK/lmscript-std-sigs.txt" "$WORK/sigs.txt"; fail "--dsl-signatures differs from merged lmscript schema"; }
-  ok "--dsl-signatures equals lmscript --dsl-signatures merged with canonical std"
+  "$LMSCRIPT" --lmcode-signatures "$WORK/router-std.schema.json" >"$WORK/lmscript-std-sigs.txt" 2>/dev/null || fail "lmscript canonical std signatures"
+  cmp -s "$WORK/sigs.txt" "$WORK/lmscript-std-sigs.txt" || { diff "$WORK/lmscript-std-sigs.txt" "$WORK/sigs.txt"; fail "--lmcode-signatures differs from merged lmscript schema"; }
+  ok "--lmcode-signatures equals lmscript --lmcode-signatures merged with canonical std"
 fi
-for flags in "--schema $SCHEMA" "--dsl $WORK/x.dslb --schema $SCHEMA" "--schema" "--json" "--dsl-schema --json extra" "--json --dsl-schema" \
-             "--dsl-schema $SCHEMA" "--dsl-schema --dsl $WORK/x.dslb" "--dsl $WORK/x.dslb --dsl-schema" "--dsl $WORK/x.dslb --json" \
-             "--dsl-signatures --json" "--port 0" ""; do
+retired="--""dsl"
+for flags in "$retired $WORK/missing.dslb" "$retired-schema" "$retired-signatures" "--schema $SCHEMA" "--lmcode $WORK/x.dslb --schema $SCHEMA" "--schema" "--json" "--lmcode-schema --json extra" "--json --lmcode-schema" \
+             "--lmcode-schema $SCHEMA" "--lmcode-schema --lmcode $WORK/x.dslb" "--lmcode $WORK/x.dslb --lmcode-schema" "--lmcode $WORK/x.dslb --json" \
+             "--lmcode-signatures --json" "--port 0" ""; do
   out="$("$SERVER" $flags 2>/dev/null)"; code=$?
   [ "$code" = 2 ] && [ -z "$out" ] || fail "router $flags: exit $code, stdout '$out' (want 2, empty)"
 done
@@ -73,8 +74,8 @@ ok "lmscript $HAVE_LMSCRIPT compiles the router to $(wc -c <"$WORK/router.dslb")
 # 3. Serve it on the Rust runtime.
 start_server() { # $1 binary; sets PORT and SERVER_PID
   # A host on the flag standard embeds its schema; an older C++ server still takes --schema FILE.
-  set -- "$1" --port 0 --dsl "${2:-$WORK/router.dslb}"
-  "$1" --dsl-schema --json >/dev/null 2>&1 || set -- "$@" --schema "$SCHEMA"
+  set -- "$1" --port 0 --lmcode "${2:-$WORK/router.dslb}"
+  "$1" --lmcode-schema --json >/dev/null 2>&1 || set -- "$@" --schema "$SCHEMA"
   "$@" >"$WORK/s.out" 2>"$WORK/s.err" & SERVER_PID=$!; PIDS="$PIDS $SERVER_PID"
   PORT=""; for _ in $(seq 1 50); do PORT="$(sed -n 's/^listening on //p' "$WORK/s.out")"; [ -n "$PORT" ] && break; sleep 0.1; done
   [ -n "$PORT" ] || { cat "$WORK/s.err"; fail "$1 did not print its port"; }
@@ -121,10 +122,10 @@ mkdir -p "$WORK/other/dsl" "$WORK/other/schema"; cp "$HERE/dsl/build_router.lms"
 sed 's/"name": "router"/"name": "router2"/' "$SCHEMA" >"$WORK/other/schema/router.dsl.json"
 cmp -s "$SCHEMA" "$WORK/other/schema/router.dsl.json" && fail "the mismatch schema must differ"
 (cd "$WORK/other" && HOME="$WORK/home" "$LMSCRIPT" dsl/build_router.lms "$WORK/other.dslb" >"$WORK/other.out" 2>&1) || { cat "$WORK/other.out"; fail "compile against the other schema"; }
-out="$("$SERVER" --port 0 --dsl "$WORK/other.dslb" 2>&1)"; code=$?; [ "$code" = 1 ] && case "$out" in *"schema mismatch"*) ;; *) fail "mismatch: $code $out";; esac
+out="$("$SERVER" --port 0 --lmcode "$WORK/other.dslb" 2>&1)"; code=$?; [ "$code" = 1 ] && case "$out" in *"schema mismatch"*) ;; *) fail "mismatch: $code $out";; esac
 ok "refuses a schema-hash mismatch before serving"
-head -c 60 "$WORK/router.dslb" >"$WORK/trunc.dslb"; out="$("$SERVER" --port 0 --dsl "$WORK/trunc.dslb" 2>&1)"; case "$out" in *"bytecode is truncated"*) ;; *) fail "truncated: $out";; esac
+head -c 60 "$WORK/router.dslb" >"$WORK/trunc.dslb"; out="$("$SERVER" --port 0 --lmcode "$WORK/trunc.dslb" 2>&1)"; case "$out" in *"bytecode is truncated"*) ;; *) fail "truncated: $out";; esac
 ok "refuses a truncated file"
-{ printf 'XXXX'; tail -c +5 "$WORK/router.dslb"; } >"$WORK/magic.dslb"; out="$("$SERVER" --port 0 --dsl "$WORK/magic.dslb" 2>&1)"; case "$out" in *"bad magic"*) ;; *) fail "magic: $out";; esac
+{ printf 'XXXX'; tail -c +5 "$WORK/router.dslb"; } >"$WORK/magic.dslb"; out="$("$SERVER" --port 0 --lmcode "$WORK/magic.dslb" 2>&1)"; case "$out" in *"bad magic"*) ;; *) fail "magic: $out";; esac
 ok "refuses a wrong magic"
 echo "PASS $pass checks"

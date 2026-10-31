@@ -2,8 +2,8 @@
 //! cpp/server.cpp). A generic single-threaded HTTP/1.1 server (std::net, Connection: close) that knows nothing about
 //! routing: per request it builds the context (req, res), runs the DSL chunk once, then writes whatever the chunk set
 //! (default 500 when the chunk set no status). The schema is embedded at build time (DSL host flag standard, lmscript R42):
-//! `router --dsl FILE [--port N]` serves (0 = free port, prints `listening on PORT`); `router --dsl-schema` prints the
-//! human summary, `router --dsl-schema --json` the embedded schema bytes exactly, `router --dsl-signatures` one canonical
+//! `router --lmcode FILE [--port N]` serves (0 = free port, prints `listening on PORT`); `router --lmcode-schema` prints the
+//! human summary, `router --lmcode-schema --json` the embedded schema bytes exactly, `router --lmcode-signatures` one canonical
 //! signature per line. Any other combination (including the removed `--schema FILE`) exits 2 with empty stdout.
 //! Exit: 1 load refused, 2 usage. Stop with SIGTERM/SIGINT (the accept loop polls a shutdown flag).
 use dslvm::{Context, Error, Program, Registry, Value};
@@ -15,7 +15,7 @@ use std::time::Duration;
 
 /// The schema this host implements, embedded at build time; bytecode is verified against exactly these bytes.
 const SCHEMA: &[u8] = include_bytes!("../schema/router.dsl.json");
-const USAGE: &str = "usage: router --dsl-schema [--json] | --dsl-signatures | --dsl FILE [--port N]  (0 picks a free port)";
+const USAGE: &str = "usage: router --lmcode-schema [--json] | --lmcode-signatures | --lmcode FILE [--port N]  (0 picks a free port)";
 
 #[derive(Default)]
 struct Request { method: String, path: String }
@@ -79,9 +79,9 @@ fn main() {
     let a: Vec<&str> = args.iter().map(String::as_str).collect();
     // Introspection modes take exactly these argument lists; every other use of the flags is a usage error.
     match a.as_slice() {
-        ["--dsl-schema"] => { print!("{}", registry().schema_summary()); std::process::exit(0) }
-        ["--dsl-schema", "--json"] => { let mut o = std::io::stdout().lock(); std::process::exit(if o.write_all(SCHEMA).and_then(|_| o.flush()).is_ok() { 0 } else { 4 }) }
-        ["--dsl-signatures"] => { for s in registry().signatures() { println!("{}", s); } std::process::exit(0) }  // diffed against `lmscript --dsl-signatures` by test.sh
+        ["--lmcode-schema"] => { print!("{}", registry().schema_summary()); std::process::exit(0) }
+        ["--lmcode-schema", "--json"] => { let mut o = std::io::stdout().lock(); std::process::exit(if o.write_all(SCHEMA).and_then(|_| o.flush()).is_ok() { 0 } else { 4 }) }
+        ["--lmcode-signatures"] => { for s in registry().signatures() { println!("{}", s); } std::process::exit(0) }  // diffed against `lmscript --lmcode-signatures` by test.sh
         _ => {}
     }
     let (mut port, mut dsl) = (8080u16, None::<String>);
@@ -90,8 +90,8 @@ fn main() {
         let value = |i: &mut usize| -> String { *i += 1; match a.get(*i) { Some(v) if !v.is_empty() && !v.starts_with("--") => v.to_string(), _ => usage() } };
         match a[i] {
             "--port" => port = value(&mut i).parse().unwrap_or_else(|_| usage()),
-            "--dsl" if dsl.is_none() => dsl = Some(value(&mut i)),
-            _ => usage(),  // --schema (removed), --json, --dsl-schema/--dsl-signatures mixed with run flags, repeats, strays
+            "--lmcode" if dsl.is_none() => dsl = Some(value(&mut i)),
+            _ => usage(),  // --schema (removed), --json, --lmcode-schema/--lmcode-signatures mixed with run flags, repeats, strays
         }
         i += 1;
     }

@@ -38,10 +38,10 @@ The router follows the lmcode host flag standard (lmscript R42). Its schema is e
 build time (`include_bytes!`), and bytecode is verified against those exact bytes:
 
 ```sh
-router --dsl FILE [--port N]     # load, verify against the embedded schema, serve
-router --dsl-schema              # human summary: context/fn lines, then Owner: and "  Owner.method(...)" lines
-router --dsl-schema --json       # the embedded schema bytes, exactly
-router --dsl-signatures          # one canonical signature per line (as `lmscript --dsl-signatures SCHEMA`)
+router --lmcode FILE [--port N]     # load, verify against the embedded schema, serve
+router --lmcode-schema              # human summary: context/fn lines, then Owner: and "  Owner.method(...)" lines
+router --lmcode-schema --json       # the embedded schema bytes, exactly
+router --lmcode-signatures          # one canonical signature per line (as `lmscript --lmcode-signatures SCHEMA`)
 ```
 
 The former `--schema FILE` flag is refused. Any other combination of these flags exits 2
@@ -160,4 +160,4 @@ The standard `template_render(string, Json) -> string` function renders arbitrar
 
 ## Historical literal names
 
-The documentation calls the language lmcode. `--dsl`, `--dsl-schema` and `--dsl-signatures` are current host flag literals; `DSLB` is the bytecode magic and `DSLB v6` is the current format name; `.dslb` is the current bytecode filename extension. Other code-formatted API names, paths, manifest names and diagnostic text retain their current literal spellings.
+The documentation calls the language lmcode. `--lmcode`, `--lmcode-schema` and `--lmcode-signatures` are current host flag literals; `DSLB` is the bytecode magic and `DSLB v6` is the current format name; `.dslb` is the current bytecode filename extension. Other code-formatted API names, paths, manifest names and diagnostic text retain their current literal spellings.
