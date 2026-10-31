@@ -38,16 +38,37 @@ fn run(out: &mut impl std::io::Write) -> Result<i32, Error> {
                 .map_err(|_| Error::host("invalid fixture index"))
         })
         .collect::<Result<Vec<_>, _>>()?;
+    let fixture_dry = config
+        .split_whitespace()
+        .collect::<String>()
+        .contains("\"dry\":true");
     let mut results = InvocationResults::from_command(&args[2..])?;
+    if results.dry() != fixture_dry {
+        return Err(Error::host(
+            "fixture dry mode disagrees with invocation metadata",
+        ));
+    }
     let mut registry = Registry::new();
     let counter = Rc::new(Cell::new(0));
     registry.function("next_counter", &[], "int", move |_, _| {
         counter.set(counter.get() + 1);
+        if let Ok(path) = std::env::var("LMCODE_REAL_SENTINEL") {
+            std::fs::write(path, b"real callback ran").map_err(|e| Error::host(e.to_string()))?;
+        }
         Ok(Value::Int(counter.get()))
     })?;
-    registry.function("entry_fail", &[], "void", |_, _| {
-        Err(Error::host("native entry failure"))
-    })?;
+    let dry_calls = Rc::new(Cell::new(0));
+    let preview_calls = Rc::clone(&dry_calls);
+    registry.function_with_dry(
+        "entry_fail",
+        &[],
+        "void",
+        |_, _| Err(Error::host("native entry failure")),
+        dslvm::dry(move |_: &mut Context, _: &dslvm::Args| {
+            preview_calls.set(preview_calls.get() + 1);
+            Err(Error::host("preview failed"))
+        }),
+    )?;
     let schema = std::fs::read(&args[0]).map_err(|_| Error::host("cannot read fixture schema"))?;
     let contract = ResultContract::from_schema(&schema)?;
     let mut ctx = Context::new();
@@ -88,6 +109,10 @@ fn run(out: &mut impl std::io::Write) -> Result<i32, Error> {
             "app",
             Error::new("APP_FAIL", "native validation failed"),
         )?;
+    }
+    if let Ok(path) = std::env::var("LMCODE_DRY_CALLS_FILE") {
+        std::fs::write(path, dry_calls.get().to_string())
+            .map_err(|e| Error::host(e.to_string()))?;
     }
     Ok(results.write_frame(out))
 }

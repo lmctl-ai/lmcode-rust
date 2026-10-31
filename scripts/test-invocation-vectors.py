@@ -17,15 +17,24 @@ for case in manifest['cases']:
    else:assert raw[:6]==b'DSLB\0\6' and raw[6:38]==hashlib.sha256((HERE/'schema.json').read_bytes()).digest()
    target=folder/f'part {index}-水.dslb';target.write_bytes(raw);files.append(str(target));parts.append({'index':index,'file':str(target)})
   env=dict(os.environ);env.pop('LMCODE_INVOCATION_FILE',None)
+  dry=case.get('dry',False)
+  config=json.loads((HERE/(case['name']+'.json')).read_text());config['dry']=dry
+  config_path=folder/'fixture-config.json';config_path.write_text(json.dumps(config))
+  real_sentinel=folder/'real-callback-ran';dry_calls=folder/'dry-callback-count'
+  env['LMCODE_REAL_SENTINEL']=str(real_sentinel);env['LMCODE_DRY_CALLS_FILE']=str(dry_calls)
   if case['mode'] is not None:
-   path=folder/'invocation.json';path.write_text(json.dumps({'version':1,'mode':case['mode'],'parts':parts}));env['LMCODE_INVOCATION_FILE']=str(path)
+   path=folder/'invocation.json';path.write_text(json.dumps({'version':1,'mode':case['mode'],'dry':dry,'parts':parts}));env['LMCODE_INVOCATION_FILE']=str(path)
   else:files=[files[0]]*len(files) # standalone duplicate file occurrences are legal
   # Reverse parsed argv order too: canonical indices must come from metadata.
   parsed=files[::-1]if case['mode']is not None else files
-  result=subprocess.run([str(BINARY),str(HERE/'schema.json'),str(HERE/(case['name']+'.json')),*parsed],env=env,capture_output=True)
+  result=subprocess.run([str(BINARY),str(HERE/'schema.json'),str(config_path),*parsed],env=env,capture_output=True)
   expected=(HERE/(case['name']+'.expect')).read_bytes()
   assert(result.returncode,result.stdout,result.stderr)==(case['exit'],expected,b''),(case['name'],result)
   assert result.stdout.count(b'LMCODE_RETURN_BEGIN\n')==1 and result.stdout.endswith(b'LMCODE_RETURN_END\n')
+  if dry:
+   assert not real_sentinel.exists(),(case['name'],'effectful real callback ran')
+   expected_dry_calls=1 if case['name'] in ('single-dry-failure','builder-dry-failure') else 0
+   assert int(dry_calls.read_text())==expected_dry_calls,(case['name'],dry_calls.read_text())
  print('PASS invocation golden',case['name'])
 print('PASS',len(manifest['cases']),'native invocation goldens')
 # Private metadata is validated before any program dispatch, not treated as a
@@ -33,7 +42,7 @@ print('PASS',len(manifest['cases']),'native invocation goldens')
 with tempfile.TemporaryDirectory(prefix='metadata-controls-')as temporary:
  folder=Path(temporary);a=folder/'a.dslb';b=folder/'b.dslb'
  a.write_bytes((HERE/'float.dslb').read_bytes());b.write_bytes(a.read_bytes())
- base={'version':1,'mode':'single','parts':[{'index':0,'file':str(a)}]}
+ base={'version':1,'mode':'single','dry':False,'parts':[{'index':0,'file':str(a)}]}
  variants=[]
  def add(name,fn):
   value=json.loads(json.dumps(base));fn(value);variants.append((name,json.dumps(value).encode(),[str(a)]))
@@ -48,9 +57,9 @@ with tempfile.TemporaryDirectory(prefix='metadata-controls-')as temporary:
  add('negative',lambda v:v['parts'][0].update(index=-1))
  add('fractional',lambda v:v['parts'][0].update(index=0.5))
  add('unsafe',lambda v:v['parts'][0].update(index=9007199254740993))
- duplicate={'version':1,'mode':'builder','parts':[{'index':0,'file':str(a)},{'index':1,'file':str(a)}]}
+ duplicate={'version':1,'mode':'builder','dry':False,'parts':[{'index':0,'file':str(a)},{'index':1,'file':str(a)}]}
  variants.append(('duplicate-files',json.dumps(duplicate).encode(),[str(a),str(a)]))
- two={'version':1,'mode':'builder','parts':[{'index':0,'file':str(a)},{'index':1,'file':str(b)}]}
+ two={'version':1,'mode':'builder','dry':False,'parts':[{'index':0,'file':str(a)},{'index':1,'file':str(b)}]}
  variants.append(('duplicate-registration',json.dumps(two).encode(),[str(a),str(a)]))
  variants.append(('missing-registration',json.dumps(two).encode(),[str(a)]))
  variants.append(('extra-registration',json.dumps(base).encode(),[str(a),str(b)]))

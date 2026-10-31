@@ -1,4 +1,8 @@
 # Run from the repository root with lmctl test.lms or lmscript test.lms.
+compiler = env("LMSCRIPT_BIN");
+if (compiler != "") { set_env("LMSCRIPT_BIN", compiler); set_env("LMSCRIPT_STD_BIN", compiler); }
+compiler_module = env("LMCODE_COMPILER_MODULE");
+if (compiler_module != "") { set_env("LMCODE_COMPILER_MODULE", compiler_module); }
 fn step(command) {
   result = system(command, {timeoutMs:0});
   print(result.stdout); print(result.stderr);
@@ -10,5 +14,6 @@ step(["cargo", "run", "--release", "--bin", "dsl-conformance", "--", "conformanc
 step(["cargo", "run", "--release", "--bin", "dsl-conformance", "--", "conformance/stdlib-vectors"]);
 step(["bash", "scripts/compile-example.sh"]);
 step(["python3", "scripts/test-invocation-vectors.py"]);
+step(["python3", "scripts/test-dry-controls.py"]);
 step(["python3", "scripts/mutate-results.py"]);
 step(["cargo", "run", "--release", "--bin", "rule-entries", "--", "target/rule-entries.dslb"]);

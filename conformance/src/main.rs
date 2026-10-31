@@ -241,6 +241,7 @@ fn value_text(value: &Value, ctx: &Context) -> String {
         Value::Str(v) => format!("string {}", v),
         Value::Bool(v) => format!("bool {}", v),
         Value::None => "void".into(),
+        Value::DryNull(_) => "null".into(),
         Value::Obj { obj, .. } => ctx
             .get::<Thing>(*obj)
             .map(|t| format!("thing {}", t.id))
