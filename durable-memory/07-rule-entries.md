@@ -28,7 +28,7 @@ runtime-type-error vector is absent from the authoritative 70; VM type-error uni
 coverage remains in place. Do not silently claim a larger shared corpus.
 
 Gate: LMSCRIPT_BIN=<v6 compiler> LMSCRIPT_STD_BIN=<v6 compiler> cargo test --workspace;
-cargo run -p dsl-conformance --bin dsl-conformance -- conformance/vectors;
+`cargo run -p dsl-conformance --bin dsl-conformance -- conformance/vectors`;
 same runner on conformance/stdlib-vectors; cargo clippy --workspace --all-targets.
 Router: LMSCRIPT_MIN=0 with the supplied mono compiler (source version 0.2.38),
 then bash examples/router/test.sh. Optional native lmweb parity is separate.
