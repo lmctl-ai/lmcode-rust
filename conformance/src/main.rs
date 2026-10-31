@@ -29,6 +29,7 @@ pub fn stub_registry() -> Registry { stub_registry_mode(false) }
 
 fn stub_registry_mode(std_catalog: bool) -> Registry {
     let mut reg = if std_catalog { Registry::new() } else { Registry::without_std() };
+    if !std_catalog { dslvm::stdlib::result::register_result(&mut reg).unwrap(); }
     reg.function("bytes", &["string"], "string", |_, a| Ok(Value::string(fixture_bytes(a[0].as_bytes()?)?))).unwrap();
     reg.method("Trace", "hex", &["string"], "void", |ctx, _, a| trace(ctx, format!("hex {}", dslvm::hex(a[0].as_bytes()?)))).unwrap();
     reg.context("t", "Trace").unwrap().context("root", "Thing").unwrap().context("v", "Var").unwrap().context("xs", "IntList").unwrap();
@@ -209,23 +210,28 @@ fn catalog_registry(schema: &[u8], temp_dir: Option<String>) -> (Registry, Rc<Re
 }
 
 /// Runs one vector: load (phase 1) then run (phase 2) with a fresh context.
-pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome {
+struct Observed { outcome: Outcome, sink_json: String, frame: String }
+fn run_vector_observed(bytecode: &[u8], schema: &[u8]) -> Observed {
     let temp_dir = if schema.windows(b"\"test_temp_dir\"".len()).any(|w| w == b"\"test_temp_dir\"") {
         let path = std::env::temp_dir().join(format!("lmcode-file-vector-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
-        std::fs::create_dir(&path).map_err(|e| Outcome::RuntimeError(Error::host(format!("fixture: cannot create fresh temp directory: {}", e)))).ok();
+        let _ = std::fs::create_dir(&path);
         Some(path.to_string_lossy().into_owned())
     } else { None };
     let (reg, _) = catalog_registry(schema, temp_dir.clone());
-    let program = match Program::load(bytecode, schema, &reg) { Ok(p) => p, Err(e) => return Outcome::LoadError(e.message) };
+    let program = match Program::load(bytecode, schema, &reg) { Ok(p) => p, Err(e) => return Observed { outcome: Outcome::LoadError(e.message), sink_json: String::new(), frame: String::new() } };
     let mut ctx = Context::new();
+    ctx.result_sink = Some(dslvm::stdlib::ResultSink::default());
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
     ctx.set_object("root", "Thing", Thing { id: 0 });
     ctx.set_object("v", "Var", Thing { id: 0 });
     ctx.set_object("xs", "IntList", IntList { values: vec![0, 1, 2, 3] });
     let outcome = match program.run(&mut ctx, &reg) { Ok(()) => Outcome::Trace(ctx.take::<Trace>(t).map(|t| t.0).unwrap_or_default()), Err(e) => Outcome::RuntimeError(e) };
+    let success = matches!(outcome, Outcome::Trace(_));
+    let sink = ctx.result_sink.as_ref().map(|s| (s.json(), s.frame_if_success(success).unwrap_or_default())).unwrap_or_default();
     if let Some(path) = temp_dir { let _ = std::fs::remove_dir_all(path); }
-    outcome
+    Observed { outcome, sink_json: sink.0, frame: sink.1 }
 }
+pub fn run_vector(bytecode: &[u8], schema: &[u8]) -> Outcome { run_vector_observed(bytecode, schema).outcome }
 
 enum EntryOutcome {
     Success { result: String, trace: Vec<String> },
@@ -247,32 +253,33 @@ fn value_text(value: &Value, ctx: &Context) -> String {
     }
 }
 
-fn run_entry_vector(
+fn run_entry_vector_observed(
     bytecode: &[u8],
     schema: &[u8],
     entry_name: &str,
     args_json: &str,
-) -> EntryOutcome {
+) -> Observed {
     let reg = stub_registry_mode(false);
     let program = match Program::load(bytecode, schema, &reg) {
         Ok(p) => p,
-        Err(e) => return EntryOutcome::Load(e.message),
+        Err(e) => return Observed { outcome: Outcome::LoadError(e.message), sink_json: String::new(), frame: String::new() },
     };
     let entry_index = match program.entries().iter().position(|e| e.name == entry_name) {
         Some(i) => i,
         None => {
-            return EntryOutcome::Error(Error::host(format!(
+            return Observed { outcome: Outcome::RuntimeError(Error::host(format!(
                 "entry '{}' is not present",
                 entry_name
-            )))
+            ))), sink_json: String::new(), frame: String::new() }
         }
     };
     let entry = &program.entries()[entry_index];
     let raw = match parse_arg_json(args_json) {
         Ok(v) => v,
-        Err(e) => return EntryOutcome::Error(Error::host(e)),
+        Err(e) => return Observed { outcome: Outcome::RuntimeError(Error::host(e)), sink_json: String::new(), frame: String::new() },
     };
     let mut ctx = Context::new();
+    ctx.result_sink = Some(dslvm::stdlib::ResultSink::default());
     let t = ctx.set_object("t", "Trace", Trace(Vec::new()));
     ctx.set_object("root", "Thing", Thing { id: 0 });
     ctx.set_object("v", "Var", Thing { id: 0 });
@@ -284,7 +291,7 @@ fn run_entry_vector(
         },
     );
     if let Err(e) = program.run(&mut ctx, &reg) {
-        return EntryOutcome::Error(e);
+        return Observed { outcome: Outcome::RuntimeError(e), sink_json: ctx.result_sink.as_ref().map(|s| s.json()).unwrap_or_default(), frame: String::new() };
     }
     let args = raw
         .into_iter()
@@ -293,22 +300,47 @@ fn run_entry_vector(
         .collect::<Result<Vec<_>, _>>();
     let args = match args {
         Ok(v) => v,
-        Err(e) => return EntryOutcome::Error(e),
+        Err(e) => return Observed { outcome: Outcome::RuntimeError(e), sink_json: ctx.result_sink.as_ref().map(|s| s.json()).unwrap_or_default(), frame: String::new() },
     };
     match program.call(entry_index, &mut ctx, &reg, args) {
-        Ok(result) => EntryOutcome::Success {
-            result: value_text(&result, &ctx),
-            trace: ctx.take::<Trace>(t).map(|v| v.0).unwrap_or_default(),
-        },
-        Err(e) => EntryOutcome::Error(e),
+        Ok(result) => { let trace = ctx.take::<Trace>(t).map(|v| v.0).unwrap_or_default(); let sink = ctx.result_sink.as_ref().map(|s| (s.json(), s.frame_if_success(true).unwrap_or_default())).unwrap_or_default(); Observed { outcome: Outcome::Trace({ let mut lines = vec![format!("result {}", value_text(&result, &ctx))]; lines.extend(trace); lines }), sink_json: sink.0, frame: sink.1 } },
+        Err(e) => Observed { outcome: Outcome::RuntimeError(e), sink_json: ctx.result_sink.as_ref().map(|s| s.json()).unwrap_or_default(), frame: String::new() },
     }
 }
 
-pub struct Expect { pub kind: String, pub lines: Vec<String> }
+#[derive(Clone, Debug)]
+struct SinkExpectation { json: String, frame: String }
+pub struct Expect { pub kind: String, pub lines: Vec<String>, sink: Option<SinkExpectation> }
+fn json_string(text: &str, pos: &mut usize) -> Option<String> {
+    if text.as_bytes().get(*pos) != Some(&b'"') { return None; }
+    *pos += 1; let mut out = String::new();
+    while *pos < text.len() {
+        let c = text.as_bytes()[*pos]; *pos += 1;
+        if c == b'"' { return Some(out); }
+        if c != b'\\' { out.push(c as char); continue; }
+        let e = *text.as_bytes().get(*pos)?; *pos += 1;
+        out.push(match e { b'n' => '\n', b'r' => '\r', b't' => '\t', b'b' => '\x08', b'f' => '\x0c', x => x as char });
+    }
+    None
+}
+fn parse_sink(line: &str) -> Option<SinkExpectation> {
+    let body = line.strip_prefix("sink ")?.trim(); let mut p = 0;
+    if body.as_bytes().get(p) != Some(&b'{') { return None; } p += 1;
+    while body.as_bytes().get(p) == Some(&b' ') { p += 1; }
+    let key = json_string(body, &mut p)?; if key != "json" { return None; }
+    while matches!(body.as_bytes().get(p), Some(b' ' | b':')) { p += 1; }
+    let json = json_string(body, &mut p)?;
+    while matches!(body.as_bytes().get(p), Some(b' ' | b',')) { p += 1; }
+    let key = json_string(body, &mut p)?; if key != "frame" { return None; }
+    while matches!(body.as_bytes().get(p), Some(b' ' | b':')) { p += 1; }
+    let frame = json_string(body, &mut p)?;
+    Some(SinkExpectation { json, frame })
+}
 pub fn read_expect(path: &Path) -> Expect {
     let text = std::fs::read_to_string(path).expect("expect file");
-    let mut it = text.lines(); let kind = it.next().unwrap_or("").to_string();
-    Expect { kind, lines: it.map(|l| l.replace("\\n", "\n")).collect() }
+    let mut raw: Vec<&str> = text.lines().collect(); let sink = raw.last().and_then(|line| parse_sink(line)); if sink.is_some() { raw.pop(); }
+    let kind = raw.first().copied().unwrap_or("").to_string();
+    Expect { kind, lines: raw.into_iter().skip(1).map(|l| l.replace("\\n", "\n")).collect(), sink }
 }
 /// A trace line beginning with `~ ` compares its final numeric field within the shared math tolerance.
 /// The text before that field (for example `float`) must still match exactly.
@@ -347,8 +379,8 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
     let expect = read_expect(&dir.join(format!("{}.expect", name)));
     let bytecode = std::fs::read(dir.join(format!("{}.dslb", name))).map_err(|e| e.to_string())?;
     let schema = std::fs::read(schema_for(dir, name)).map_err(|e| e.to_string())?;
-    let outcome = if expect.kind == "entries" {
-        Outcome::Trace(Vec::new())
+    let observed = if expect.kind == "entries" {
+        Observed { outcome: Outcome::Trace(Vec::new()), sink_json: String::new(), frame: String::new() }
     } else if expect.kind == "call"
         || expect.kind == "call_error"
         || expect.kind == "call_error_at"
@@ -357,18 +389,11 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
         let mut split = first.splitn(2, ' ');
         let entry = split.next().unwrap_or("");
         let args = split.next().unwrap_or("[]");
-        match run_entry_vector(&bytecode, &schema, entry, args) {
-            EntryOutcome::Success { result, trace } => Outcome::Trace({
-                let mut lines = vec![format!("result {}", result)];
-                lines.extend(trace);
-                lines
-            }),
-            EntryOutcome::Error(e) => Outcome::RuntimeError(e),
-            EntryOutcome::Load(m) => Outcome::LoadError(m),
-        }
+        run_entry_vector_observed(&bytecode, &schema, entry, args)
     } else {
-        run_vector(&bytecode, &schema)
+        run_vector_observed(&bytecode, &schema)
     };
+    let Observed { outcome, sink_json, frame } = observed;
     if std::env::var_os("LMCODE_TRACE").is_some() {
         match &outcome {
             Outcome::Trace(lines) => {
@@ -382,7 +407,7 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
             _ => {}
         }
     }
-    let ok = match (expect.kind.as_str(), &outcome) {
+    let mut ok = match (expect.kind.as_str(), &outcome) {
         ("trace", Outcome::Trace(lines)) => trace_matches(&expect.lines, lines),
         ("entries", Outcome::Trace(_lines)) => {
             let program = Program::load(&bytecode, &schema, &stub_registry_mode(false))
@@ -441,6 +466,7 @@ pub fn check_vector(dir: &Path, name: &str) -> Result<String, String> {
         ("load_error", Outcome::LoadError(m)) => m.contains(&expect.lines[0]),
         _ => false,
     };
+    if ok { if let Some(sink) = &expect.sink { ok = sink.json == sink_json && sink.frame == frame; } }
     if ok {
         Ok(expect.kind)
     } else {
