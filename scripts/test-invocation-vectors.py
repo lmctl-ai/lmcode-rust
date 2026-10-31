@@ -83,3 +83,6 @@ if os.name != 'nt':
  r=subprocess.run([str(BINARY),str(HERE/'schema.json'),str(HERE/'single-null.json'),b'/invalid-\xff'],env=env,capture_output=True)
  assert r.returncode==2 and json.loads(r.stdout.splitlines()[1])['code']=='CLI_USAGE',r
  print('PASS invalid standalone UTF-8 rejected before filesystem access')
+
+import runpy
+runpy.run_path(str(HERE/"check_metadata.py"))["check"]([str(BINARY)],HERE)

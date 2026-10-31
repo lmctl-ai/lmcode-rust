@@ -22,3 +22,10 @@ builders, single-list payloads, nested/null values and located/global failures
 have exact bytes. Malformed metadata, duplicate/missing/extra registrations and
 present-empty environment paths must fail before dispatch. No public manifest
 flag or script-facing bytecode path accessor is introduced.
+
+Canonical byte regressions include general-format exponent boundaries (-4 and 6),
+smallest and adjacent subnormals, signed zero, all 32 ASCII controls and Unicode.
+`metadata-errors.json` authors full failure frames for malformed types, missing
+fields, unsafe/underflow numbers (including nested pointer paths), UTF-8, BOM,
+duplicate keys, overflow and parser errors. `check_metadata.py` is the shared
+child-process oracle; comparisons include status, stdout bytes and stderr.

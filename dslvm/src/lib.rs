@@ -57,7 +57,7 @@ fn load_err<T>(code: &str, message: impl Into<String>) -> Result<T, Error> { Err
 /// JSON string literal for the result line.
 pub fn json_escape(s: &str) -> String {
     let mut out = String::from("\"");
-    for c in s.chars() { match c { '"' => out.push_str("\\\""), '\\' => out.push_str("\\\\"), '\n' => out.push_str("\\n"), '\r' => out.push_str("\\r"), '\t' => out.push_str("\\t"), c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)), c => out.push(c) } }
+    for c in s.chars() { match c { '"' => out.push_str("\\\""), '\\' => out.push_str("\\\\"), '\u{8}' => out.push_str("\\b"), '\u{c}' => out.push_str("\\f"), '\n' => out.push_str("\\n"), '\r' => out.push_str("\\r"), '\t' => out.push_str("\\t"), c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)), c => out.push(c) } }
     out.push('"'); out
 }
 pub fn error_json(phase: &str, e: &Error) -> String {

@@ -100,7 +100,19 @@ fn float(n: f64, path: &str) -> Result<OwnedJson, Error> {
 }
 // Keep Rust's shortest-round-trip digits, using the canonical C++ general layout.
 fn canonical_float(n: f64) -> String {
-    let raw = format!("{n:?}");
+    let shortest = format!("{n:?}");
+    let mantissa = shortest.split('e').next().unwrap().trim_start_matches('-');
+    let joined = mantissa.replace('.', "");
+    let precision = joined.trim_start_matches('0').trim_end_matches('0').len();
+    // Debug's shortest formatter rounds exact decimal ties upward. The precision
+    // formatter uses ties-to-even; prefer it only if it still round trips (the
+    // nearest decimal at this precision can lie outside the rounding interval).
+    let rounded = format!("{:.*e}", precision - 1, n);
+    let raw = if rounded.parse::<f64>().ok() == Some(n) {
+        rounded
+    } else {
+        shortest
+    };
     let (sign, raw) = raw
         .strip_prefix('-')
         .map_or(("", raw.as_str()), |v| ("-", v));
@@ -397,6 +409,8 @@ fn quote(s: &str, out: &mut String) {
         match c {
             '"' => out.push_str("\\\""),
             '\\' => out.push_str("\\\\"),
+            '\u{8}' => out.push_str("\\b"),
+            '\u{c}' => out.push_str("\\f"),
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),

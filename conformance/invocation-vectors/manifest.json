@@ -3,6 +3,22 @@
   "schema": "schema.json",
   "cases": [
     {
+      "name": "canonical-numbers",
+      "programs": [
+        "numbers"
+      ],
+      "mode": "single",
+      "exit": 0
+    },
+    {
+      "name": "canonical-controls",
+      "programs": [
+        "controls"
+      ],
+      "mode": "single",
+      "exit": 0
+    },
+    {
       "name": "two-reverse",
       "programs": [
         "a",

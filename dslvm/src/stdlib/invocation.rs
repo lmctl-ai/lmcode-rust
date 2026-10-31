@@ -116,7 +116,15 @@ impl InvocationResults {
     }
     pub fn from_metadata(raw: &[u8], parsed_files: &[String]) -> Result<Self, Error> {
         let parse = || -> Result<Self, Error> {
-            let root = parse_document(raw)?;
+            let root = parse_document(raw).map_err(|e| {
+                if e.message == "json_parse: BOM is not allowed at byte 0" {
+                    Error::host("JSON BOM is not allowed")
+                } else if e.message.starts_with("json_parse: trailing input at byte ") {
+                    Error::host("trailing JSON input")
+                } else {
+                    e
+                }
+            })?;
             json_node(&root, "")?;
             keys(&root, &["version", "mode", "parts"])?;
             if member(&root, "version").and_then(node_integer) != Some(1) {
