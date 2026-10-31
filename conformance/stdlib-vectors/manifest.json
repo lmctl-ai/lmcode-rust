@@ -2103,6 +2103,19 @@
       }
     },
     {
+      "name": "data-text-template",
+      "covers": "v2 data catalog positive/negative contract",
+      "schema": "data.schema.json",
+      "source": "data-text-template.dsl",
+      "bytecode": "data-text-template.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "hex 53616d3a303d312c313d32"
+        ]
+      }
+    },
+    {
       "name": "ends-with",
       "covers": "str_ends_with byte semantics and edge cases",
       "schema": "schema.json",
