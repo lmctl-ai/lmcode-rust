@@ -1,7 +1,4 @@
-# Compiles the router DSL against schema/router.dsl.json and saves the bytecode (EXPERIMENTAL proof of concept).
-# Copied from lmctl-ai/lmweb (examples/build_router.lms); compiles the SAME chunk the C++ server runs. Run from examples/router: lmscript dsl/build_router.lms [OUT]
-# The DSL is checked at lmscript check time: a type error below is error:FILE:LINE:COL: _lmcode_: ... with exit 2, before any effect.
-out = ARGV.len() > 0 ? ARGV[0] : "build/router.dslb";
+# Canonical router lmcode body. test.sh compiles this block with the mono compiler API.
 router = _lmcode_ schema="../schema/router.dsl.json";
 # Version 1 of the router: only GET is served and it returns the current date.
 if (req.method() == "GET") {
@@ -12,6 +9,4 @@ if (req.method() == "GET") {
   res.body("method not allowed");
 }
 end _lmcode_
-mkdir(dirname(out));
-savedsl(router, out);
-println(f"wrote {out} ({type(router)} compiled against schema/router.dsl.json)");
+router;

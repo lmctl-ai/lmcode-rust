@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# End-to-end test of the Rust router host. Needs cargo (1.92 used), curl and the released lmscript CLI
-# (`npm install -g @lmctl-ai/lmctl`, >= 0.2.346; LMSCRIPT_BIN overrides). Proves that the UNCHANGED bytecode compiled from
+# End-to-end test of the Rust router host. Needs cargo (1.92 used), curl and a compiler that exposes current lmcode flags
+# (`LMSCRIPT_BIN` and `LMSCRIPT_SOURCE` select an owned source build). Proves that the bytecode compiled from
 # lmweb's router script runs on this Rust runtime and, when ../../../lmweb/build/server exists, on the C++ runtime too.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
@@ -10,11 +10,11 @@ if [ -z "$LMWEB_DIR" ]; then
     if [ -d "$candidate" ]; then LMWEB_DIR="$candidate"; break; fi
   done
 fi
-LMSCRIPT="${LMSCRIPT_BIN:-}"
-if [ -z "$LMSCRIPT" ]; then LMSCRIPT=lmscript; command -v lmscript >/dev/null 2>&1 || LMSCRIPT=lmctl; fi; MIN_LMSCRIPT="${LMSCRIPT_MIN:-0.2.346}"
-if ! command -v "$LMSCRIPT" >/dev/null 2>&1 && [ ! -f "$LMSCRIPT" ]; then echo "FAIL: lmscript not found ($LMSCRIPT). Install the released CLI: npm install -g @lmctl-ai/lmctl (>= $MIN_LMSCRIPT), or set LMSCRIPT_BIN." >&2; exit 1; fi
-HAVE_LMSCRIPT="$("$LMSCRIPT" --version 2>/dev/null | sed -n 's/^lm\(script\|ctl\) //p')"
-if [ -z "$HAVE_LMSCRIPT" ] || [ "$(printf '%s\n%s\n' "$MIN_LMSCRIPT" "$HAVE_LMSCRIPT" | sort -V | head -1)" != "$MIN_LMSCRIPT" ]; then echo "FAIL: lmscript ${HAVE_LMSCRIPT:-unknown} at $LMSCRIPT is too old: _lmcode_ needs >= $MIN_LMSCRIPT (npm install -g @lmctl-ai/lmctl@latest) or set LMSCRIPT_BIN." >&2; exit 1; fi
+LMSCRIPT="${LMSCRIPT_BIN:-lmscript}"
+if ! command -v "$LMSCRIPT" >/dev/null 2>&1 && [ ! -f "$LMSCRIPT" ]; then echo "FAIL: lmscript not found ($LMSCRIPT); set LMSCRIPT_BIN to an owned compiler build." >&2; exit 1; fi
+if ! "$LMSCRIPT" --lmcode-signatures "$HERE/schema/router.dsl.json" >/dev/null 2>&1; then echo "FAIL: compiler lacks the current --lmcode-signatures contract; set LMSCRIPT_BIN to an up-to-date compiler build." >&2; exit 1; fi
+LMSCRIPT_SOURCE="${LMSCRIPT_SOURCE:-$(cd "$(dirname "$LMSCRIPT")/.." && pwd)}"
+[ -f "$LMSCRIPT_SOURCE/dsl.ts" ] || { echo "FAIL: set LMSCRIPT_SOURCE to the owned mono lmscript source directory." >&2; exit 1; }
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/rust-router-test-XXXXXX")"; mkdir -p "$WORK/home"
 PIDS=""
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -59,17 +59,17 @@ for flags in "$retired $WORK/missing.dslb" "$retired-schema" "$retired-signature
 done
 ok "--schema FILE and every other flag combination are refused (exit 2, empty stdout)"
 
-# 2. Compile lmweb's router chunk with the released lmscript (same schema bytes as lmweb).
+# 2. Compile lmweb's router chunk with the owned mono compiler source (same schema bytes as lmweb).
 if [ -n "$LMWEB_DIR" ] && [ -f "$LMWEB_DIR/schema/router.dsl.json" ]; then
   cmp -s "$SCHEMA" "$LMWEB_DIR/schema/router.dsl.json" || fail "router schema differs from the sibling lmweb schema"
   ok "schema is byte-identical to lmweb's schema/router.dsl.json"
 else
   echo "skip - lmweb checkout not found next to this repo; schema identity not checked"
 fi
-(cd "$HERE" && HOME="$WORK/home" "$LMSCRIPT" dsl/build_router.lms "$WORK/router.dslb" >"$WORK/compile.out" 2>&1) || { cat "$WORK/compile.out"; fail "lmscript compiles dsl/build_router.lms"; }
+node --experimental-strip-types "$HERE/compile-bytecode.mjs" "$LMSCRIPT_SOURCE" "$HERE/dsl/build_router.lms" "$SCHEMA" "$WORK/router.dslb" >"$WORK/compile.out" 2>&1 || { cat "$WORK/compile.out"; fail "mono compiler compiles the router lmcode"; }
 [ "$(head -c 4 "$WORK/router.dslb")" = "DSLB" ] || fail "magic"
 [ "$(od -An -tu1 -j4 -N2 "$WORK/router.dslb" | xargs)" = "0 6" ] || fail "bytecode version 6 (use a v6 compiler)"
-ok "lmscript $HAVE_LMSCRIPT compiles the router to $(wc -c <"$WORK/router.dslb") bytes (bytecode v6)"
+ok "mono compiler compiles the router to $(wc -c <"$WORK/router.dslb") bytes (bytecode v6)"
 
 # 3. Serve it on the Rust runtime.
 start_server() { # $1 binary; sets PORT and SERVER_PID
@@ -92,17 +92,14 @@ ok "Rust runtime: POST / -> 405 method not allowed"
 stop_server; grep -q '^stopped$' "$WORK/s.err" || fail "clean stop: $(cat "$WORK/s.err")"
 ok "Rust router stops cleanly on SIGTERM"
 
-# 3b. _lmcode_ cli="PROGRAM" (lmscript R42) compiles against the binary's own embedded schema; older compilers reject it.
-printf 'p = _lmcode_ cli="%s";\nres.status(200);\nres.body("cli");\nend _lmcode_\nsavedsl(p, "%s");\n' "$SERVER" "$WORK/cli.dslb" >"$WORK/cli.lms"
-if HOME="$WORK/home" "$LMSCRIPT" --check "$WORK/cli.lms" >/dev/null 2>&1; then
-  HOME="$WORK/home" "$LMSCRIPT" "$WORK/cli.lms" >/dev/null 2>"$WORK/cli.err" || { cat "$WORK/cli.err"; fail "compiling with cli=$SERVER"; }
-  start_server "$SERVER" "$WORK/cli.dslb"
-  [ "$(curl -s "http://127.0.0.1:$PORT/")" = cli ] || fail "running a cli= compiled program"
-  stop_server
-  ok "_lmcode_ cli=\"router\" compiles against the binary's own schema and serves"
-else
-  echo "skip - _lmcode_ cli= (this lmscript predates lmscript R42)"
-fi
+# 3b. Compile a second body against the router's own embedded schema bytes.
+"$SERVER" --lmcode-schema --json >"$WORK/cli.schema" || fail "host embedded schema for compiler"
+printf 'res.status(200);\nres.body("cli");\n' >"$WORK/cli.dsl"
+node --experimental-strip-types "$HERE/compile-bytecode.mjs" "$LMSCRIPT_SOURCE" "$WORK/cli.dsl" "$WORK/cli.schema" "$WORK/cli.dslb" >"$WORK/cli.compile.out" 2>&1 || { cat "$WORK/cli.compile.out"; fail "compile against embedded schema"; }
+start_server "$SERVER" "$WORK/cli.dslb"
+[ "$(curl -s "http://127.0.0.1:$PORT/")" = cli ] || fail "running program compiled against embedded schema"
+stop_server
+ok "source compiler uses the router's own embedded schema bytes"
 
 # 4. The SAME bytecode file on the C++ runtime (lmweb), when it is built next to this repo.
 CPP="${LMWEB_DIR:+$LMWEB_DIR/build/server}"
@@ -121,7 +118,7 @@ fi
 mkdir -p "$WORK/other/dsl" "$WORK/other/schema"; cp "$HERE/dsl/build_router.lms" "$WORK/other/dsl/"
 sed 's/"name": "router"/"name": "router2"/' "$SCHEMA" >"$WORK/other/schema/router.dsl.json"
 cmp -s "$SCHEMA" "$WORK/other/schema/router.dsl.json" && fail "the mismatch schema must differ"
-(cd "$WORK/other" && HOME="$WORK/home" "$LMSCRIPT" dsl/build_router.lms "$WORK/other.dslb" >"$WORK/other.out" 2>&1) || { cat "$WORK/other.out"; fail "compile against the other schema"; }
+node --experimental-strip-types "$HERE/compile-bytecode.mjs" "$LMSCRIPT_SOURCE" "$HERE/dsl/build_router.lms" "$WORK/other/schema/router.dsl.json" "$WORK/other.dslb" >"$WORK/other.out" 2>&1 || { cat "$WORK/other.out"; fail "compile against the other schema"; }
 out="$("$SERVER" --port 0 --lmcode "$WORK/other.dslb" 2>&1)"; code=$?; [ "$code" = 1 ] && case "$out" in *"schema mismatch"*) ;; *) fail "mismatch: $code $out";; esac
 ok "refuses a schema-hash mismatch before serving"
 head -c 60 "$WORK/router.dslb" >"$WORK/trunc.dslb"; out="$("$SERVER" --port 0 --lmcode "$WORK/trunc.dslb" 2>&1)"; case "$out" in *"bytecode is truncated"*) ;; *) fail "truncated: $out";; esac

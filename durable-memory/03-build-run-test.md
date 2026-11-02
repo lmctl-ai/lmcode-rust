@@ -1,10 +1,10 @@
 # Build, run, and test
 
-Install the released CLI with `npm install -g @lmctl-ai/lmctl@0.2.426`, then run `cargo test --workspace` for library, string catalog, and conformance checks. Run `bash examples/router/test.sh` for the router end-to-end checks: building the host, compiling lmcode, and exercising success and error paths. This published compiler still injects the v1 std surface; set `LMSCRIPT_V2_BIN` to a scratch lmctl-mono-main compiler when validating v2 merged-schema parity.
+Use a private source-built mono compiler (`LMSCRIPT_BIN`) for compiler-dependent checks. Run `cargo test --workspace` for library and conformance checks, then `bash examples/router/test.sh` for the router end-to-end checks. Set `LMSCRIPT_SOURCE` to the mono `lmscript` source directory; the router sample uses its `compileDsl` API to produce bytecode without a removed language-level bytecode-writing helper.
 
 For embedding, add the `dslvm` crate from the public SDK repository, embed the schema bytes in the host binary (`include_bytes!`), and use the matching SDK major version.
 
-Hosts follow the lmcode host flag standard (lmscript R42): `HOST --lmcode FILE [options]` runs, `HOST --lmcode-schema` prints `Registry::schema_summary()`, `HOST --lmcode-schema --json` prints the embedded schema bytes exactly, and `HOST --lmcode-signatures` prints `Registry::signatures()` one per line. `--schema FILE` is removed and refused; any other combination exits 2 with empty stdout. `examples/router/test.sh` checks all of this, plus `_lmcode_ cli="router"` once the compiler supports it (lmctl 0.2.347 does not, so it is skipped).
+Hosts follow the lmcode host flag standard: `HOST --lmcode FILE [options]` runs, `HOST --lmcode-schema` prints `Registry::schema_summary()`, `HOST --lmcode-schema --json` prints the embedded schema bytes exactly, and `HOST --lmcode-signatures` prints `Registry::signatures()` one per line. `--schema FILE` is removed and refused; any other combination exits 2 with empty stdout. `examples/router/test.sh` checks these flags and compiles a boundary program against the host's embedded schema bytes.
 
 The synchronized catalog suite contains 229 vectors, including 16 file cases;
 the core suite remains 51. File fixtures own a fresh temporary directory per
