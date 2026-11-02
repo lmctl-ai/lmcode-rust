@@ -1,5 +1,3 @@
-runtime_error_at
+runtime_error_exact
 RUN_HOST
-2
-7
-str_repeat: count must be nonnegative and result at most 67108864 bytes
+str_repeat: count must be nonnegative

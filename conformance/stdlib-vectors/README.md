@@ -1,6 +1,6 @@
 # Standard and optional catalog vectors
 
-The 18 string vectors cover all 16 functions in
+The 16 string vectors cover all 16 functions in
 `stdlib/string.schema-fragment.json`, plus negative/oversized repeat failures.
 Run `make conformance` to run both the core and catalog suites.
 
@@ -45,12 +45,12 @@ The additional 11 `math-*` vectors use `math.schema.json` to cover all 16 intege
 
 ## Collections and testing
 
-The 32 additional collection/testing vectors use `collections.schema.json`;
-the complete catalog suite contains 118 vectors (61 string/math/collection/testing,
-16 file cases, and 41 seeded corpus cases). They cover every list/map
+The 31 additional collection/testing vectors use `collections.schema.json`;
+the complete suite contains 271 vectors (74 base catalog, 38 v3 codec/snapshot,
+112 data-contract, and 47 seeded byte/property cases). They cover every list/map
 method, mutation chaining, insertion order, replacement without reordering,
 removal with index shifting, raw-byte keys/values, NaN lookup, empty iteration,
-split edge cases, and the shared 65536-object arena limit. Each vector starts
+split edge cases, and allocations beyond the former shared object-count budget. Each vector starts
 with a fresh collection arena. The core suite's legacy `IntList` fixture must
 not be registered alongside the collection catalog's methods.
 

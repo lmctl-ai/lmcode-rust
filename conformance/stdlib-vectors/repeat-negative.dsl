@@ -1,1 +1,1 @@
-t.hex(str_repeat("x", -1));
+str_repeat(bytes("00ff"), -1);

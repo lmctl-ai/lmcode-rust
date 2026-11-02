@@ -9,16 +9,15 @@
   "vectors": [
     {
       "name": "collections-arena-limit",
-      "covers": "collection byte semantics and methods",
-      "schema": "collections.schema.json",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
       "source": "collections-arena-limit.dsl",
       "bytecode": "collections-arena-limit.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_exact": {
-          "code": "RUN_HOST",
-          "message": "StrMap object limit exceeded (65536)"
-        }
+        "trace": [
+          "int 65537"
+        ]
       }
     },
     {
@@ -3108,7 +3107,7 @@
       "expect": {
         "runtime_error_exact": {
           "code": "RUN_HOST",
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+          "message": "str_repeat: count must be nonnegative"
         }
       }
     },
@@ -3911,7 +3910,7 @@
       "expect": {
         "runtime_error_exact": {
           "code": "RUN_HOST",
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+          "message": "str_repeat: count must be nonnegative"
         }
       }
     },
@@ -4703,7 +4702,7 @@
       "expect": {
         "runtime_error_exact": {
           "code": "RUN_HOST",
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+          "message": "str_repeat: count must be nonnegative"
         }
       }
     },
@@ -4804,6 +4803,19 @@
       }
     },
     {
+      "name": "glob-over-old-work-budget",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "glob-over-old-work-budget.dsl",
+      "bytecode": "glob-over-old-work-budget.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "bool false"
+        ]
+      }
+    },
+    {
       "name": "is-float",
       "covers": "str_is_float byte semantics and edge cases",
       "schema": "schema.json",
@@ -4834,6 +4846,19 @@
           "bool false",
           "bool false",
           "bool false"
+        ]
+      }
+    },
+    {
+      "name": "json-arena-over-old-object-budget",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "json-arena-over-old-object-budget.dsl",
+      "bytecode": "json-arena-over-old-object-budget.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 65537"
         ]
       }
     },
@@ -5095,33 +5120,28 @@
     },
     {
       "name": "repeat-limit",
-      "covers": "catalog resource policy reports host failure",
-      "schema": "schema.json",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
       "source": "repeat-limit.dsl",
       "bytecode": "repeat-limit.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_at": {
-          "code": "RUN_HOST",
-          "line": 2,
-          "column": 7,
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
-        }
+        "trace": [
+          "int 67108865"
+        ]
       }
     },
     {
       "name": "repeat-negative",
-      "covers": "catalog resource policy reports host failure",
-      "schema": "schema.json",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
       "source": "repeat-negative.dsl",
       "bytecode": "repeat-negative.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_at": {
+        "runtime_error_exact": {
           "code": "RUN_HOST",
-          "line": 2,
-          "column": 7,
-          "message": "str_repeat: count must be nonnegative and result at most 67108864 bytes"
+          "message": "str_repeat: count must be nonnegative"
         }
       }
     },
@@ -5137,6 +5157,19 @@
           "hex 626261",
           "hex 6162",
           "hex c3a900c3a9"
+        ]
+      }
+    },
+    {
+      "name": "replace-over-old-size-ceiling",
+      "covers": "seeded standard byte/property corpus",
+      "schema": "fuzz.schema.json",
+      "source": "replace-over-old-size-ceiling.dsl",
+      "bytecode": "replace-over-old-size-ceiling.dslb",
+      "mutated": false,
+      "expect": {
+        "trace": [
+          "int 68157440"
         ]
       }
     },
@@ -5743,30 +5776,28 @@
       }
     },
     {
-      "name": "v3-snapshots-float-keys-limit",
+      "name": "v3-snapshots-float-keys-over-old-object-budget",
       "covers": "v3 byte codecs and map snapshots",
       "schema": "v3.schema.json",
-      "source": "v3-snapshots-float-keys-limit.dsl",
-      "bytecode": "v3-snapshots-float-keys-limit.dslb",
+      "source": "v3-snapshots-float-keys-over-old-object-budget.dsl",
+      "bytecode": "v3-snapshots-float-keys-over-old-object-budget.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_exact": [
-          "RUN_HOST",
-          "StrList object limit exceeded (65536)"
+        "trace": [
+          "int 0"
         ]
       }
     },
     {
-      "name": "v3-snapshots-float-values-limit",
+      "name": "v3-snapshots-float-values-over-old-object-budget",
       "covers": "v3 byte codecs and map snapshots",
       "schema": "v3.schema.json",
-      "source": "v3-snapshots-float-values-limit.dsl",
-      "bytecode": "v3-snapshots-float-values-limit.dslb",
+      "source": "v3-snapshots-float-values-over-old-object-budget.dsl",
+      "bytecode": "v3-snapshots-float-values-over-old-object-budget.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_exact": [
-          "RUN_HOST",
-          "FloatList object limit exceeded (65536)"
+        "trace": [
+          "int 0"
         ]
       }
     },
@@ -5822,30 +5853,28 @@
       }
     },
     {
-      "name": "v3-snapshots-int-keys-limit",
+      "name": "v3-snapshots-int-keys-over-old-object-budget",
       "covers": "v3 byte codecs and map snapshots",
       "schema": "v3.schema.json",
-      "source": "v3-snapshots-int-keys-limit.dsl",
-      "bytecode": "v3-snapshots-int-keys-limit.dslb",
+      "source": "v3-snapshots-int-keys-over-old-object-budget.dsl",
+      "bytecode": "v3-snapshots-int-keys-over-old-object-budget.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_exact": [
-          "RUN_HOST",
-          "StrList object limit exceeded (65536)"
+        "trace": [
+          "int 0"
         ]
       }
     },
     {
-      "name": "v3-snapshots-int-values-limit",
+      "name": "v3-snapshots-int-values-over-old-object-budget",
       "covers": "v3 byte codecs and map snapshots",
       "schema": "v3.schema.json",
-      "source": "v3-snapshots-int-values-limit.dsl",
-      "bytecode": "v3-snapshots-int-values-limit.dslb",
+      "source": "v3-snapshots-int-values-over-old-object-budget.dsl",
+      "bytecode": "v3-snapshots-int-values-over-old-object-budget.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_exact": [
-          "RUN_HOST",
-          "IntList object limit exceeded (65536)"
+        "trace": [
+          "int 0"
         ]
       }
     },
@@ -5902,30 +5931,28 @@
       }
     },
     {
-      "name": "v3-snapshots-str-keys-limit",
+      "name": "v3-snapshots-str-keys-over-old-object-budget",
       "covers": "v3 byte codecs and map snapshots",
       "schema": "v3.schema.json",
-      "source": "v3-snapshots-str-keys-limit.dsl",
-      "bytecode": "v3-snapshots-str-keys-limit.dslb",
+      "source": "v3-snapshots-str-keys-over-old-object-budget.dsl",
+      "bytecode": "v3-snapshots-str-keys-over-old-object-budget.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_exact": [
-          "RUN_HOST",
-          "StrList object limit exceeded (65536)"
+        "trace": [
+          "int 0"
         ]
       }
     },
     {
-      "name": "v3-snapshots-str-values-limit",
+      "name": "v3-snapshots-str-values-over-old-object-budget",
       "covers": "v3 byte codecs and map snapshots",
       "schema": "v3.schema.json",
-      "source": "v3-snapshots-str-values-limit.dsl",
-      "bytecode": "v3-snapshots-str-values-limit.dslb",
+      "source": "v3-snapshots-str-values-over-old-object-budget.dsl",
+      "bytecode": "v3-snapshots-str-values-over-old-object-budget.dslb",
       "mutated": false,
       "expect": {
-        "runtime_error_exact": [
-          "RUN_HOST",
-          "StrList object limit exceeded (65536)"
+        "trace": [
+          "int 0"
         ]
       }
     }

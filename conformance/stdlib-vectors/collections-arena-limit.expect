@@ -1,3 +1,2 @@
-runtime_error_exact
-RUN_HOST
-StrMap object limit exceeded (65536)
+trace
+int 65537
