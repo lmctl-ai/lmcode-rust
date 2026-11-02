@@ -169,25 +169,53 @@ impl Context {
     }
     /// Inserts a standard-library collection, tracking live collection slots for teardown.
     pub fn insert_collection<T: Any>(&mut self, type_name: &str, object: T) -> Result<ObjRef, Error> {
-        self.collection_objects = self.collection_objects.checked_add(1)
+        let count = self.collection_objects.checked_add(1)
             .ok_or_else(|| Error::host("collection object count exceeds platform capacity"))?;
-        let handle = if let Some(index) = self.free_collection_slots.pop() {
-            self.objects[index] = Some(Box::new(object));
-            self.types[index] = type_name.to_string();
-            ObjRef(index)
-        } else { self.insert(type_name, object) };
-        self.collection_indices.push(handle.0);
+        let handle = self.try_insert_collection(type_name, object)?;
+        self.collection_objects = count;
         Ok(handle)
     }
-    /// A borrowed immutable std node shares its root's quota slot and run lifetime.
-    pub(crate) fn insert_borrowed_collection<T: Any>(&mut self, type_name: &str, object: T) -> ObjRef {
-        let handle = if let Some(index) = self.free_collection_slots.pop() {
-            self.objects[index] = Some(Box::new(object));
-            self.types[index] = type_name.to_string();
-            ObjRef(index)
-        } else { self.insert(type_name, object) };
-        self.collection_indices.push(handle.0);
-        handle
+    /// Borrowed nodes use the same fallible arena insertion as roots.
+    pub(crate) fn insert_borrowed_collection<T: Any>(&mut self, type_name: &str, object: T) -> Result<ObjRef, Error> {
+        self.try_insert_collection(type_name, object)
+    }
+    fn try_insert_collection<T: Any>(&mut self, type_name: &str, object: T) -> Result<ObjRef, Error> {
+        let allocation = || Error::host("collection allocation failed");
+        // Reserve before mutation; teardown must not allocate while unwinding a run.
+        self.collection_indices.try_reserve(1).map_err(|_| allocation())?;
+        self.free_collection_slots.try_reserve(self.collection_indices.len() + 1).map_err(|_| allocation())?;
+        if self.free_collection_slots.is_empty() {
+            self.objects.try_reserve(1).map_err(|_| allocation())?;
+            self.types.try_reserve(1).map_err(|_| allocation())?;
+        }
+        let mut name = String::new();
+        name.try_reserve_exact(type_name.len()).map_err(|_| allocation())?;
+        name.push_str(type_name);
+        // Box::try_new is unstable. Allocate once with the global allocator and
+        // check null before constructing Box; Box owns the matching deallocation.
+        let layout = std::alloc::Layout::new::<T>();
+        let boxed = if layout.size() == 0 { Box::new(object) } else {
+            // SAFETY: layout belongs to T, null is rejected, and write initializes
+            // the allocation exactly once before transferring ownership to Box.
+            unsafe {
+                let pointer = std::alloc::alloc(layout).cast::<T>();
+                if pointer.is_null() { return Err(allocation()); }
+                pointer.write(object);
+                Box::from_raw(pointer)
+            }
+        };
+        let index = if let Some(index) = self.free_collection_slots.pop() {
+            self.objects[index] = Some(boxed);
+            self.types[index] = name;
+            index
+        } else {
+            let index = self.objects.len();
+            self.objects.push(Some(boxed));
+            self.types.push(name);
+            index
+        };
+        self.collection_indices.push(index);
+        Ok(ObjRef(index))
     }
     pub(crate) fn clear_collections(&mut self) {
         for index in self.collection_indices.drain(..) { self.objects[index] = None; self.free_collection_slots.push(index); }

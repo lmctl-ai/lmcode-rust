@@ -67,7 +67,10 @@ fn register_list<T: Element>(registry: &mut Registry, type_name: &'static str) -
         Ok(T::put(list.items[i].clone()))
     })?;
     registry.pure_method(type_name, "add", &[T::TYPE], type_name, move |ctx, this, args| {
-        ctx.get_mut::<CollectionList<T>>(this)?.items.push(T::get(&args[0])?);
+        let item = T::get(&args[0])?;
+        let list = ctx.get_mut::<CollectionList<T>>(this)?;
+        list.items.try_reserve(1).map_err(|_| Error::host("collection allocation failed"))?;
+        list.items.push(item);
         Ok(Value::object(type_name, this))
     })?;
     registry.pure_method(type_name, "set", &["int", T::TYPE], type_name, move |ctx, this, args| {

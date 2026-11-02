@@ -368,7 +368,7 @@ fn borrowed(
 ) -> Result<Value, Error> {
     Ok(Value::object(
         type_name,
-        ctx.insert_borrowed_collection(type_name, node),
+        ctx.insert_borrowed_collection(type_name, node)?,
     ))
 }
 
