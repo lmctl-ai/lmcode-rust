@@ -22,7 +22,7 @@ preserves negative zero and returns NaN for negative finite inputs.
 ## Catalog v2
 
 The canonical v2 schema is pinned byte-for-byte in `std/lmcode-std.schema.json`
-and `std.lock`; it contains 171 signatures. `Registry::new()` installs all of
+and `std.lock`; it contains 206 signatures. `Registry::new()` installs all of
 them by default, while `Registry::without_std()` provides an explicit legacy
 surface. The Rust registry is checked against the canonical 171-signature
 inventory. Published `lmscript` 0.2.426 still injects the legacy 72-signature
@@ -42,7 +42,7 @@ binary64 numbers. It rejects malformed UTF-8, duplicate decoded keys, BOMs,
 invalid numbers and nesting deeper than 256. `to_json()` emits compact output
 while preserving source number/string spellings and object order. Json
 navigation borrows immutable nodes; roots and `keys()` snapshots use the
-existing 65,536-object run arena. Exact bounds and parse diagnostics are pinned
+run arena without an implicit object-count budget. Exact parse diagnostics are pinned
 by `conformance/stdlib-vectors`.
 
 Local verification also used a scratch archive of lmctl-mono `origin/main`

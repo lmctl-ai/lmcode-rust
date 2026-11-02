@@ -917,4 +917,15 @@ mod tests {
         assert_eq!(ctx.collection_objects, 0);
         assert!(ctx.objects.iter().all(Option::is_none));
     }
+
+    #[test]
+    fn json_roots_above_old_shared_object_quota_are_accepted() {
+        let r = Registry::new();
+        let mut ctx = Context::new();
+        let parse = &r.functions["fn json_parse(string) -> Json"].2;
+        for _ in 0..65_537 {
+            parse(&mut ctx, &[Value::string("null")]).unwrap();
+        }
+        assert_eq!(ctx.collection_objects, 65_537);
+    }
 }

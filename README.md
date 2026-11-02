@@ -54,7 +54,7 @@ the program. Handles remain owned by the host. Schema 2 supports overloads, decl
 conversions, operators, enums, and `returns: "self"`; compiler-inlined functions do
 not add a runtime function table.
 
-`Registry::new()` enables the pinned built-in lmcode standard catalog (`std/lmcode-std.schema.json`, 182 signatures). Use `Registry::without_std()` for a legacy host surface, or call `stdlib::register_std(&mut registry)` explicitly; registration is idempotent. Verify the canonical schema copy with `scripts/sync-std.sh --verify` and `std.lock`.
+`Registry::new()` enables the pinned built-in lmcode standard catalog (`std/lmcode-std.schema.json`, 206 signatures). Use `Registry::without_std()` for a legacy host surface, or call `stdlib::register_std(&mut registry)` explicitly; registration is idempotent. Verify the canonical schema copy with `scripts/sync-std.sh --verify` and `std.lock`.
 
 The common language includes typed locals, branching, range and collection loops,
 `foreach`, `switch`, `while`, `break`, `continue`, and source-located runtime errors.
@@ -75,8 +75,8 @@ The same bytecode v6 and the same conformance vectors are implemented by [lmcode
 
 ## Standard library catalog
 
-`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The v3 catalog has 182 signatures: the original string, math, collection and file surface plus typed Int/Float maps, Int/Float/Str stacks, queues and stable min-first priority queues, immutable Json, strict byte Base64/hex codecs, and map key/value snapshots. Use a compiler that supports the schema v3 catalog, v6 entries, and optional dry-program execution (published lmctl 0.2.450 or newer).
-Run `cargo test -p dslvm --test stdlib_catalogs` for exact parity between the explicit canonical schema and the registry; it uses `lmscript` (or `$LMSCRIPT_BIN`) on PATH.
+`Registry::new()` installs lmcode std automatically, without group-registration calls or handwritten std declarations. Until compiler injection lands, use `scripts/merge-std.py` to combine the pinned `std/lmcode-std.schema.json` with the host schema at build time, and embed those exact merged bytes. The `stdlib::register_*` functions remain compatibility APIs for explicit opt-out registries. The canonical catalog has 206 signatures, including result-sink APIs and the v3 string codecs/map snapshots. Use a compiler that supports the schema v3 catalog, v6 entries, and optional dry-program execution (published lmctl 0.2.450 or newer).
+Run `cargo test -p dslvm --test stdlib_catalogs` for exact parity between the explicit canonical schema and the registry; set `LMSCRIPT_BIN` to the owned mono compiler. The router suite also takes `LMSCRIPT_SOURCE` to use the compiler library directly.
 
 The built-in numeric catalog is also described by `stdlib/math.schema-fragment.json`; it provides int/float overloads of `math_abs`, `math_min`, `math_max`, `math_floor`, `math_ceil`, `math_round`, `math_pow`, and `math_sqrt`. Integer operations wrap at 64 bits, integer roots are exact floor roots, and float operations preserve IEEE NaN, infinity, and signed-zero behavior described by the shared catalog.
 
@@ -88,7 +88,7 @@ VM strings are arbitrary bytes: invalid UTF-8 and embedded NUL are legal. Consta
 
 Host callbacks use `value.as_bytes()?` for unchanged bytes, `value.as_str()?` for validated UTF-8 (a conversion failure is `RUN_HOST`), or `value.to_string_lossy()?` for replacement-character text. `ByteString` also offers `as_bytes()`, `as_str()`, `to_string_lossy()`, and byte indexing. Registry identifiers remain UTF-8 host text. Host adapters such as the router choose their own text validation at their API boundary.
 
-The string catalog uses byte offsets and ASCII case/whitespace rules. Substrings clamp negative starts to zero and overlong counts to the end; negative counts return empty. Search returns the first byte offset, or -1 (0 for an empty needle); replacement consumes non-overlapping matches and treats an empty search as a no-op. Repeat and replacement preflight a 64 MiB output cap, including no-op replacement copies; repeat also rejects negative counts. Numeric parsing accepts complete signed decimal tokens without whitespace, rejects overflow and floating-point underflow to zero, and returns zero on failure (`str_is_int`/`str_is_float` distinguish valid zero). NaN and infinity are invalid; representable subnormals and signed zero are preserved. Glob matching supports `*` (including slash), `?`, classes/ranges, `[!class]`, and backslash escapes. Unterminated classes and trailing backslashes are literal; leading `]` in a class is literal and descending ranges match no bytes. A deterministic 2^27 work cap counts matcher iterations, scanned class entries, and skipped trailing stars. Catalog policy failures return `RUN_HOST`.
+The string catalog uses byte offsets and ASCII case/whitespace rules. Substrings clamp negative starts to zero and overlong counts to the end; negative counts return empty. Search returns the first byte offset, or -1 (0 for an empty needle); replacement consumes non-overlapping matches and treats an empty search as a no-op. Repeat rejects negative counts. Repeat and replacement have no implicit output-size budget; unrepresentable result sizes return a clear `RUN_HOST` error. Numeric parsing accepts complete signed decimal tokens without whitespace, rejects overflow and floating-point underflow to zero, and returns zero on failure (`str_is_int`/`str_is_float` distinguish valid zero). NaN and infinity are invalid; representable subnormals and signed zero are preserved. Glob matching supports `*` (including slash), `?`, classes/ranges, `[!class]`, and backslash escapes. Unterminated classes and trailing backslashes are literal; leading `]` in a class is literal and descending ranges match no bytes. Glob matching has no implicit work budget. Catalog representation/allocation failures return `RUN_HOST`.
 
 The conformance runner also supports the optional catalog fixtures from a matching
 C++ checkout, including its raw-byte hex adapters:
@@ -116,8 +116,8 @@ and canonical padding; decoders reject whitespace, invalid symbols, misplaced
 padding and nonzero pad bits. Hex output is lowercase and input accepts either
 case. `keys()`/`values()` on StrMap, IntMap and FloatMap allocate independent
 mutable list snapshots in insertion order, preserving bytes and float bits.
-All snapshots share the 65,536-object run arena. The shared suite now contains
-268 catalog vectors plus 406 core vectors.
+All snapshots share the run arena without an implicit object-count budget. The shared suite now contains
+271 catalog vectors plus 406 core vectors.
 
 ## Rule entries (R47/R48/R49, lmcode bytecode (DSLB v6))
 
@@ -148,7 +148,7 @@ compiler-generator fixture correction. Samples record their independently review
 
 ## Automated tests and releases
 
-Install Rust stable and use a private current compiler. Set LMSCRIPT_BIN to its CLI and LMCODE_COMPILER_MODULE to its compiler library for fixture generation. From the repository root run that compiler on test.lms; test.sh is a thin wrapper.
+Install Rust stable and use a private current compiler. Set LMSCRIPT_BIN to its CLI and LMSCRIPT_SOURCE to the mono lmscript source directory for fixture generation. From the repository root run that compiler on test.lms; test.sh is a thin wrapper.
 
 The Actions workflow is manual. No push dispatches a release. Local gates below require a coherent compiler and SDK; promotion is operator-owned.
 

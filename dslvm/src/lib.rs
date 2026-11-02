@@ -167,12 +167,10 @@ impl Context {
         self.types.push(type_name.into());
         ObjRef(self.objects.len() - 1)
     }
-    /// Inserts a standard-library collection and enforces the per-context collection quota.
+    /// Inserts a standard-library collection, tracking live collection slots for teardown.
     pub fn insert_collection<T: Any>(&mut self, type_name: &str, object: T) -> Result<ObjRef, Error> {
-        if self.collection_objects >= 65_536 {
-            return Err(Error::host(format!("{} object limit exceeded (65536)", type_name)));
-        }
-        self.collection_objects += 1;
+        self.collection_objects = self.collection_objects.checked_add(1)
+            .ok_or_else(|| Error::host("collection object count exceeds platform capacity"))?;
         let handle = if let Some(index) = self.free_collection_slots.pop() {
             self.objects[index] = Some(Box::new(object));
             self.types[index] = type_name.to_string();
