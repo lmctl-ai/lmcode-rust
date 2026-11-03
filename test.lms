@@ -8,11 +8,11 @@ fn step(command) {
   print(result.stdout); print(result.stderr);
   assert(result.code == 0, "failed: " + json_stringify(command));
 }
+step(["bash", "scripts/compile-example.sh"]);
 step(["cargo", "test", "--workspace", "--locked"]);
 step(["cargo", "build", "--workspace", "--release", "--locked"]);
 step(["cargo", "run", "--release", "--bin", "dsl-conformance", "--", "conformance/vectors"]);
 step(["cargo", "run", "--release", "--bin", "dsl-conformance", "--", "conformance/stdlib-vectors"]);
-step(["bash", "scripts/compile-example.sh"]);
 step(["python3", "scripts/test-invocation-vectors.py"]);
 step(["python3", "scripts/test-dry-controls.py"]);
 step(["python3", "scripts/mutate-results.py"]);

@@ -2,11 +2,16 @@ use dslvm::{Context, Program, Registry, Value};
 use std::{cell::RefCell, rc::Rc};
 
 const SCHEMA: &[u8] = include_bytes!("fixtures/rule-methods/schema.json");
-const BYTECODE: &[u8] = include_bytes!("fixtures/rule-methods/program.dslb");
+
+fn generated_bytecode() -> Vec<u8> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    std::fs::read(root.join("target/rule-methods.dslb")).expect("compile-example.sh generates rule methods")
+}
 
 #[test]
 fn annotated_sam_rule_runs_as_inlined_v6_code() {
-    assert_eq!(&BYTECODE[..6], b"DSLB\0\x06");
+    let bytecode = generated_bytecode();
+    assert_eq!(&bytecode[..6], b"DSLB\0\x06");
     let captured = Rc::new(RefCell::new(Vec::new()));
     let sink = Rc::clone(&captured);
     let mut registry = Registry::without_std();
@@ -17,11 +22,11 @@ fn annotated_sam_rule_runs_as_inlined_v6_code() {
         })
         .unwrap();
     assert_eq!(registry.signatures(), vec!["fn capture(int) -> void"]);
-    let program = Program::load(BYTECODE, SCHEMA, &registry).unwrap();
+    let program = Program::load(&bytecode, SCHEMA, &registry).unwrap();
     program.run(&mut Context::new(), &registry).unwrap();
     assert_eq!(*captured.borrow(), vec![42]);
     let changed = [SCHEMA, b" "].concat();
-    let error = match Program::load(BYTECODE, &changed, &registry) {
+    let error = match Program::load(&bytecode, &changed, &registry) {
         Err(error) => error,
         Ok(_) => panic!("schema drift must fail"),
     };
