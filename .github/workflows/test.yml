@@ -8,14 +8,14 @@ on:
       compiler_version:
         description: "Published @lmctl-ai/lmctl version"
         required: false
-        default: "0.2.450"
+        default: "0.2.456"
 permissions:
   contents: read
 concurrency:
   group: test-${{ github.ref }}
   cancel-in-progress: true
 env:
-  LMCODE_COMPILER_VERSION: ${{ inputs.compiler_version || vars.LMCODE_COMPILER_VERSION || '0.2.450' }}
+  LMCODE_COMPILER_VERSION: ${{ inputs.compiler_version || vars.LMCODE_COMPILER_VERSION || '0.2.456' }}
 jobs:
   build:
     strategy:
@@ -46,4 +46,4 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup default stable
       - name: Build and test
-        run: LMSCRIPT_BIN="$LMSCRIPT_BIN" lmscript --no-preflight test.lms
+        run: LMSCRIPT_BIN="$LMSCRIPT_BIN" lmscript test.lms
