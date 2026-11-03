@@ -22,9 +22,11 @@ const source=fs.readFileSync(input,'utf8');
 const header=/^.*= _lmcode_ schema="([^"]+)";\r?\n/m.exec(source);
 if(!header)throw Error('fixture requires a literal file schema');
 const body=source.slice(header.index+header[0].length).split(/^end _lmcode_\s*$/m)[0].trimEnd();
+const headerLine=source.slice(0,header.index).split(/\r?\n/).length;
+const sourceMapper=(lineIndex,column)=>({line:headerLine+1+lineIndex,column});
 const {parseDslSchema,compileDsl}=await import(pathToFileURL(process.env.LMCODE_COMPILER_MODULE).href);
 const schema=path.resolve(path.dirname(input),header[1]);
 fs.mkdirSync(path.dirname(output),{recursive:true});
-fs.writeFileSync(output,compileDsl(body.split('\n'),parseDslSchema(fs.readFileSync(schema),schema)).bytes);
+fs.writeFileSync(output,compileDsl(body.split('\n'),parseDslSchema(fs.readFileSync(schema),schema),sourceMapper).bytes);
 
 }
