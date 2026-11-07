@@ -45,5 +45,9 @@ jobs:
           "$LMSCRIPT_BIN" --version
           rustup toolchain install stable --profile minimal
           rustup default stable
+      - name: REST module (pinned suite, unit and stdio conformance tests)
+        run: |
+          bash scripts/sync-rest.sh --verify
+          cargo test -p dslvm --locked rest
       - name: Build and test
         run: LMSCRIPT_BIN="$LMSCRIPT_BIN" lmscript test.lms

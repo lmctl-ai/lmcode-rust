@@ -14,3 +14,8 @@ std/*.json text eol=lf
 std.lock text eol=lf
 dslvm/tests/fixtures/*.json text eol=lf
 conformance/stdlib-vectors/*.md text eol=lf
+# REST conformance fixtures and their lock: keep bytes exact on every OS (the bytecode binds to the schema bytes).
+conformance/rest-suite/* text eol=lf
+conformance/rest-suite/*.dslb binary
+rest-suite.lock text eol=lf
+scripts/sync-rest.sh text eol=lf

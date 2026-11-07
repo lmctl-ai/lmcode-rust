@@ -14,6 +14,7 @@
 //! or return a handle after the host context ends.
 
 pub mod stdlib;
+pub mod rest;
 pub use stdlib::register_std;
 pub mod sha256;
 pub use sha256::{hex, sha256};

@@ -154,6 +154,10 @@ The Actions workflow is manual. No push dispatches a release. Local gates below 
 
 `examples/rule-entries/rules.lms` defines `@increment fn next(value: int) -> int implements Score`. The Rust embedding example selects the annotation, checks parameter metadata and calls the entry with 41, asserting 42 without running the body first. `test.lms` builds release executables and runs both conformance catalogs and this example. Release assets include router, `dsl-conformance`, and rule-entries.
 
+## REST server over stdio (opt-in)
+
+The opt-in `rest` std module serves routes bound to annotated entries over stdin/stdout, with no network. See [docs/rest.md](docs/rest.md).
+
 ## Text templates
 
 The standard `template_render(string, Json) -> string` function renders arbitrary text with nested context, indexed lists, loops and boolean conditions. Inserted values remain literal. See the [portable contract and examples](std/template.md).

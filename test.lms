@@ -9,7 +9,9 @@ fn step(command) {
   assert(result.code == 0, "failed: " + json_stringify(command));
 }
 step(["bash", "scripts/compile-example.sh"]);
+step(["bash", "scripts/sync-rest.sh", "--verify"]);
 step(["cargo", "test", "--workspace", "--locked"]);
+step(["cargo", "test", "-p", "dslvm", "--locked", "rest"]);
 step(["cargo", "build", "--workspace", "--release", "--locked"]);
 step(["cargo", "run", "--release", "--bin", "dsl-conformance", "--", "conformance/vectors"]);
 step(["cargo", "run", "--release", "--bin", "dsl-conformance", "--", "conformance/stdlib-vectors"]);
