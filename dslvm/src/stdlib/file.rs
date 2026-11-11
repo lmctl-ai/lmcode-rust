@@ -11,6 +11,7 @@ fn failure(function: &str, path: &ByteString, error: impl std::fmt::Display) -> 
     };
     Error::host(format!("{}: {}: {}", function, display, error))
 }
+#[cfg(any(unix, windows))]
 fn reject_nul(function: &str, path: &ByteString) -> Result<(), Error> {
     if path.as_bytes().contains(&0) { Err(failure(function, path, "invalid argument")) } else { Ok(()) }
 }
@@ -25,6 +26,10 @@ fn native_path(function: &str, path: &ByteString) -> Result<PathBuf, Error> {
     reject_nul(function, path)?;
     let text = std::str::from_utf8(path.as_bytes()).map_err(|e| failure(function, path, e))?;
     Ok(PathBuf::from(text))
+}
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
+fn native_path(function: &str, path: &ByteString) -> Result<PathBuf, Error> {
+    Err(failure(function, path, "filesystem access is unsupported on wasm32-unknown-unknown"))
 }
 
 fn regular(function: &str, path: &ByteString, allow_missing: bool) -> Result<Option<fs::Metadata>, Error> {
@@ -82,6 +87,11 @@ fn close_checked(file: File) -> std::io::Result<()> {
 #[cfg(windows)]
 #[link(name = "kernel32")]
 unsafe extern "system" { fn CloseHandle(handle: *mut std::ffi::c_void) -> i32; }
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
+fn close_checked(file: File) -> std::io::Result<()> {
+    drop(file);
+    Ok(())
+}
 fn lines(bytes: &[u8]) -> Vec<ByteString> {
     let mut output = Vec::new(); let mut start = 0;
     for (i, byte) in bytes.iter().enumerate() { if *byte == b'\n' { output.push(ByteString::from(&bytes[start..i])); start = i + 1; } }
