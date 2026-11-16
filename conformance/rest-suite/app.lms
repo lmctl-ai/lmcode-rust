@@ -89,6 +89,44 @@ fn shutdown(x: RestExchange) -> void implements RestHandler {
   x.send("bye");
 }
 
+@"/items/:id/detail"
+fn item_detail(x: RestExchange) -> void implements RestGet {
+  x.send("item:" + x.param("id"));
+}
+
+@"/annotated/get/:name"
+fn annotated_get(x: RestExchange) -> void implements RestGet {
+  x.send("annotated-get:" + x.param("name"));
+}
+
+@"/annotated/post"
+fn annotated_post(x: RestExchange) -> void implements RestPost {
+  x.status(201);
+  x.send("annotated-post:" + x.body());
+}
+
+@"GET /annotated/handler/:item"
+fn annotated_handler(x: RestExchange) -> void implements RestHandler {
+  x.send("annotated-handler:" + x.method() + ":" + x.param("item"));
+}
+
+@"--format"
+fn opt_format(x: RestExchange) -> void implements CliOption {
+  x.set("cli_format", x.query("format"));
+}
+
+@"scan"
+fn cmd_scan(x: RestExchange) -> void implements CliCommand {
+  x.send("cli:scan:" + x.get("cli_format") + ":" + x.body());
+}
+
+@"/cli-run"
+fn cli_run(x: RestExchange) -> void implements RestPost {
+  let args = str_split(x.body(), " ");
+  x.send(rest_cli(args));
+}
+
+rest_config("session", "global");
 rest_route("GET", "/health", "health");
 rest_route("GET", "/hello/{name}", "hello");
 rest_route("GET", "/add", "add");

@@ -62,6 +62,15 @@ pub fn parse_route(method: &[u8], path: &[u8]) -> Result<Route, Error> {
             names.push(name.clone());
             if rest && !last { return invalid(format!("'{{{}...}}' must be the last segment", name)); }
             segments.push(if rest { Segment::Rest(name) } else { Segment::Param(name) });
+        } else if part.first() == Some(&b':') {
+            let inner = &part[1..];
+            let (name, rest) = match inner.strip_suffix(b"...") { Some(n) => (n, true), None => (inner, false) };
+            if !valid_name(name) { return invalid(format!("invalid parameter name '{}'", text(name))); }
+            let name = text(name);
+            if names.contains(&name) { return invalid(format!("duplicate parameter '{}'", name)); }
+            names.push(name.clone());
+            if rest && !last { return invalid(format!("':{}...' must be the last segment", name)); }
+            segments.push(if rest { Segment::Rest(name) } else { Segment::Param(name) });
         } else {
             if part.iter().any(|c| *c == b'{' || *c == b'}') { return invalid(format!("malformed placeholder in segment '{}'", text(part))); }
             segments.push(Segment::Literal(part.to_vec()));

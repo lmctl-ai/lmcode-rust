@@ -27,6 +27,8 @@ fn route_templates_valid_shapes_parse_into_literal_param_and_rest_segments() {
     use router::Segment::*;
     let r = parse_route(b"GET", b"/users/{id}/files/{path...}").unwrap();
     assert_eq!(r.segments, vec![Literal(bytes("users")), Param("id".into()), Literal(bytes("files")), Rest("path".into())]);
+    let colon = parse_route(b"GET", b"/users/:id/files/:path").unwrap();
+    assert_eq!(colon.segments, vec![Literal(bytes("users")), Param("id".into()), Literal(bytes("files")), Param("path".into())]);
     assert_eq!(parse_route(b"GET", b"/").unwrap().segments.len(), 1);
     assert_eq!(parse_route(b"GET", b"/files/").unwrap().segments.last(), Some(&Literal(vec![])));
 }
@@ -159,8 +161,9 @@ fn take_request_incremental_framing_fatal_errors_and_pipelined_remainders() {
 
 // ---- registration, validation, lifecycle ------------------------------------------------------------------------
 #[test]
-fn registration_exactly_the_18_declared_signatures_absent_from_the_default_registry() {
+fn registration_exactly_the_20_declared_signatures_are_in_default_std_and_explicit_on_bare_registry() {
     let mut declared = vec![
+        "fn rest_cli(StrList) -> string", "fn rest_config(string, string) -> void",
         "fn rest_route(string, string, string) -> void", "fn rest_serve() -> void", "fn rest_stop() -> void",
         "method RestExchange.method() -> string", "method RestExchange.path() -> string", "method RestExchange.query(string) -> string",
         "method RestExchange.has_query(string) -> bool", "method RestExchange.param(string) -> string", "method RestExchange.header(string) -> string",
@@ -169,17 +172,42 @@ fn registration_exactly_the_18_declared_signatures_absent_from_the_default_regis
         "method RestExchange.get(string) -> string", "method RestExchange.set(string, string) -> void", "method RestExchange.increment(string) -> int",
     ];
     declared.sort();
-    assert_eq!(declared.len(), 18);
+    assert_eq!(declared.len(), 20);
     let mut registry = Registry::new();
-    assert_eq!(registry.signatures().len(), 206, "default catalog is unchanged");
-    assert!(!registry.signatures().iter().any(|s| s.contains("rest_") || s.contains("RestExchange")));
+    assert_eq!(registry.signatures().len(), 226, "default catalog includes the 20 rest/cli signatures");
+    for s in &declared {
+        assert!(registry.signatures().iter().any(|x| x == s), "missing {}", s);
+    }
     let before = registry.signatures();
     register_rest(&mut registry, RestOptions::default()).unwrap();
-    let mut added: Vec<String> = registry.signatures().into_iter().filter(|s| !before.contains(s)).collect();
-    added.sort();
-    assert_eq!(added, declared);
-    assert_eq!(registry.signatures().len(), 224);
-    assert!(Registry::new().signatures() == before, "a second default registry is still unchanged");
+    assert_eq!(registry.signatures(), before, "register_rest on default registry overrides in-place without adding duplicate signatures");
+    let mut bare = Registry::without_std();
+    register_rest(&mut bare, RestOptions::default()).unwrap();
+    let mut bare_sigs = bare.signatures();
+    bare_sigs.sort();
+    assert_eq!(bare_sigs, declared);
+}
+
+#[test]
+fn path_annotated_rest_and_cli_entries_and_rest_config() {
+    let c = controller_with(&[
+        ("/items/:id", "interface RestGet(RestExchange) -> void", "get_item"),
+        ("/items", "interface RestPost(RestExchange) -> void", "create_item"),
+        ("DELETE /items/:id", HANDLER_INTERFACE, "delete_item"),
+        ("scan", "interface CliCommand(RestExchange) -> void", "cmd_scan"),
+        ("--format", "interface CliOption(RestExchange) -> void", "opt_format"),
+    ]);
+    c.shared.borrow_mut().config(b"max_body_bytes", b"4096").unwrap();
+    c.shared.borrow_mut().config(b"session", b"global").unwrap();
+    c.shared.borrow_mut().config(b"transport", b"stdio").unwrap();
+    assert_eq!(c.shared.borrow().max_body_bytes, 4096);
+    serve(&c).unwrap();
+    assert!(c.serving());
+    assert!(c.shared.borrow_mut().config(b"transport", b"stdio").is_err(), "config is frozen after serve");
+    assert_eq!(found(&c.shared.borrow().table, "GET", "/items/42").as_deref(), Some("__auto_entry_0"));
+    assert_eq!(found(&c.shared.borrow().table, "POST", "/items").as_deref(), Some("__auto_entry_1"));
+    assert_eq!(found(&c.shared.borrow().table, "DELETE", "/items/42").as_deref(), Some("__auto_entry_2"));
+    assert_eq!(found(&c.shared.borrow().table, "GET", "/scan").as_deref(), Some("__auto_entry_3"));
 }
 
 #[test]

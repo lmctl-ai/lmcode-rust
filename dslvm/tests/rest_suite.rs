@@ -255,3 +255,23 @@ fn stdio_max_body_bytes_option_decides_413_from_the_header() {
     assert_eq!(statuses(&serve_reader(Box::new(Cursor::new(post.clone())), None, Some(10))), vec![413]);
     assert_eq!(statuses(&serve_reader(Box::new(Cursor::new([post, get("/health")].concat())), None, Some(1024))), vec![201, 200]);
 }
+
+#[test]
+fn stdio_path_annotated_routes_and_stateless_cli_work() {
+    let post_ann = b"POST /annotated/post HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello".to_vec();
+    let post_cli = b"POST /cli-run HTTP/1.1\r\nContent-Length: 27\r\n\r\n--format=json scan -- item1".to_vec();
+    let out = serve_memory(&[
+        get("/items/42/detail"),
+        get("/annotated/get/world"),
+        post_ann,
+        get("/annotated/handler/ping"),
+        post_cli,
+    ].concat());
+    let r = parse_responses(&out, &["GET", "GET", "POST", "GET", "POST"].map(String::from));
+    assert_eq!(r.len(), 5);
+    assert_eq!((r[0].status, r[0].body.as_slice()), (200, &b"item:42"[..]));
+    assert_eq!((r[1].status, r[1].body.as_slice()), (200, &b"annotated-get:world"[..]));
+    assert_eq!((r[2].status, r[2].body.as_slice()), (201, &b"annotated-post:hello"[..]));
+    assert_eq!((r[3].status, r[3].body.as_slice()), (200, &b"annotated-handler:GET:ping"[..]));
+    assert_eq!((r[4].status, r[4].body.as_slice()), (200, &b"cli:scan:json:item1"[..]));
+}

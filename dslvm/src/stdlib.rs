@@ -63,6 +63,7 @@ pub fn register_std(registry: &mut Registry) -> Result<&mut Registry, Error> {
     register_containers(registry)?;
     register_json(registry)?;
     register_result(registry)?;
+    crate::rest::register_rest(registry, crate::rest::RestOptions::default())?;
     registry.mark_std_since(&before);
     Ok(registry)
 }

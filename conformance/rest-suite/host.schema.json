@@ -124,6 +124,23 @@
     }
   },
   "functions": {
+    "rest_cli": [
+      {
+        "params": [
+          "StrList"
+        ],
+        "returns": "string"
+      }
+    ],
+    "rest_config": [
+      {
+        "params": [
+          "string",
+          "string"
+        ],
+        "returns": "void"
+      }
+    ],
     "rest_route": [
       {
         "params": [
@@ -148,7 +165,88 @@
     ]
   },
   "interfaces": {
+    "CliCommand": {
+      "params": [
+        {
+          "name": "exchange",
+          "type": "RestExchange"
+        }
+      ],
+      "returns": "void"
+    },
+    "CliOption": {
+      "params": [
+        {
+          "name": "exchange",
+          "type": "RestExchange"
+        }
+      ],
+      "returns": "void"
+    },
+    "RestDelete": {
+      "params": [
+        {
+          "name": "exchange",
+          "type": "RestExchange"
+        }
+      ],
+      "returns": "void"
+    },
+    "RestGet": {
+      "params": [
+        {
+          "name": "exchange",
+          "type": "RestExchange"
+        }
+      ],
+      "returns": "void"
+    },
     "RestHandler": {
+      "params": [
+        {
+          "name": "exchange",
+          "type": "RestExchange"
+        }
+      ],
+      "returns": "void"
+    },
+    "RestHead": {
+      "params": [
+        {
+          "name": "exchange",
+          "type": "RestExchange"
+        }
+      ],
+      "returns": "void"
+    },
+    "RestOptions": {
+      "params": [
+        {
+          "name": "exchange",
+          "type": "RestExchange"
+        }
+      ],
+      "returns": "void"
+    },
+    "RestPatch": {
+      "params": [
+        {
+          "name": "exchange",
+          "type": "RestExchange"
+        }
+      ],
+      "returns": "void"
+    },
+    "RestPost": {
+      "params": [
+        {
+          "name": "exchange",
+          "type": "RestExchange"
+        }
+      ],
+      "returns": "void"
+    },
+    "RestPut": {
       "params": [
         {
           "name": "exchange",

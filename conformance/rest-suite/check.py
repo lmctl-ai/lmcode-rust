@@ -18,8 +18,9 @@ if schema_bytes != read(root, 'std', 'rest', 'lmcode-rest.schema.json'): fail('h
 schema = json.loads(schema_bytes)
 sigs = [f'fn {n}({", ".join(d["params"])}) -> {d["returns"]}' for n, ds in schema['functions'].items() for d in ds]
 sigs += [f'method {t}.{n}({", ".join(d["params"])}) -> {d["returns"]}' for t, td in schema['types'].items() for n, ds in td['methods'].items() for d in ds]
-if len(sigs) != 18: fail(f'expected 18 signatures, found {len(sigs)}')
-if schema['interfaces'] != {'RestHandler': {'params': [{'name': 'exchange', 'type': 'RestExchange'}], 'returns': 'void'}}: fail('interface RestHandler changed')
+if len(sigs) != 20: fail(f'expected 20 signatures, found {len(sigs)}')
+expected_ifaces = {name: {'params': [{'name': 'exchange', 'type': 'RestExchange'}], 'returns': 'void'} for name in ('CliCommand', 'CliOption', 'RestDelete', 'RestGet', 'RestHandler', 'RestHead', 'RestOptions', 'RestPatch', 'RestPost', 'RestPut')}
+if schema['interfaces'] != expected_ifaces: fail('interfaces in lmcode-rest.schema.json changed')
 
 code = read(here, 'app.dslb')
 if code[:4] != b'DSLB' or struct.unpack('>H', code[4:6])[0] != 6: fail('app.dslb is not DSLB v6')
@@ -32,7 +33,7 @@ for _ in range(nconst):
     if tag != 1: fail('unexpected constant tag')
 (nimp,) = struct.unpack('>H', code[pos:pos + 2]); pos += 2
 imports = [consts[struct.unpack('>I', code[pos + 4 * i:pos + 4 * i + 4])[0]] for i in range(nimp)]
-std = {'fn str_is_int(string) -> bool', 'fn str_to_int(string) -> int', 'fn json_parse(string) -> Json', 'method Json.get(string) -> Json', 'method Json.len() -> int', 'method Json.at(int) -> Json', 'method Json.as_int() -> int'}
+std = {'fn str_is_int(string) -> bool', 'fn str_to_int(string) -> int', 'fn str_split(string, string) -> StrList', 'fn json_parse(string) -> Json', 'method Json.get(string) -> Json', 'method Json.len() -> int', 'method Json.at(int) -> Json', 'method Json.as_int() -> int'}
 for imp in imports:
     if imp not in sigs and imp not in std and not imp.startswith('fn str('): fail(f'unexpected import {imp}')
 for needed in ('fn rest_route(string, string, string) -> void', 'fn rest_serve() -> void', 'fn rest_stop() -> void'):

@@ -49,7 +49,7 @@ m = runpy.run_path('scripts/merge-std.py')
 host = json.loads(Path('dslvm/tests/fixtures/rule-methods/schema.json').read_bytes())
 std = json.loads(Path('std/lmcode-std.schema.json').read_bytes())
 merged = m['merge_schema'](host, std)
-assert merged['interfaces'] == host['interfaces']
+assert merged['interfaces'] == {**host['interfaces'], **std['interfaces']}
 assert m['remove_standard'](merged, std)['interfaces'] == host['interfaces']
 assert m['signature_strings'](host) == {'fn capture(int) -> void'}
 "#,

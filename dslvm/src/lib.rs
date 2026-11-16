@@ -222,6 +222,16 @@ impl Context {
         for index in self.collection_indices.drain(..) { self.objects[index] = None; self.free_collection_slots.push(index); }
         self.collection_objects = 0;
     }
+    pub(crate) fn take_collection_tracking(&mut self) -> (usize, Vec<usize>) {
+        let count = self.collection_objects;
+        self.collection_objects = 0;
+        (count, std::mem::take(&mut self.collection_indices))
+    }
+    pub(crate) fn restore_collection_tracking(&mut self, saved: (usize, Vec<usize>)) {
+        self.clear_collections();
+        self.collection_objects = saved.0;
+        self.collection_indices = saved.1;
+    }
     /// Binds a context variable (declared in the registry) to an object for this run.
     pub fn set(&mut self, name: impl Into<String>, obj: ObjRef) { self.names.insert(name.into(), obj); }
     /// Inserts and binds in one step.
@@ -284,6 +294,9 @@ impl Signature { fn text(&self) -> String { format!("({}) -> {}", self.params.jo
 /// by its complete canonical signature; distinct parameter tuples under one name are overloads. `signatures()` lists the canonical
 /// strings `lmscript --lmcode-signatures SCHEMA` prints so a host test can diff the two sources of truth (runtime result protocol).. Per
 /// / the VM performs no call-time checks. Registering a parameter tuple twice is an error (`LOAD_UNBOUND`).
+type RestBeforeHook = std::rc::Rc<dyn Fn(&Program, &mut Context, &Registry) -> Result<bool, Error>>;
+type RestAfterHook = std::rc::Rc<dyn Fn(&Program, &Registry, &mut Context) -> Result<(), Error>>;
+
 pub struct Registry {
     // Keys include the complete canonical signature. This permits overloads while keeping
     // import binding exact and deterministic; a duplicate parameter tuple is rejected below.
@@ -294,6 +307,7 @@ pub struct Registry {
     std_enabled: bool,
     compatibility_registration: bool,
     running: Cell<bool>,
+    rest_hooks: Option<(RestBeforeHook, RestAfterHook)>,
 }
 impl Registry {
     /// Creates a registry with the built-in lmcode standard catalog enabled.
@@ -304,11 +318,16 @@ impl Registry {
     }
     /// Creates a registry containing only declarations explicitly added by the host.
     pub fn without_std() -> Registry {
-        Registry { functions: HashMap::new(), methods: HashMap::new(), contexts: HashMap::new(), std_signatures: HashSet::new(), std_enabled: false, compatibility_registration: false, running: Cell::new(false) }
+        Registry { functions: HashMap::new(), methods: HashMap::new(), contexts: HashMap::new(), std_signatures: HashSet::new(), std_enabled: false, compatibility_registration: false, running: Cell::new(false), rest_hooks: None }
     }
     /// Alias retained for hosts that want the opt-out spelling to mirror other SDKs.
     pub fn new_without_std() -> Registry { Self::without_std() }
     pub(crate) fn std_enabled(&self) -> bool { self.std_enabled }
+    pub(crate) fn set_rest_hooks(&mut self, before: RestBeforeHook, after: RestAfterHook) {
+        self.rest_hooks = Some((before, after));
+    }
+    pub(crate) fn suspend_std_run(&self) -> bool { self.running.replace(false) }
+    pub(crate) fn resume_std_run(&self, was_running: bool) { if was_running { self.running.set(true); } }
     pub(crate) fn mark_std_since(&mut self, before: &HashSet<String>) {
         self.std_signatures.extend(self.functions.keys().filter(|s| !before.contains(*s)).cloned());
         self.std_signatures.extend(self.methods.keys().filter(|s| !before.contains(*s)).cloned());
@@ -350,6 +369,24 @@ impl Registry {
     }
     pub(crate) fn read_function(&mut self, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, &Args) -> Result<Value, Error> + 'static) -> Result<&mut Self, Error> {
         self.pure_function(name, params, returns, f)
+    }
+    pub(crate) fn override_std_function<D: IntoDryFunctionSlot>(&mut self, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, &Args) -> Result<Value, Error> + 'static, dry: D) -> Result<&mut Self, Error> {
+        let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
+        let canonical = format!("fn {}{}", name, sig.text());
+        if self.std_signatures.contains(&canonical) {
+            self.functions.insert(canonical, (name.to_string(), sig, Box::new(f), Some(dry.into_dry_function_slot())));
+            return Ok(self);
+        }
+        self.register_function(name, params, returns, Box::new(f), Some(dry.into_dry_function_slot()))
+    }
+    pub(crate) fn override_std_method<D: IntoDryMethodSlot>(&mut self, type_name: &str, name: &str, params: &[&str], returns: &str, f: impl Fn(&mut Context, ObjRef, &Args) -> Result<Value, Error> + 'static, dry: D) -> Result<&mut Self, Error> {
+        let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
+        let canonical = format!("method {}.{}{}", type_name, name, sig.text());
+        if self.std_signatures.contains(&canonical) {
+            self.methods.insert(canonical, (type_name.to_string(), name.to_string(), sig, Box::new(f), Some(dry.into_dry_method_slot())));
+            return Ok(self);
+        }
+        self.register_method(type_name, name, params, returns, Box::new(f), Some(dry.into_dry_method_slot()))
     }
     fn register_function(&mut self, name: &str, params: &[&str], returns: &str, f: Function, dry: Option<DryFunctionSlot>) -> Result<&mut Self, Error> {
         let sig = Signature { params: params.iter().map(|p| p.to_string()).collect(), returns: returns.to_string() };
@@ -880,7 +917,18 @@ impl Program {
 
     /// Executes only the body once against the host's objects.
     pub fn run(&self, ctx: &mut Context, reg: &Registry) -> Result<(), Error> {
-        self.execute(&self.body, ctx, reg, Vec::new(), false).map(|_| ())
+        let auto_rest = if !ctx.dry() {
+            if let Some((before, _)) = &reg.rest_hooks { before(self, ctx, reg)? } else { false }
+        } else { false };
+        let res = self.execute(&self.body, ctx, reg, Vec::new(), false);
+        if auto_rest {
+            if let Some((_, after)) = &reg.rest_hooks {
+                if res.is_ok() {
+                    after(self, reg, ctx)?;
+                }
+            }
+        }
+        res.map(|_| ())
     }
 
     /// Calls one rule without running the body. Argument kinds remain host-owned (R34).
