@@ -1,5 +1,7 @@
 # lmcode-rust
 
+Documentation: [Quick reference](https://www.lmctl.com/tools/lmcode-rust/) | [LLM skill](https://www.lmctl.com/tools/lmcode-rust/skill.html) | [Guide](https://www.lmctl.com/tools/lmcode-rust/guide.html) | [Reference](https://www.lmctl.com/tools/lmcode-rust/reference.html)
+
 Status: experimental; bytecode compatibility is not promised. Requires a Rust toolchain; the router checks also use curl and lmscript.
 
 `lmcode-rust` is the Rust runtime for lmscript bytecode v6. It provides the `dslvm`
